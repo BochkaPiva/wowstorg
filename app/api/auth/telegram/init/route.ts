@@ -10,6 +10,19 @@ type InitAuthBody = {
   initData?: string;
 };
 
+function parseBootstrapAdminIds(raw: string | undefined): Set<string> {
+  if (!raw) {
+    return new Set();
+  }
+
+  return new Set(
+    raw
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => /^\d+$/.test(value)),
+  );
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   let body: InitAuthBody;
 
@@ -37,19 +50,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const telegramUser = verified.value.user;
-  const telegramId = BigInt(telegramUser.id);
+  const telegramIdString = String(telegramUser.id);
+  const telegramId = BigInt(telegramIdString);
 
-  const user = await prisma.user.upsert({
+  let user = await prisma.user.findUnique({
     where: { telegramId },
-    update: {
-      username: telegramUser.username ?? null,
-    },
-    create: {
-      telegramId,
-      username: telegramUser.username ?? null,
-      role: Role.GREENWICH,
-    },
   });
+
+  // Strict access mode: only users already whitelisted in DB can sign in.
+  // To bootstrap first admin, set TELEGRAM_BOOTSTRAP_ADMIN_IDS="123,456".
+  if (!user) {
+    const bootstrapAdmins = parseBootstrapAdminIds(
+      process.env.TELEGRAM_BOOTSTRAP_ADMIN_IDS,
+    );
+    if (!bootstrapAdmins.has(telegramIdString)) {
+      return fail(403, "Access denied. Ask admin to grant your Telegram ID.");
+    }
+
+    user = await prisma.user.create({
+      data: {
+        telegramId,
+        username: telegramUser.username ?? null,
+        role: Role.ADMIN,
+      },
+    });
+  } else if (user.username !== (telegramUser.username ?? null)) {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        username: telegramUser.username ?? null,
+      },
+    });
+  }
 
   const response = NextResponse.json({
     user: {

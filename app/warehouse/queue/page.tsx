@@ -165,6 +165,47 @@ export default function WarehouseQueuePage() {
     await loadQueue();
   }
 
+  async function checkinFastAllOk(order: QueueOrder) {
+    const lines = order.lines
+      .filter((line) => line.itemType === "ASSET" || line.itemType === "BULK")
+      .map((line) => ({
+        orderLineId: line.id,
+        returnedQty: line.issuedQty ?? line.approvedQty ?? line.requestedQty,
+        condition: "OK" as const,
+      }));
+
+    if (lines.length === 0) {
+      setStatus("Для этого заказа нет позиций, требующих приемки.");
+      return;
+    }
+
+    setBusyOrderId(order.id);
+    setStatus(`Быстрая приемка ${order.id}...`);
+
+    const response = await fetch(`/api/orders/${order.id}/check-in`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lines }),
+    });
+
+    const payload = (await response.json()) as { error?: { message?: string } };
+    if (!response.ok) {
+      setStatus(`Error: ${payload.error?.message ?? "Fast check-in failed."}`);
+      setBusyOrderId(null);
+      return;
+    }
+
+    setStatus(`Order ${order.id} closed in fast mode.`);
+    setBusyOrderId(null);
+    setExpandedCheckinOrderId(null);
+    setCheckinDrafts((prev) => {
+      const next = { ...prev };
+      delete next[order.id];
+      return next;
+    });
+    await loadQueue();
+  }
+
   function prepareCheckinDraft(order: QueueOrder) {
     const existing = checkinDrafts[order.id];
     if (existing) {
@@ -260,13 +301,22 @@ export default function WarehouseQueuePage() {
                   </button>
                 ) : null}
                 {order.status === "RETURN_DECLARED" || order.status === "ISSUED" ? (
-                  <button
-                    className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50"
-                    onClick={() => toggleCheckinPanel(order)}
-                    disabled={busyOrderId !== null}
-                  >
-                    {expandedCheckinOrderId === order.id ? "Hide check-in" : "Check-in"}
-                  </button>
+                  <>
+                    <button
+                      className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50"
+                      onClick={() => checkinFastAllOk(order)}
+                      disabled={busyOrderId !== null}
+                    >
+                      {busyOrderId === order.id ? "..." : "Принять всё (ОК)"}
+                    </button>
+                    <button
+                      className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50"
+                      onClick={() => toggleCheckinPanel(order)}
+                      disabled={busyOrderId !== null}
+                    >
+                      {expandedCheckinOrderId === order.id ? "Hide check-in" : "Check-in"}
+                    </button>
+                  </>
                 ) : null}
               </div>
             </div>

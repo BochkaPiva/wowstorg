@@ -19,6 +19,52 @@ type Tile = {
   description: string;
 };
 
+type TelegramGlobal = {
+  Telegram?: {
+    WebApp?: {
+      initData?: string;
+    };
+  };
+};
+
+function getInitDataFromTelegramObject(): string {
+  return ((globalThis as unknown as TelegramGlobal).Telegram?.WebApp?.initData ?? "").trim();
+}
+
+function getInitDataFromUrl(): string {
+  const fromSearch = new URLSearchParams(globalThis.location.search).get("tgWebAppData");
+  if (fromSearch && fromSearch.trim().length > 0) {
+    return fromSearch.trim();
+  }
+
+  const hash = globalThis.location.hash.startsWith("#")
+    ? globalThis.location.hash.slice(1)
+    : globalThis.location.hash;
+  const fromHash = new URLSearchParams(hash).get("tgWebAppData");
+  return fromHash?.trim() ?? "";
+}
+
+async function resolveTelegramInitData(maxAttempts = 8, delayMs = 250): Promise<string> {
+  // Telegram WebApp object can appear slightly after first paint in some clients.
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const fromObject = getInitDataFromTelegramObject();
+    if (fromObject) {
+      return fromObject;
+    }
+
+    const fromUrl = getInitDataFromUrl();
+    if (fromUrl) {
+      return fromUrl;
+    }
+
+    await new Promise((resolve) => {
+      globalThis.setTimeout(resolve, delayMs);
+    });
+  }
+
+  return "";
+}
+
 function roleTiles(role: AppRole | null): Tile[] {
   if (role === "GREENWICH") {
     return [
@@ -63,17 +109,29 @@ export default function Home() {
         return;
       }
 
-      const tgInitData =
-        (globalThis as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram
-          ?.WebApp?.initData ?? "";
+      const tgInitData = await resolveTelegramInitData();
 
       if (tgInitData) {
-        await fetch("/api/auth/telegram/init", {
+        const initResponse = await fetch("/api/auth/telegram/init", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ initData: tgInitData }),
         });
+
+        if (!initResponse.ok) {
+          const initPayload = (await initResponse.json().catch(() => null)) as
+            | { error?: { message?: string } }
+            | null;
+          if (!ignore) {
+            setStatus(
+              `Ошибка авторизации Telegram: ${
+                initPayload?.error?.message ?? `HTTP ${initResponse.status}`
+              }`,
+            );
+          }
+          return;
+        }
 
         const retry = await fetch("/api/auth/me", { credentials: "include" });
         if (retry.ok) {
@@ -84,10 +142,15 @@ export default function Home() {
           }
           return;
         }
+
+        if (!ignore) {
+          setStatus("Telegram login прошёл, но cookie-сессия не сохранилась.");
+        }
+        return;
       }
 
       if (!ignore) {
-        setStatus("Нет активной сессии. Используйте Dev Login или войдите через Telegram Mini App.");
+        setStatus("Нет активной сессии: Telegram initData не найден в WebApp.");
       }
     }
 

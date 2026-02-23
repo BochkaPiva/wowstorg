@@ -1,0 +1,279 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  GREENWICH
+  WAREHOUSE
+  ADMIN
+}
+
+enum ItemType {
+  ASSET
+  BULK
+  CONSUMABLE
+}
+
+enum AvailabilityStatus {
+  ACTIVE
+  NEEDS_REPAIR
+  BROKEN
+  MISSING
+  RETIRED
+}
+
+enum OrderStatus {
+  SUBMITTED
+  APPROVED
+  ISSUED
+  RETURN_DECLARED
+  CLOSED
+  CANCELLED
+  EMERGENCY_ISSUED
+}
+
+enum CheckinCondition {
+  OK
+  NEEDS_REPAIR
+  BROKEN
+  MISSING
+}
+
+enum IncidentType {
+  NEEDS_REPAIR
+  BROKEN
+  MISSING
+}
+
+model User {
+  id               String     @id @default(cuid())
+  telegramId       BigInt     @unique @map("telegram_id")
+  username         String?
+  role             Role
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+  ordersCreated    Order[]    @relation("OrdersCreated")
+  ordersApproved   Order[]    @relation("OrdersApproved")
+  ordersIssued     Order[]    @relation("OrdersIssued")
+  checkinsCreated  CheckinLine[] @relation("CheckinsCreated")
+  incidentsCreated Incident[] @relation("IncidentsCreated")
+
+  @@index([role])
+  @@map("users")
+}
+
+model Item {
+  id                 String             @id @default(cuid())
+  name               String
+  description        String?
+  itemType           ItemType           @map("item_type")
+  availabilityStatus AvailabilityStatus @default(ACTIVE) @map("availability_status")
+  stockTotal         Int                @default(0) @map("stock_total")
+  pricePerDay        Decimal            @db.Decimal(12, 2) @map("price_per_day")
+  locationText       String?            @map("location_text")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  categories ItemCategory[]
+  kitLines   KitLine[]
+  orderLines OrderLine[]
+  incidents  Incident[]
+  images     ItemImage[]
+
+  @@index([availabilityStatus])
+  @@index([itemType])
+  @@index([name])
+  @@map("items")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  items       ItemCategory[]
+
+  @@map("categories")
+}
+
+model ItemCategory {
+  itemId     String   @map("item_id")
+  categoryId String   @map("category_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  item     Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, categoryId])
+  @@index([categoryId])
+  @@map("item_categories")
+}
+
+model Kit {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  lines          KitLine[]
+  orderLineLinks OrderLine[]
+
+  @@index([isActive])
+  @@map("kits")
+}
+
+model KitLine {
+  id         String   @id @default(cuid())
+  kitId      String   @map("kit_id")
+  itemId     String   @map("item_id")
+  defaultQty Int      @map("default_qty")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  kit  Kit  @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  item Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([kitId, itemId])
+  @@index([itemId])
+  @@map("kit_lines")
+}
+
+model Order {
+  id               String      @id @default(cuid())
+  createdById      String      @map("created_by")
+  approvedById     String?     @map("approved_by")
+  issuedById       String?     @map("issued_by")
+  status           OrderStatus @default(SUBMITTED)
+  startDate        DateTime    @db.Date @map("start_date")
+  endDate          DateTime    @db.Date @map("end_date")
+  pickupTime       String?     @map("pickup_time")
+  notes            String?
+  discountRate     Decimal     @default(0.30) @db.Decimal(4, 2) @map("discount_rate")
+  isEmergency      Boolean     @default(false) @map("is_emergency")
+  issuedAt         DateTime?   @map("issued_at")
+  returnDeclaredAt DateTime?   @map("return_declared_at")
+  closedAt         DateTime?   @map("closed_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  createdBy  User       @relation("OrdersCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy User?      @relation("OrdersApproved", fields: [approvedById], references: [id], onDelete: SetNull)
+  issuedBy   User?      @relation("OrdersIssued", fields: [issuedById], references: [id], onDelete: SetNull)
+  lines      OrderLine[]
+  incidents  Incident[]
+
+  @@index([status])
+  @@index([startDate, endDate])
+  @@index([status, startDate, endDate])
+  @@index([createdById, status])
+  @@index([approvedById])
+  @@index([issuedById])
+  @@index([isEmergency, status])
+  @@index([updatedAt])
+  @@map("orders")
+}
+
+model OrderLine {
+  id                  String   @id @default(cuid())
+  orderId             String   @map("order_id")
+  itemId              String   @map("item_id")
+  requestedQty        Int      @map("requested_qty")
+  approvedQty         Int?     @map("approved_qty")
+  issuedQty           Int?     @map("issued_qty")
+  pricePerDaySnapshot Decimal  @db.Decimal(12, 2) @map("price_per_day_snapshot")
+  sourceKitId         String?  @map("source_kit_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  item        Item        @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  sourceKit   Kit?        @relation(fields: [sourceKitId], references: [id], onDelete: SetNull)
+  checkinLine CheckinLine?
+  incidents   Incident[]
+
+  @@index([orderId])
+  @@index([itemId])
+  @@index([sourceKitId])
+  @@index([orderId, itemId])
+  @@map("order_lines")
+}
+
+model CheckinLine {
+  id          String           @id @default(cuid())
+  orderLineId String           @unique @map("order_line_id")
+  createdById String           @map("created_by")
+  returnedQty Int              @map("returned_qty")
+  condition   CheckinCondition
+  comment     String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  orderLine OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  createdBy User      @relation("CheckinsCreated", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([condition])
+  @@index([createdById])
+  @@map("checkin_lines")
+}
+
+model Incident {
+  id          String       @id @default(cuid())
+  itemId      String       @map("item_id")
+  orderId     String?      @map("order_id")
+  orderLineId String?      @map("line_id")
+  type        IncidentType
+  description String?
+  createdById String       @map("created_by")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  item      Item       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  order     Order?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderLine OrderLine? @relation(fields: [orderLineId], references: [id], onDelete: SetNull)
+  createdBy User       @relation("IncidentsCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  photos    IncidentPhoto[]
+
+  @@index([itemId, createdAt])
+  @@index([orderId])
+  @@index([orderLineId])
+  @@index([type, createdAt])
+  @@map("incidents")
+}
+
+model ItemImage {
+  id         String   @id @default(cuid())
+  itemId     String   @map("item_id")
+  url        String
+  storageKey String?  @map("storage_key")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@map("item_images")
+}
+
+model IncidentPhoto {
+  id         String   @id @default(cuid())
+  incidentId String   @map("incident_id")
+  url        String
+  storageKey String?  @map("storage_key")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@map("incident_photos")
+}

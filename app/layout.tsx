@@ -40,6 +40,9 @@ export default function RootLayout({
               <Link href="/catalog" className="text-zinc-700 hover:text-zinc-900">
                 Catalog
               </Link>
+              <Link href="/orders/new" className="text-zinc-700 hover:text-zinc-900">
+                New Order
+              </Link>
               <Link href="/my-orders" className="text-zinc-700 hover:text-zinc-900">
                 My Orders
               </Link>

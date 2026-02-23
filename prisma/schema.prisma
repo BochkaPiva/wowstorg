@@ -38,6 +38,11 @@ enum OrderStatus {
   EMERGENCY_ISSUED
 }
 
+enum OrderSource {
+  GREENWICH_INTERNAL
+  WOWSTORG_EXTERNAL
+}
+
 enum CheckinCondition {
   OK
   NEEDS_REPAIR
@@ -103,6 +108,22 @@ model Category {
   @@map("categories")
 }
 
+model Customer {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  contact   String?
+  notes     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders Order[]
+
+  @@index([isActive])
+  @@index([name])
+  @@map("customers")
+}
+
 model ItemCategory {
   itemId     String   @map("item_id")
   categoryId String   @map("category_id")
@@ -151,11 +172,14 @@ model KitLine {
 model Order {
   id               String      @id @default(cuid())
   createdById      String      @map("created_by")
+  customerId       String?     @map("customer_id")
   approvedById     String?     @map("approved_by")
   issuedById       String?     @map("issued_by")
+  orderSource      OrderSource @default(GREENWICH_INTERNAL) @map("order_source")
   status           OrderStatus @default(SUBMITTED)
   startDate        DateTime    @db.Date @map("start_date")
   endDate          DateTime    @db.Date @map("end_date")
+  eventName        String?     @map("event_name")
   pickupTime       String?     @map("pickup_time")
   notes            String?
   discountRate     Decimal     @default(0.30) @db.Decimal(4, 2) @map("discount_rate")
@@ -167,6 +191,7 @@ model Order {
   updatedAt        DateTime    @updatedAt @map("updated_at")
 
   createdBy  User       @relation("OrdersCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  customer   Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
   approvedBy User?      @relation("OrdersApproved", fields: [approvedById], references: [id], onDelete: SetNull)
   issuedBy   User?      @relation("OrdersIssued", fields: [issuedById], references: [id], onDelete: SetNull)
   lines      OrderLine[]
@@ -176,6 +201,7 @@ model Order {
   @@index([startDate, endDate])
   @@index([status, startDate, endDate])
   @@index([createdById, status])
+  @@index([customerId, status])
   @@index([approvedById])
   @@index([issuedById])
   @@index([isEmergency, status])

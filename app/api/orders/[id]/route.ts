@@ -51,6 +51,7 @@ export async function GET(
   const order = await prisma.order.findUnique({
     where: { id },
     include: {
+      customer: true,
       lines: {
         orderBy: [{ createdAt: "asc" }],
       },
@@ -91,6 +92,7 @@ export async function PATCH(
   const existing = await prisma.order.findUnique({
     where: { id },
     include: {
+      customer: true,
       lines: true,
     },
   });
@@ -122,6 +124,22 @@ export async function PATCH(
   const startDateRaw = parsed.startDate ?? existing.startDate.toISOString().slice(0, 10);
   const endDateRaw = parsed.endDate ?? existing.endDate.toISOString().slice(0, 10);
   const parsedRange = validateDateRange(startDateRaw, endDateRaw);
+  let customerIdToUse = existing.customerId;
+  if (parsed.customerId || parsed.customerName) {
+    const customer = parsed.customerId
+      ? await prisma.customer.findUnique({ where: { id: parsed.customerId } })
+      : await prisma.customer.upsert({
+          where: { name: parsed.customerName! },
+          update: { isActive: true },
+          create: { name: parsed.customerName!, isActive: true },
+        });
+
+    if (!customer || !customer.isActive) {
+      return fail(400, "Customer is missing or inactive.");
+    }
+    customerIdToUse = customer.id;
+  }
+
   if (!parsedRange.ok) {
     return fail(400, parsedRange.message);
   }
@@ -161,8 +179,10 @@ export async function PATCH(
       await tx.order.update({
         where: { id: existing.id },
         data: {
+          customerId: customerIdToUse ?? null,
           startDate: asPrismaDateInput(parsedRange.startDate),
           endDate: asPrismaDateInput(parsedRange.endDate),
+          eventName: parsed.eventName !== undefined ? parsed.eventName : existing.eventName,
           pickupTime: parsed.pickupTime !== undefined ? parsed.pickupTime : existing.pickupTime,
           notes: parsed.notes !== undefined ? parsed.notes : existing.notes,
         },
@@ -189,7 +209,7 @@ export async function PATCH(
 
       return tx.order.findUniqueOrThrow({
         where: { id: existing.id },
-        include: { lines: { orderBy: [{ createdAt: "asc" }] } },
+        include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
       });
     });
 
@@ -202,8 +222,10 @@ export async function PATCH(
     await tx.order.update({
       where: { id: existing.id },
       data: {
+        customerId: customerIdToUse ?? null,
         startDate: asPrismaDateInput(parsedRange.startDate),
         endDate: asPrismaDateInput(parsedRange.endDate),
+        eventName: parsed.eventName !== undefined ? parsed.eventName : existing.eventName,
         pickupTime: parsed.pickupTime !== undefined ? parsed.pickupTime : existing.pickupTime,
         notes: parsed.notes !== undefined ? parsed.notes : existing.notes,
       },
@@ -211,7 +233,7 @@ export async function PATCH(
 
     return tx.order.findUniqueOrThrow({
       where: { id: existing.id },
-      include: { lines: { orderBy: [{ createdAt: "asc" }] } },
+      include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
     });
   });
 

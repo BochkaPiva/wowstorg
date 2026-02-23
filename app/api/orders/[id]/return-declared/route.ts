@@ -26,7 +26,7 @@ export async function POST(
 
   const order = await prisma.order.findUnique({
     where: { id },
-    include: { lines: { orderBy: [{ createdAt: "asc" }] } },
+    include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
   });
 
   if (!order) {
@@ -56,7 +56,7 @@ export async function POST(
 
     return tx.order.findUniqueOrThrow({
       where: { id: order.id },
-      include: { lines: { orderBy: [{ createdAt: "asc" }] } },
+      include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
     });
   });
 

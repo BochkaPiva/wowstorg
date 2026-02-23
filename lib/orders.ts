@@ -3,6 +3,7 @@ import {
   CheckinCondition,
   IncidentType,
   ItemType,
+  OrderSource,
   OrderStatus,
   Prisma,
   type Order,
@@ -18,6 +19,11 @@ export type CreateOrderLineInput = {
 export type CreateOrderInput = {
   startDate: string;
   endDate: string;
+  customerId?: string;
+  customerName?: string;
+  eventName?: string | null;
+  orderSource?: OrderSource;
+  issueImmediately?: boolean;
   pickupTime?: string | null;
   notes?: string | null;
   isEmergency?: boolean;
@@ -27,6 +33,9 @@ export type CreateOrderInput = {
 export type PatchOrderInput = {
   startDate?: string;
   endDate?: string;
+  customerId?: string;
+  customerName?: string;
+  eventName?: string | null;
   pickupTime?: string | null;
   notes?: string | null;
   lines?: CreateOrderLineInput[];
@@ -118,8 +127,22 @@ export function parseCreateOrderInput(body: unknown): CreateOrderInput | null {
   const startDate = parseRequiredDate(payload.startDate);
   const endDate = parseRequiredDate(payload.endDate);
   const linesRaw = payload.lines;
+  const customerId =
+    typeof payload.customerId === "string" && payload.customerId.trim().length > 0
+      ? payload.customerId.trim()
+      : undefined;
+  const customerName =
+    typeof payload.customerName === "string" && payload.customerName.trim().length > 0
+      ? payload.customerName.trim()
+      : undefined;
 
-  if (!startDate || !endDate || !Array.isArray(linesRaw) || linesRaw.length === 0) {
+  if (
+    !startDate ||
+    !endDate ||
+    !Array.isArray(linesRaw) ||
+    linesRaw.length === 0 ||
+    (!customerId && !customerName)
+  ) {
     return null;
   }
 
@@ -152,6 +175,14 @@ export function parseCreateOrderInput(body: unknown): CreateOrderInput | null {
   return {
     startDate,
     endDate,
+    customerId,
+    customerName,
+    eventName: parseOptionalString(payload.eventName),
+    orderSource:
+      payload.orderSource === OrderSource.WOWSTORG_EXTERNAL
+        ? OrderSource.WOWSTORG_EXTERNAL
+        : OrderSource.GREENWICH_INTERNAL,
+    issueImmediately: payload.issueImmediately === true,
     pickupTime: parseOptionalString(payload.pickupTime),
     notes: parseOptionalString(payload.notes),
     isEmergency: payload.isEmergency === true,
@@ -189,6 +220,24 @@ export function parsePatchOrderInput(body: unknown): PatchOrderInput | null {
 
   if (payload.notes !== undefined) {
     output.notes = parseOptionalString(payload.notes);
+  }
+
+  if (payload.customerId !== undefined) {
+    if (typeof payload.customerId !== "string" || payload.customerId.trim().length === 0) {
+      return null;
+    }
+    output.customerId = payload.customerId.trim();
+  }
+
+  if (payload.customerName !== undefined) {
+    if (typeof payload.customerName !== "string" || payload.customerName.trim().length === 0) {
+      return null;
+    }
+    output.customerName = payload.customerName.trim();
+  }
+
+  if (payload.eventName !== undefined) {
+    output.eventName = parseOptionalString(payload.eventName);
   }
 
   if (payload.lines !== undefined) {
@@ -403,6 +452,9 @@ export function serializeOrder(order: {
   startDate: Date;
   endDate: Date;
   pickupTime: string | null;
+  customerId: string | null;
+  eventName: string | null;
+  orderSource: OrderSource;
   notes: string | null;
   discountRate: Prisma.Decimal;
   isEmergency: boolean;
@@ -423,12 +475,19 @@ export function serializeOrder(order: {
     pricePerDaySnapshot: Prisma.Decimal;
     sourceKitId: string | null;
   }>;
+  customer?: {
+    name: string;
+  } | null;
 }): Record<string, unknown> {
   return {
     id: order.id,
     status: order.status,
     startDate: order.startDate.toISOString().slice(0, 10),
     endDate: order.endDate.toISOString().slice(0, 10),
+    customerId: order.customerId,
+    customerName: order.customer?.name ?? null,
+    eventName: order.eventName,
+    orderSource: order.orderSource,
     pickupTime: order.pickupTime,
     notes: order.notes,
     discountRate: Number(order.discountRate),

@@ -20,6 +20,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       createdById: auth.user.id,
     },
     include: {
+      customer: true,
       lines: {
         orderBy: [{ createdAt: "asc" }],
       },

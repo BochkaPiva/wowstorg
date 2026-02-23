@@ -25,6 +25,34 @@ async function main() {
     },
   });
 
+  const customerGreenwich = await prisma.customer.upsert({
+    where: { name: "Greenwich Internal" },
+    update: {
+      contact: "internal",
+      isActive: true,
+    },
+    create: {
+      id: "cus_greenwich_internal",
+      name: "Greenwich Internal",
+      contact: "internal",
+      isActive: true,
+    },
+  });
+
+  await prisma.customer.upsert({
+    where: { name: "External Client Demo" },
+    update: {
+      contact: "@external_client_demo",
+      isActive: true,
+    },
+    create: {
+      id: "cus_external_demo",
+      name: "External Client Demo",
+      contact: "@external_client_demo",
+      isActive: true,
+    },
+  });
+
   await prisma.user.upsert({
     where: { telegramId: BigInt(1000003) },
     update: { username: "admin_demo", role: Role.ADMIN },
@@ -206,9 +234,12 @@ async function main() {
       data: {
         id: "ord_demo_submitted",
         createdById: greenwich.id,
+        customerId: customerGreenwich.id,
+        orderSource: "GREENWICH_INTERNAL",
         status: "SUBMITTED",
         startDate: new Date("2026-03-01"),
         endDate: new Date("2026-03-03"),
+        eventName: "Demo Internal Event",
         pickupTime: "10:00",
         notes: "Demo order for queue testing",
         discountRate: 0.3,

@@ -45,6 +45,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       },
     },
     include: {
+      order: {
+        select: {
+          startDate: true,
+          endDate: true,
+        },
+      },
       item: {
         select: {
           id: true,
@@ -54,23 +60,36 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     },
   });
 
-  const totals = new Map<string, { itemId: string; name: string; qty: number }>();
+  const totals = new Map<
+    string,
+    { itemId: string; name: string; qty: number; revenue: number }
+  >();
   for (const line of lines) {
     const qty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+    const days = Math.max(
+      1,
+      Math.ceil(
+        (line.order.endDate.getTime() - line.order.startDate.getTime()) /
+          (24 * 60 * 60 * 1000),
+      ),
+    );
+    const revenue = qty * Number(line.pricePerDaySnapshot) * days;
     const existing = totals.get(line.itemId);
     if (existing) {
       existing.qty += qty;
+      existing.revenue += revenue;
     } else {
       totals.set(line.itemId, {
         itemId: line.itemId,
         name: line.item.name,
         qty,
+        revenue,
       });
     }
   }
 
   const topItems = Array.from(totals.values())
-    .sort((a, b) => b.qty - a.qty)
+    .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 30);
 
   return NextResponse.json({ topItems });

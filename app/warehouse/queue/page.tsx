@@ -15,6 +15,10 @@ type QueueOrder = {
   id: string;
   status: string;
   isEmergency: boolean;
+  orderSource: "GREENWICH_INTERNAL" | "WOWSTORG_EXTERNAL";
+  customerId: string | null;
+  customerName: string | null;
+  eventName: string | null;
   updatedAt: string;
   updatedMinutesAgo: number;
   startDate: string;
@@ -148,6 +152,9 @@ export default function WarehouseQueuePage() {
                 <div className="font-medium">{order.id}</div>
                 <div className="text-xs text-zinc-500">
                   {order.startDate} - {order.endDate} | updated {order.updatedMinutesAgo} min ago
+                </div>
+                <div className="text-xs text-zinc-500">
+                  customer: {order.customerName ?? "-"} | event: {order.eventName ?? "-"} | source: {order.orderSource}
                 </div>
               </div>
               <div className="flex items-center gap-2">

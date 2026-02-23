@@ -13,6 +13,9 @@ type OrderLine = {
 type Order = {
   id: string;
   status: string;
+  customerName: string | null;
+  eventName: string | null;
+  orderSource: "GREENWICH_INTERNAL" | "WOWSTORG_EXTERNAL";
   startDate: string;
   endDate: string;
   pickupTime: string | null;
@@ -77,6 +80,9 @@ export default function MyOrdersPage() {
                 <div className="font-medium">{order.id}</div>
                 <div className="text-xs text-zinc-500">
                   {order.startDate} - {order.endDate} | updated {new Date(order.updatedAt).toLocaleString()}
+                </div>
+                <div className="text-xs text-zinc-500">
+                  customer: {order.customerName ?? "-"} | event: {order.eventName ?? "-"} | source: {order.orderSource}
                 </div>
               </div>
               <div className="flex items-center gap-2">

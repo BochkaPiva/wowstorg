@@ -25,6 +25,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       status: { in: QUEUE_STATUSES },
     },
     include: {
+      customer: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
       lines: {
         include: {
           item: {
@@ -51,6 +57,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       id: order.id,
       status: order.status,
       isEmergency: order.isEmergency,
+      orderSource: order.orderSource,
+      customerId: order.customerId,
+      customerName: order.customer?.name ?? null,
+      eventName: order.eventName,
       updatedAt: order.updatedAt.toISOString(),
       updatedMinutesAgo: minutesAgo(order.updatedAt),
       startDate: order.startDate.toISOString().slice(0, 10),

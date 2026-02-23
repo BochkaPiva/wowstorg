@@ -71,6 +71,7 @@ export async function GET(
       id: kit.id,
       name: kit.name,
       description: kit.description,
+      coverImageUrl: kit.coverImageUrl,
       lines: visibleLines.map((line) => {
         const pricePerDay = Number(line.item.pricePerDay);
         const reservedQty = reservedQtyMap.get(line.item.id) ?? 0;

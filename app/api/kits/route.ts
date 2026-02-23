@@ -69,6 +69,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       id: kit.id,
       name: kit.name,
       description: kit.description,
+      coverImageUrl: kit.coverImageUrl,
       lines: kit.lines
         .filter((line) => canSeeInactiveItems || line.item.availabilityStatus === "ACTIVE")
         .map((line) => {

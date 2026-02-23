@@ -6,6 +6,7 @@ type Item = {
   id: string;
   name: string;
   availableQty: number;
+  imageUrls?: string[];
 };
 
 type Customer = {
@@ -20,10 +21,28 @@ type OrderLineDraft = {
   requestedQty: number;
 };
 
+type Kit = {
+  id: string;
+  name: string;
+  description: string | null;
+  coverImageUrl: string | null;
+  lines: Array<{
+    id: string;
+    defaultQty: number;
+    item: {
+      id: string;
+      name: string;
+      availableQty: number;
+    };
+  }>;
+};
+
 export default function CreateOrderPage() {
   const [role, setRole] = useState<Role | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [kits, setKits] = useState<Kit[]>([]);
+  const [selectedKitId, setSelectedKitId] = useState("");
   const [startDate, setStartDate] = useState("2026-03-01");
   const [endDate, setEndDate] = useState("2026-03-03");
   const [customerId, setCustomerId] = useState("");
@@ -47,14 +66,15 @@ export default function CreateOrderPage() {
         setRole(mePayload.user.role);
       }
 
-      const [itemsRes, customersRes] = await Promise.all([
+      const [itemsRes, customersRes, kitsRes] = await Promise.all([
         fetch(`/api/items?startDate=${startDate}&endDate=${endDate}&limit=200`),
         fetch("/api/customers"),
+        fetch(`/api/kits?startDate=${startDate}&endDate=${endDate}`),
       ]);
 
       if (itemsRes.ok) {
         const itemsPayload = (await itemsRes.json()) as {
-          items: Array<{ id: string; name: string; availableQty: number }>;
+          items: Array<{ id: string; name: string; availableQty: number; imageUrls?: string[] }>;
         };
         if (!ignore) setItems(itemsPayload.items);
       }
@@ -63,6 +83,22 @@ export default function CreateOrderPage() {
           customers: Customer[];
         };
         if (!ignore) setCustomers(customersPayload.customers);
+      }
+      if (kitsRes.ok) {
+        const kitsPayload = (await kitsRes.json()) as {
+          kits: Array<{
+            id: string;
+            name: string;
+            description: string | null;
+            coverImageUrl: string | null;
+            lines: Array<{
+              id: string;
+              defaultQty: number;
+              item: { id: string; name: string; availableQty: number };
+            }>;
+          }>;
+        };
+        if (!ignore) setKits(kitsPayload.kits);
       }
       if (!ignore) setStatus("Заполните форму и отправьте заказ.");
     }
@@ -88,6 +124,39 @@ export default function CreateOrderPage() {
 
   function removeLine(index: number) {
     setLines((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function addSelectedKitToOrder() {
+    if (!selectedKitId) {
+      setStatus("Выбери пакет, который нужно добавить.");
+      return;
+    }
+    const kit = kits.find((entry) => entry.id === selectedKitId);
+    if (!kit) {
+      setStatus("Пакет не найден.");
+      return;
+    }
+
+    setLines((prev) => {
+      const next = [...prev];
+      for (const line of kit.lines) {
+        const existingIndex = next.findIndex((entry) => entry.itemId === line.item.id);
+        if (existingIndex >= 0) {
+          next[existingIndex] = {
+            ...next[existingIndex],
+            requestedQty: next[existingIndex].requestedQty + line.defaultQty,
+          };
+        } else {
+          next.push({
+            itemId: line.item.id,
+            requestedQty: line.defaultQty,
+          });
+        }
+      }
+      return next;
+    });
+
+    setStatus(`Пакет "${kit.name}" добавлен в заказ.`);
   }
 
   async function submit(event: FormEvent) {
@@ -181,6 +250,39 @@ export default function CreateOrderPage() {
             Сразу выдать клиенту (для внешнего заказа WowStorg)
           </label>
         ) : null}
+
+        <div className="space-y-2 rounded border border-zinc-200 bg-zinc-50 p-3">
+          <div className="text-sm font-medium">Готовые пакеты</div>
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <select
+              className="rounded border border-zinc-300 px-2 py-1"
+              value={selectedKitId}
+              onChange={(event) => setSelectedKitId(event.target.value)}
+            >
+              <option value="">-- выберите пакет --</option>
+              {kits.map((kit) => (
+                <option key={kit.id} value={kit.id}>
+                  {kit.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100"
+              onClick={addSelectedKitToOrder}
+            >
+              Добавить пакет
+            </button>
+          </div>
+          {selectedKitId ? (
+            <div className="text-xs text-zinc-600">
+              {
+                kits.find((entry) => entry.id === selectedKitId)?.description ??
+                  "Описание для пакета отсутствует."
+              }
+            </div>
+          ) : null}
+        </div>
 
         <div className="space-y-2">
           <div className="text-sm font-medium">Позиции</div>

@@ -74,6 +74,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           category: true,
         },
       },
+      images: {
+        orderBy: [{ createdAt: "desc" }],
+      },
     },
   });
 
@@ -103,6 +106,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         pricePerDay,
         pricePerDayDiscounted: toDiscountedPrice(pricePerDay),
         locationText: item.locationText,
+        imageUrls: item.images.map((image) => image.url),
         categories: item.categories.map((entry) => ({
           id: entry.category.id,
           name: entry.category.name,

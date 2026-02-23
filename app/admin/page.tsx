@@ -21,6 +21,36 @@ type Customer = {
   isActive: boolean;
 };
 
+type Category = {
+  id: string;
+  name: string;
+  description: string | null;
+  itemCount: number;
+};
+
+type Item = {
+  id: string;
+  name: string;
+  itemType: "ASSET" | "BULK" | "CONSUMABLE";
+  stockTotal: number;
+  pricePerDay: number;
+  categoryIds: string[];
+  imageUrls: string[];
+};
+
+type Kit = {
+  id: string;
+  name: string;
+  description: string | null;
+  coverImageUrl: string | null;
+  isActive: boolean;
+  lines: Array<{
+    id: string;
+    itemId: string;
+    defaultQty: number;
+  }>;
+};
+
 type AuthMePayload = {
   user?: {
     id: string;
@@ -51,6 +81,39 @@ export default function AdminPage() {
   const [customerDrafts, setCustomerDrafts] = useState<
     Record<string, { name: string; contact: string; notes: string; isActive: boolean }>
   >({});
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
+  const [categoryDrafts, setCategoryDrafts] = useState<Record<string, { name: string; description: string }>>({});
+
+  const [items, setItems] = useState<Item[]>([]);
+  const [itemSearch, setItemSearch] = useState("");
+  const [selectedItemId, setSelectedItemId] = useState("");
+  const [itemDraft, setItemDraft] = useState<{
+    name: string;
+    stockTotal: number;
+    pricePerDay: number;
+    itemType: "ASSET" | "BULK" | "CONSUMABLE";
+    categoryIds: string[];
+    imageUrlsText: string;
+  } | null>(null);
+
+  const [kits, setKits] = useState<Kit[]>([]);
+  const [newKitName, setNewKitName] = useState("");
+  const [newKitDescription, setNewKitDescription] = useState("");
+  const [newKitCoverImageUrl, setNewKitCoverImageUrl] = useState("");
+  const [newKitLines, setNewKitLines] = useState<Array<{ itemId: string; defaultQty: number }>>([
+    { itemId: "", defaultQty: 1 },
+  ]);
+  const [selectedKitId, setSelectedKitId] = useState("");
+  const [kitDraft, setKitDraft] = useState<{
+    name: string;
+    description: string;
+    coverImageUrl: string;
+    isActive: boolean;
+    lines: Array<{ itemId: string; defaultQty: number }>;
+  } | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const usersCountText = useMemo(() => `Пользователей: ${users.length}`, [users.length]);
@@ -82,6 +145,7 @@ export default function AdminPage() {
       }
 
       await Promise.all([loadUsers(""), loadCustomers("", false)]);
+      await Promise.all([loadCategories(), loadItems(""), loadKits()]);
     }
 
     void bootstrap();
@@ -149,6 +213,55 @@ export default function AdminPage() {
       }, {}),
     );
     setStatus(`Готово. ${payload.customers.length} заказчиков.`);
+  }
+
+  async function loadCategories() {
+    const response = await fetch("/api/admin/catalog/categories");
+    const payload = (await response.json()) as {
+      categories?: Category[];
+      error?: { message?: string };
+    };
+    if (!response.ok || !payload.categories) {
+      setStatus(`Ошибка categories: ${payload.error?.message ?? "Не удалось загрузить категории."}`);
+      return;
+    }
+    setCategories(payload.categories);
+    setCategoryDrafts(
+      payload.categories.reduce<Record<string, { name: string; description: string }>>((acc, category) => {
+        acc[category.id] = {
+          name: category.name,
+          description: category.description ?? "",
+        };
+        return acc;
+      }, {}),
+    );
+  }
+
+  async function loadItems(search: string) {
+    const query = search.trim().length > 0 ? `?search=${encodeURIComponent(search.trim())}` : "";
+    const response = await fetch(`/api/admin/catalog/items${query}`);
+    const payload = (await response.json()) as {
+      items?: Item[];
+      error?: { message?: string };
+    };
+    if (!response.ok || !payload.items) {
+      setStatus(`Ошибка items: ${payload.error?.message ?? "Не удалось загрузить позиции."}`);
+      return;
+    }
+    setItems(payload.items);
+  }
+
+  async function loadKits() {
+    const response = await fetch("/api/admin/catalog/kits");
+    const payload = (await response.json()) as {
+      kits?: Kit[];
+      error?: { message?: string };
+    };
+    if (!response.ok || !payload.kits) {
+      setStatus(`Ошибка kits: ${payload.error?.message ?? "Не удалось загрузить пакеты."}`);
+      return;
+    }
+    setKits(payload.kits);
   }
 
   async function createOrUpdateUser(event: FormEvent) {
@@ -271,6 +384,207 @@ export default function AdminPage() {
 
     await loadCustomers(customerSearch, includeInactive);
     setStatus(`Заказчик ${customerId} обновлен.`);
+    setBusyKey(null);
+  }
+
+  async function createOrUpdateCategory(event: FormEvent) {
+    event.preventDefault();
+    setBusyKey("create-category");
+    const response = await fetch("/api/admin/catalog/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: newCategoryName.trim(),
+        description: newCategoryDescription.trim() || null,
+      }),
+    });
+    const payload = (await response.json()) as { error?: { message?: string } };
+    if (!response.ok) {
+      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось сохранить категорию."}`);
+      setBusyKey(null);
+      return;
+    }
+    setNewCategoryName("");
+    setNewCategoryDescription("");
+    await loadCategories();
+    setStatus("Категория сохранена.");
+    setBusyKey(null);
+  }
+
+  async function saveCategory(categoryId: string) {
+    const draft = categoryDrafts[categoryId];
+    if (!draft) {
+      return;
+    }
+    setBusyKey(`category-${categoryId}`);
+    const response = await fetch(`/api/admin/catalog/categories/${categoryId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: draft.name.trim(),
+        description: draft.description.trim() || null,
+      }),
+    });
+    const payload = (await response.json()) as { error?: { message?: string } };
+    if (!response.ok) {
+      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось обновить категорию."}`);
+      setBusyKey(null);
+      return;
+    }
+    await loadCategories();
+    setStatus("Категория обновлена.");
+    setBusyKey(null);
+  }
+
+  function selectItem(itemId: string) {
+    setSelectedItemId(itemId);
+    const item = items.find((entry) => entry.id === itemId);
+    if (!item) {
+      setItemDraft(null);
+      return;
+    }
+    setItemDraft({
+      name: item.name,
+      stockTotal: item.stockTotal,
+      pricePerDay: item.pricePerDay,
+      itemType: item.itemType,
+      categoryIds: item.categoryIds,
+      imageUrlsText: item.imageUrls.join("\n"),
+    });
+  }
+
+  async function saveSelectedItem() {
+    if (!selectedItemId || !itemDraft) {
+      return;
+    }
+    setBusyKey(`item-${selectedItemId}`);
+    const response = await fetch("/api/admin/catalog/items", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        itemId: selectedItemId,
+        name: itemDraft.name.trim(),
+        stockTotal: itemDraft.stockTotal,
+        pricePerDay: itemDraft.pricePerDay,
+        itemType: itemDraft.itemType,
+        categoryIds: itemDraft.categoryIds,
+        imageUrls: itemDraft.imageUrlsText
+          .split("\n")
+          .map((entry) => entry.trim())
+          .filter((entry) => entry.length > 0),
+      }),
+    });
+    const payload = (await response.json()) as { error?: { message?: string } };
+    if (!response.ok) {
+      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось обновить позицию."}`);
+      setBusyKey(null);
+      return;
+    }
+    await loadItems(itemSearch);
+    setStatus("Позиция обновлена.");
+    setBusyKey(null);
+  }
+
+  function addNewKitLine() {
+    setNewKitLines((prev) => [...prev, { itemId: "", defaultQty: 1 }]);
+  }
+
+  function updateNewKitLine(index: number, patch: Partial<{ itemId: string; defaultQty: number }>) {
+    setNewKitLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  }
+
+  async function createKit(event: FormEvent) {
+    event.preventDefault();
+    setBusyKey("create-kit");
+    const lines = newKitLines
+      .filter((line) => line.itemId && line.defaultQty > 0)
+      .map((line) => ({
+        itemId: line.itemId,
+        defaultQty: line.defaultQty,
+      }));
+    const response = await fetch("/api/admin/catalog/kits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: newKitName.trim(),
+        description: newKitDescription.trim() || null,
+        coverImageUrl: newKitCoverImageUrl.trim() || null,
+        lines,
+      }),
+    });
+    const payload = (await response.json()) as { error?: { message?: string } };
+    if (!response.ok) {
+      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось создать пакет."}`);
+      setBusyKey(null);
+      return;
+    }
+    setNewKitName("");
+    setNewKitDescription("");
+    setNewKitCoverImageUrl("");
+    setNewKitLines([{ itemId: "", defaultQty: 1 }]);
+    await loadKits();
+    setStatus("Пакет сохранен.");
+    setBusyKey(null);
+  }
+
+  function selectKit(kitId: string) {
+    setSelectedKitId(kitId);
+    const kit = kits.find((entry) => entry.id === kitId);
+    if (!kit) {
+      setKitDraft(null);
+      return;
+    }
+    setKitDraft({
+      name: kit.name,
+      description: kit.description ?? "",
+      coverImageUrl: kit.coverImageUrl ?? "",
+      isActive: kit.isActive,
+      lines: kit.lines.map((line) => ({
+        itemId: line.itemId,
+        defaultQty: line.defaultQty,
+      })),
+    });
+  }
+
+  function updateKitDraftLine(index: number, patch: Partial<{ itemId: string; defaultQty: number }>) {
+    setKitDraft((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        lines: prev.lines.map((line, i) => (i === index ? { ...line, ...patch } : line)),
+      };
+    });
+  }
+
+  async function saveSelectedKit() {
+    if (!selectedKitId || !kitDraft) {
+      return;
+    }
+    setBusyKey(`kit-${selectedKitId}`);
+    const lines = kitDraft.lines
+      .filter((line) => line.itemId && line.defaultQty > 0)
+      .map((line) => ({ itemId: line.itemId, defaultQty: line.defaultQty }));
+    const response = await fetch(`/api/admin/catalog/kits/${selectedKitId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: kitDraft.name.trim(),
+        description: kitDraft.description.trim() || null,
+        coverImageUrl: kitDraft.coverImageUrl.trim() || null,
+        isActive: kitDraft.isActive,
+        lines,
+      }),
+    });
+    const payload = (await response.json()) as { error?: { message?: string } };
+    if (!response.ok) {
+      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось обновить пакет."}`);
+      setBusyKey(null);
+      return;
+    }
+    await loadKits();
+    setStatus("Пакет обновлен.");
     setBusyKey(null);
   }
 
@@ -558,6 +872,391 @@ export default function AdminPage() {
                 Заказчики не загружены.
               </div>
             ) : null}
+          </div>
+        </article>
+
+        <article className="space-y-4 rounded border border-zinc-200 bg-white p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-medium">Категории подборок</h2>
+            <span className="text-xs text-zinc-500">Категорий: {categories.length}</span>
+          </div>
+
+          <form className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]" onSubmit={createOrUpdateCategory}>
+            <input
+              className="rounded border border-zinc-300 px-2 py-1 text-sm"
+              placeholder="Название категории"
+              value={newCategoryName}
+              onChange={(event) => setNewCategoryName(event.target.value)}
+            />
+            <input
+              className="rounded border border-zinc-300 px-2 py-1 text-sm"
+              placeholder="Описание"
+              value={newCategoryDescription}
+              onChange={(event) => setNewCategoryDescription(event.target.value)}
+            />
+            <button
+              className="rounded bg-zinc-900 px-3 py-1 text-sm text-white hover:bg-zinc-700 disabled:opacity-50"
+              type="submit"
+              disabled={busyKey !== null}
+            >
+              {busyKey === "create-category" ? "..." : "Сохранить"}
+            </button>
+          </form>
+
+          <div className="space-y-2">
+            {categories.map((category) => {
+              const draft = categoryDrafts[category.id];
+              return (
+                <div key={category.id} className="rounded border border-zinc-200 p-3">
+                  <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                    <input
+                      className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                      value={draft?.name ?? category.name}
+                      onChange={(event) =>
+                        setCategoryDrafts((prev) => ({
+                          ...prev,
+                          [category.id]: {
+                            name: event.target.value,
+                            description: prev[category.id]?.description ?? category.description ?? "",
+                          },
+                        }))
+                      }
+                    />
+                    <input
+                      className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                      value={draft?.description ?? category.description ?? ""}
+                      onChange={(event) =>
+                        setCategoryDrafts((prev) => ({
+                          ...prev,
+                          [category.id]: {
+                            name: prev[category.id]?.name ?? category.name,
+                            description: event.target.value,
+                          },
+                        }))
+                      }
+                    />
+                    <button
+                      className="rounded border border-zinc-300 px-2 py-1 text-sm hover:bg-zinc-100 disabled:opacity-50"
+                      type="button"
+                      onClick={() => void saveCategory(category.id)}
+                      disabled={busyKey !== null}
+                    >
+                      {busyKey === `category-${category.id}` ? "..." : "Обновить"}
+                    </button>
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">Позиций: {category.itemCount}</div>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+
+        <article className="space-y-4 rounded border border-zinc-200 bg-white p-4 lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h2 className="font-medium">Позиции и фото</h2>
+            <span className="text-xs text-zinc-500">Позиции: {items.length}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              className="w-full rounded border border-zinc-300 px-2 py-1 text-sm"
+              placeholder="Поиск по названию/ID"
+              value={itemSearch}
+              onChange={(event) => setItemSearch(event.target.value)}
+            />
+            <button
+              className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100"
+              type="button"
+              onClick={() => void loadItems(itemSearch)}
+            >
+              Найти
+            </button>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[280px_1fr]">
+            <div className="max-h-72 overflow-auto rounded border border-zinc-200">
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  className={`block w-full border-b border-zinc-200 px-3 py-2 text-left text-sm hover:bg-zinc-50 ${
+                    selectedItemId === item.id ? "bg-zinc-100" : ""
+                  }`}
+                  type="button"
+                  onClick={() => selectItem(item.id)}
+                >
+                  <div className="font-medium">{item.name}</div>
+                  <div className="text-xs text-zinc-500">{item.id}</div>
+                </button>
+              ))}
+            </div>
+
+            {itemDraft ? (
+              <div className="space-y-2 rounded border border-zinc-200 p-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                    value={itemDraft.name}
+                    onChange={(event) => setItemDraft({ ...itemDraft, name: event.target.value })}
+                  />
+                  <select
+                    className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                    value={itemDraft.itemType}
+                    onChange={(event) =>
+                      setItemDraft({
+                        ...itemDraft,
+                        itemType: event.target.value as "ASSET" | "BULK" | "CONSUMABLE",
+                      })
+                    }
+                  >
+                    <option value="ASSET">ASSET</option>
+                    <option value="BULK">BULK</option>
+                    <option value="CONSUMABLE">CONSUMABLE</option>
+                  </select>
+                  <label className="text-sm">
+                    <span className="mb-1 block text-xs text-zinc-600">Stock</span>
+                    <input
+                      className="w-full rounded border border-zinc-300 px-2 py-1 text-sm"
+                      type="number"
+                      min={0}
+                      value={itemDraft.stockTotal}
+                      onChange={(event) =>
+                        setItemDraft({ ...itemDraft, stockTotal: Number(event.target.value) })
+                      }
+                    />
+                  </label>
+                  <label className="text-sm">
+                    <span className="mb-1 block text-xs text-zinc-600">Price/day</span>
+                    <input
+                      className="w-full rounded border border-zinc-300 px-2 py-1 text-sm"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={itemDraft.pricePerDay}
+                      onChange={(event) =>
+                        setItemDraft({ ...itemDraft, pricePerDay: Number(event.target.value) })
+                      }
+                    />
+                  </label>
+                </div>
+
+                <label className="block text-sm">
+                  <span className="mb-1 block text-xs text-zinc-600">Категории</span>
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((category) => (
+                      <label key={category.id} className="inline-flex items-center gap-1 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={itemDraft.categoryIds.includes(category.id)}
+                          onChange={(event) =>
+                            setItemDraft({
+                              ...itemDraft,
+                              categoryIds: event.target.checked
+                                ? [...itemDraft.categoryIds, category.id]
+                                : itemDraft.categoryIds.filter((entry) => entry !== category.id),
+                            })
+                          }
+                        />
+                        {category.name}
+                      </label>
+                    ))}
+                  </div>
+                </label>
+
+                <label className="block text-sm">
+                  <span className="mb-1 block text-xs text-zinc-600">
+                    Фото позиции (по 1 URL в строке)
+                  </span>
+                  <textarea
+                    className="h-24 w-full rounded border border-zinc-300 px-2 py-1 text-sm"
+                    value={itemDraft.imageUrlsText}
+                    onChange={(event) =>
+                      setItemDraft({ ...itemDraft, imageUrlsText: event.target.value })
+                    }
+                  />
+                </label>
+
+                <button
+                  className="rounded bg-zinc-900 px-3 py-2 text-sm text-white hover:bg-zinc-700 disabled:opacity-50"
+                  type="button"
+                  onClick={() => void saveSelectedItem()}
+                  disabled={busyKey !== null}
+                >
+                  {busyKey === `item-${selectedItemId}` ? "..." : "Сохранить позицию"}
+                </button>
+              </div>
+            ) : (
+              <div className="rounded border border-dashed border-zinc-300 p-4 text-sm text-zinc-500">
+                Выбери позицию слева для редактирования.
+              </div>
+            )}
+          </div>
+        </article>
+
+        <article className="space-y-4 rounded border border-zinc-200 bg-white p-4 lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h2 className="font-medium">Готовые пакеты</h2>
+            <span className="text-xs text-zinc-500">Пакетов: {kits.length}</span>
+          </div>
+
+          <form className="space-y-2 rounded border border-zinc-200 p-3" onSubmit={createKit}>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <input
+                className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                placeholder="Название пакета"
+                value={newKitName}
+                onChange={(event) => setNewKitName(event.target.value)}
+              />
+              <input
+                className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                placeholder="Описание"
+                value={newKitDescription}
+                onChange={(event) => setNewKitDescription(event.target.value)}
+              />
+              <input
+                className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                placeholder="URL обложки (опционально)"
+                value={newKitCoverImageUrl}
+                onChange={(event) => setNewKitCoverImageUrl(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              {newKitLines.map((line, index) => (
+                <div key={index} className="grid gap-2 sm:grid-cols-[1fr_130px]">
+                  <select
+                    className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                    value={line.itemId}
+                    onChange={(event) => updateNewKitLine(index, { itemId: event.target.value })}
+                  >
+                    <option value="">-- позиция --</option>
+                    {items.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                    type="number"
+                    min={1}
+                    value={line.defaultQty}
+                    onChange={(event) =>
+                      updateNewKitLine(index, { defaultQty: Number(event.target.value) })
+                    }
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                className="rounded border border-zinc-300 px-2 py-1 text-sm hover:bg-zinc-100"
+                onClick={addNewKitLine}
+              >
+                + Позиция в пакет
+              </button>
+            </div>
+            <button
+              className="rounded bg-zinc-900 px-3 py-1 text-sm text-white hover:bg-zinc-700 disabled:opacity-50"
+              type="submit"
+              disabled={busyKey !== null}
+            >
+              {busyKey === "create-kit" ? "..." : "Создать пакет"}
+            </button>
+          </form>
+
+          <div className="grid gap-3 lg:grid-cols-[280px_1fr]">
+            <div className="max-h-72 overflow-auto rounded border border-zinc-200">
+              {kits.map((kit) => (
+                <button
+                  key={kit.id}
+                  className={`block w-full border-b border-zinc-200 px-3 py-2 text-left text-sm hover:bg-zinc-50 ${
+                    selectedKitId === kit.id ? "bg-zinc-100" : ""
+                  }`}
+                  type="button"
+                  onClick={() => selectKit(kit.id)}
+                >
+                  <div className="font-medium">{kit.name}</div>
+                  <div className="text-xs text-zinc-500">{kit.id}</div>
+                </button>
+              ))}
+            </div>
+
+            {kitDraft ? (
+              <div className="space-y-2 rounded border border-zinc-200 p-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                    value={kitDraft.name}
+                    onChange={(event) => setKitDraft({ ...kitDraft, name: event.target.value })}
+                  />
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={kitDraft.isActive}
+                      onChange={(event) =>
+                        setKitDraft({ ...kitDraft, isActive: event.target.checked })
+                      }
+                    />
+                    Активен
+                  </label>
+                  <input
+                    className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                    value={kitDraft.description}
+                    onChange={(event) => setKitDraft({ ...kitDraft, description: event.target.value })}
+                    placeholder="Описание"
+                  />
+                  <input
+                    className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                    value={kitDraft.coverImageUrl}
+                    onChange={(event) =>
+                      setKitDraft({ ...kitDraft, coverImageUrl: event.target.value })
+                    }
+                    placeholder="URL обложки"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  {kitDraft.lines.map((line, index) => (
+                    <div key={index} className="grid gap-2 sm:grid-cols-[1fr_130px]">
+                      <select
+                        className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                        value={line.itemId}
+                        onChange={(event) =>
+                          updateKitDraftLine(index, { itemId: event.target.value })
+                        }
+                      >
+                        <option value="">-- позиция --</option>
+                        {items.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                        type="number"
+                        min={1}
+                        value={line.defaultQty}
+                        onChange={(event) =>
+                          updateKitDraftLine(index, { defaultQty: Number(event.target.value) })
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  className="rounded bg-zinc-900 px-3 py-2 text-sm text-white hover:bg-zinc-700 disabled:opacity-50"
+                  type="button"
+                  onClick={() => void saveSelectedKit()}
+                  disabled={busyKey !== null}
+                >
+                  {busyKey === `kit-${selectedKitId}` ? "..." : "Сохранить пакет"}
+                </button>
+              </div>
+            ) : (
+              <div className="rounded border border-dashed border-zinc-300 p-4 text-sm text-zinc-500">
+                Выбери пакет слева для редактирования.
+              </div>
+            )}
           </div>
         </article>
       </div>

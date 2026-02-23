@@ -85,6 +85,7 @@ function roleTiles(role: AppRole | null): Tile[] {
       { href: "/orders/new", title: "Быстрая выдача", description: "Оформление внешних заказов" },
       { href: "/warehouse/queue", title: "Очередь склада", description: "Полный операционный контроль" },
       { href: "/catalog", title: "Инвентарь", description: "Позиции, доступность, цены" },
+      { href: "/admin", title: "Админ панель", description: "Роли пользователей и база заказчиков" },
       { href: "/dev-login", title: "Сервисный вход", description: "Тестовые сессии для отладки" },
     ];
   }

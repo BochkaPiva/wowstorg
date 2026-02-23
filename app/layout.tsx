@@ -49,6 +49,9 @@ export default function RootLayout({
               <Link href="/warehouse/queue" className="text-zinc-700 hover:text-zinc-900">
                 Warehouse Queue
               </Link>
+              <Link href="/admin" className="text-zinc-700 hover:text-zinc-900">
+                Admin
+              </Link>
             </nav>
           </header>
           <main className="mx-auto w-full max-w-6xl px-4 py-6">{children}</main>

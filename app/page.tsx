@@ -77,6 +77,7 @@ function roleTiles(role: AppRole | null): Tile[] {
     return [
       { href: "/orders/new", title: "Быстрая выдача", description: "Внешний заказ сразу в выдачу" },
       { href: "/warehouse/queue", title: "Очередь склада", description: "Approve, issue, check-in" },
+      { href: "/warehouse/archive", title: "Архив склада", description: "Закрытые и отмененные заказы" },
       { href: "/catalog", title: "Инвентарь", description: "Проверка доступности и остатков" },
     ];
   }
@@ -84,6 +85,7 @@ function roleTiles(role: AppRole | null): Tile[] {
     return [
       { href: "/orders/new", title: "Быстрая выдача", description: "Оформление внешних заказов" },
       { href: "/warehouse/queue", title: "Очередь склада", description: "Полный операционный контроль" },
+      { href: "/warehouse/archive", title: "Архив склада", description: "История закрытых и отмененных заказов" },
       { href: "/catalog", title: "Инвентарь", description: "Позиции, доступность, цены" },
       { href: "/admin", title: "Админ панель", description: "Роли пользователей и база заказчиков" },
       { href: "/dev-login", title: "Сервисный вход", description: "Тестовые сессии для отладки" },

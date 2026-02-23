@@ -49,6 +49,9 @@ export default function RootLayout({
               <Link href="/warehouse/queue" className="text-zinc-700 hover:text-zinc-900">
                 Warehouse Queue
               </Link>
+              <Link href="/warehouse/archive" className="text-zinc-700 hover:text-zinc-900">
+                Warehouse Archive
+              </Link>
               <Link href="/admin" className="text-zinc-700 hover:text-zinc-900">
                 Admin
               </Link>

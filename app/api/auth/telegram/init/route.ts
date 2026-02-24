@@ -53,14 +53,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const telegramIdString = String(telegramUser.id);
   const telegramId = BigInt(telegramIdString);
 
+  const isConnectionError = (e: unknown): boolean => {
+    const code = e && typeof e === "object" && "code" in e ? String((e as { code: string }).code) : "";
+    return ["P1017", "P2024", "P1001", "P1002", "P1008", "P1017"].includes(code);
+  };
+
   let user;
   try {
     user = await prisma.user.findUnique({
       where: { telegramId },
     });
   } catch (e) {
-    console.error("[auth/telegram/init] DB error on findUnique:", e);
-    return fail(503, "Сервис временно недоступен. Попробуйте через минуту.");
+    if (isConnectionError(e)) {
+      try {
+        await new Promise((r) => setTimeout(r, 800));
+        user = await prisma.user.findUnique({ where: { telegramId } });
+      } catch (retryErr) {
+        console.error("[auth/telegram/init] DB error on findUnique (after retry):", retryErr);
+        return fail(503, "Сервис временно недоступен. Попробуйте через минуту.");
+      }
+    } else {
+      console.error("[auth/telegram/init] DB error on findUnique:", e);
+      return fail(500, "Ошибка при входе. Попробуйте ещё раз или обратитесь в поддержку.");
+    }
   }
 
   // Strict access mode: only users already whitelisted in DB can sign in.
@@ -83,7 +98,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     } catch (e) {
       console.error("[auth/telegram/init] DB error on create:", e);
-      return fail(503, "Сервис временно недоступен. Попробуйте через минуту.");
+      if (isConnectionError(e)) {
+        return fail(503, "Сервис временно недоступен. Попробуйте через минуту.");
+      }
+      return fail(500, "Ошибка при входе. Попробуйте ещё раз или обратитесь в поддержку.");
     }
   } else if (user.username !== (telegramUser.username ?? null)) {
     try {
@@ -95,7 +113,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     } catch (e) {
       console.error("[auth/telegram/init] DB error on update:", e);
-      return fail(503, "Сервис временно недоступен. Попробуйте через минуту.");
+      if (isConnectionError(e)) {
+        return fail(503, "Сервис временно недоступен. Попробуйте через минуту.");
+      }
+      return fail(500, "Ошибка при входе. Попробуйте ещё раз или обратитесь в поддержку.");
     }
   }
 

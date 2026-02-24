@@ -69,17 +69,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       where: { telegramId },
     });
   } catch (e) {
+    const code = prismaCode(e);
     if (isConnectionError(e)) {
       try {
         await new Promise((r) => setTimeout(r, 800));
         user = await prisma.user.findUnique({ where: { telegramId } });
       } catch (retryErr) {
+        const retryCode = prismaCode(retryErr);
         console.error("[auth/telegram/init] DB error on findUnique (after retry):", retryErr);
-        return fail(503, SERVICE_UNAVAILABLE_MSG);
+        return fail(503, SERVICE_UNAVAILABLE_MSG, retryCode ? { code: retryCode } : undefined);
       }
     } else {
-      console.error("[auth/telegram/init] DB error on findUnique:", prismaCode(e), e);
-      return fail(503, SERVICE_UNAVAILABLE_MSG);
+      console.error("[auth/telegram/init] DB error on findUnique:", code, e);
+      return fail(503, SERVICE_UNAVAILABLE_MSG, code ? { code } : undefined);
     }
   }
 
@@ -107,11 +109,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         user = await prisma.user.findUnique({ where: { telegramId } }).catch(() => null);
         if (!user) {
           console.error("[auth/telegram/init] create P2002 but findUnique failed:", e);
-          return fail(503, SERVICE_UNAVAILABLE_MSG);
+          return fail(503, SERVICE_UNAVAILABLE_MSG, code ? { code } : undefined);
         }
       } else {
         console.error("[auth/telegram/init] DB error on create:", code, e);
-        return fail(503, SERVICE_UNAVAILABLE_MSG);
+        return fail(503, SERVICE_UNAVAILABLE_MSG, code ? { code } : undefined);
       }
     }
   } else if (user.username !== (telegramUser.username ?? null)) {
@@ -123,8 +125,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         },
       });
     } catch (e) {
-      console.error("[auth/telegram/init] DB error on update:", prismaCode(e), e);
-      return fail(503, SERVICE_UNAVAILABLE_MSG);
+      const code = prismaCode(e);
+      console.error("[auth/telegram/init] DB error on update:", code, e);
+      return fail(503, SERVICE_UNAVAILABLE_MSG, code ? { code } : undefined);
     }
   }
 

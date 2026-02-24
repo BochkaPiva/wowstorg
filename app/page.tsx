@@ -127,13 +127,13 @@ export default function Home() {
 
         if (!initResponse.ok) {
           const initPayload = (await initResponse.json().catch(() => null)) as
-            | { error?: { message?: string } }
+            | { error?: { message?: string; code?: string } }
             | null;
+          const msg = initPayload?.error?.message ?? `HTTP ${initResponse.status}`;
+          const code = initPayload?.error?.code;
           if (!ignore) {
             setStatus(
-              `Ошибка авторизации Telegram: ${
-                initPayload?.error?.message ?? `HTTP ${initResponse.status}`
-              }`,
+              `Ошибка авторизации Telegram: ${msg}${code ? ` (код: ${code})` : ""}`,
             );
           }
           return;

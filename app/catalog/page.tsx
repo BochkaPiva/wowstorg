@@ -42,6 +42,11 @@ function calcDays(startDate: string, endDate: string): number {
   return Number.isFinite(days) && days > 0 ? days : 1;
 }
 
+function toDateInputValue(date: Date): string {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
 function getVisualStatus(item: ItemRow): { dot: string; label: string } {
   if (item.availabilityStatus === "BROKEN") return { dot: "bg-red-500", label: "Сломано" };
   if (item.availabilityStatus === "MISSING") return { dot: "bg-zinc-500", label: "Отсутствует" };
@@ -58,8 +63,12 @@ export default function CatalogPage() {
   const [tab, setTab] = useState<Tab>("all");
   const [status, setStatus] = useState("Загрузка каталога...");
   const [role, setRole] = useState<Role | null>(null);
-  const [startDate, setStartDate] = useState("2026-03-01");
-  const [endDate, setEndDate] = useState("2026-03-03");
+  const [startDate, setStartDate] = useState(() => toDateInputValue(new Date()));
+  const [endDate, setEndDate] = useState(() => {
+    const next = new Date();
+    next.setDate(next.getDate() + 1);
+    return toDateInputValue(next);
+  });
   const [search, setSearch] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
 
@@ -284,9 +293,18 @@ export default function CatalogPage() {
       ) : null}
 
       <div className="ws-card grid gap-2 p-3 sm:grid-cols-3">
-        <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-        <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Поиск по позициям" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <label className="text-xs text-[var(--muted)]">
+          Дата начала
+          <input className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </label>
+        <label className="text-xs text-[var(--muted)]">
+          Дата окончания
+          <input className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </label>
+        <label className="text-xs text-[var(--muted)]">
+          Поиск
+          <input className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Поиск по позициям" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </label>
       </div>
 
       <details className="ws-card p-3">

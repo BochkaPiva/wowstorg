@@ -53,9 +53,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const telegramIdString = String(telegramUser.id);
   const telegramId = BigInt(telegramIdString);
 
-  let user = await prisma.user.findUnique({
-    where: { telegramId },
-  });
+  let user;
+  try {
+    user = await prisma.user.findUnique({
+      where: { telegramId },
+    });
+  } catch (e) {
+    console.error("[auth/telegram/init] DB error on findUnique:", e);
+    return fail(503, "Сервис временно недоступен. Попробуйте через минуту.");
+  }
 
   // Strict access mode: only users already whitelisted in DB can sign in.
   // To bootstrap first admin, set TELEGRAM_BOOTSTRAP_ADMIN_IDS="123,456".
@@ -67,20 +73,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return fail(403, "Access denied. Ask admin to grant your Telegram ID.");
     }
 
-    user = await prisma.user.create({
-      data: {
-        telegramId,
-        username: telegramUser.username ?? null,
-        role: Role.ADMIN,
-      },
-    });
+    try {
+      user = await prisma.user.create({
+        data: {
+          telegramId,
+          username: telegramUser.username ?? null,
+          role: Role.ADMIN,
+        },
+      });
+    } catch (e) {
+      console.error("[auth/telegram/init] DB error on create:", e);
+      return fail(503, "Сервис временно недоступен. Попробуйте через минуту.");
+    }
   } else if (user.username !== (telegramUser.username ?? null)) {
-    user = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        username: telegramUser.username ?? null,
-      },
-    });
+    try {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          username: telegramUser.username ?? null,
+        },
+      });
+    } catch (e) {
+      console.error("[auth/telegram/init] DB error on update:", e);
+      return fail(503, "Сервис временно недоступен. Попробуйте через минуту.");
+    }
   }
 
   const response = NextResponse.json({

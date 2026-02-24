@@ -54,6 +54,13 @@ export async function GET(
     include: {
       customer: true,
       lines: {
+        include: {
+          item: {
+            select: {
+              name: true,
+            },
+          },
+        },
         orderBy: [{ createdAt: "asc" }],
       },
     },
@@ -72,7 +79,21 @@ export async function GET(
   }
 
   return NextResponse.json({
-    order: serializeOrder(order),
+    order: {
+      ...serializeOrder(order),
+      lines: order.lines.map((line) => ({
+        id: line.id,
+        itemId: line.itemId,
+        requestedQty: line.requestedQty,
+        approvedQty: line.approvedQty,
+        issuedQty: line.issuedQty,
+        pricePerDaySnapshot: Number(line.pricePerDaySnapshot),
+        sourceKitId: line.sourceKitId,
+        item: {
+          name: line.item.name,
+        },
+      })),
+    },
   });
 }
 

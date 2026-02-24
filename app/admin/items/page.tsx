@@ -17,6 +17,20 @@ type Item = {
   imageUrls: string[];
 };
 
+const ITEM_TYPE_OPTIONS = [
+  { value: "ASSET", label: "Штучный реквизит" },
+  { value: "BULK", label: "Массовая позиция" },
+  { value: "CONSUMABLE", label: "Расходник" },
+] as const;
+
+const STATUS_OPTIONS = [
+  { value: "ACTIVE", label: "Активно" },
+  { value: "NEEDS_REPAIR", label: "Требуется ремонт" },
+  { value: "BROKEN", label: "Сломано" },
+  { value: "MISSING", label: "Утеряно" },
+  { value: "RETIRED", label: "Списано" },
+] as const;
+
 type Category = {
   id: string;
   name: string;
@@ -231,9 +245,11 @@ export default function AdminItemsPage() {
         <div className="grid gap-2 sm:grid-cols-2">
           <input className="rounded border border-zinc-300 px-2 py-1 text-sm" placeholder="Название" value={newItem.name} onChange={(event) => setNewItem((prev) => ({ ...prev, name: event.target.value }))} />
           <select className="rounded border border-zinc-300 px-2 py-1 text-sm" value={newItem.itemType} onChange={(event) => setNewItem((prev) => ({ ...prev, itemType: event.target.value as "ASSET" | "BULK" | "CONSUMABLE" }))}>
-            <option value="ASSET">ASSET</option>
-            <option value="BULK">BULK</option>
-            <option value="CONSUMABLE">CONSUMABLE</option>
+            {ITEM_TYPE_OPTIONS.map((entry) => (
+              <option key={entry.value} value={entry.value}>
+                {entry.label}
+              </option>
+            ))}
           </select>
           <input className="rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={newItem.stockTotal} onChange={(event) => setNewItem((prev) => ({ ...prev, stockTotal: Number(event.target.value) }))} placeholder="Всего" />
           <input className="rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} step="0.01" value={newItem.pricePerDay} onChange={(event) => setNewItem((prev) => ({ ...prev, pricePerDay: Number(event.target.value) }))} placeholder="Цена/день" />
@@ -265,9 +281,11 @@ export default function AdminItemsPage() {
             <div className="grid gap-2 sm:grid-cols-2">
               <input className="rounded border border-zinc-300 px-2 py-1 text-sm" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
               <select className="rounded border border-zinc-300 px-2 py-1 text-sm" value={draft.itemType} onChange={(event) => setDraft({ ...draft, itemType: event.target.value as "ASSET" | "BULK" | "CONSUMABLE" })}>
-                <option value="ASSET">ASSET</option>
-                <option value="BULK">BULK</option>
-                <option value="CONSUMABLE">CONSUMABLE</option>
+                {ITEM_TYPE_OPTIONS.map((entry) => (
+                  <option key={entry.value} value={entry.value}>
+                    {entry.label}
+                  </option>
+                ))}
               </select>
               <select
                 className="rounded border border-zinc-300 px-2 py-1 text-sm"
@@ -279,14 +297,14 @@ export default function AdminItemsPage() {
                   })
                 }
               >
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="NEEDS_REPAIR">NEEDS_REPAIR</option>
-                <option value="BROKEN">BROKEN</option>
-                <option value="MISSING">MISSING</option>
-                <option value="RETIRED">RETIRED</option>
+                {STATUS_OPTIONS.map((entry) => (
+                  <option key={entry.value} value={entry.value}>
+                    {entry.label}
+                  </option>
+                ))}
               </select>
               <label className="text-sm">
-                <span className="mb-1 block text-xs text-zinc-600">Stock</span>
+                <span className="mb-1 block text-xs text-zinc-600">Количество всего</span>
                 <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={draft.stockTotal} onChange={(event) => setDraft({ ...draft, stockTotal: Number(event.target.value) })} />
               </label>
               <label className="text-sm">
@@ -302,7 +320,7 @@ export default function AdminItemsPage() {
                 <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={draft.stockMissing} onChange={(event) => setDraft({ ...draft, stockMissing: Number(event.target.value) })} />
               </label>
               <label className="text-sm">
-                <span className="mb-1 block text-xs text-zinc-600">Price/day</span>
+                <span className="mb-1 block text-xs text-zinc-600">Цена в сутки</span>
                 <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} step="0.01" value={draft.pricePerDay} onChange={(event) => setDraft({ ...draft, pricePerDay: Number(event.target.value) })} />
               </label>
             </div>

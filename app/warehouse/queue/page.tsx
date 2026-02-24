@@ -40,10 +40,19 @@ type QueueOrder = {
   lines: QueueLine[];
 };
 
-type ApproveDraftByLine = Record<string, { approvedQty: number; comment: string }>;
 type IssueDraftByLine = Record<string, number>;
 type CheckinDraftByLine = Record<string, { checked: boolean; returnedQty: number; condition: CheckinCondition; comment: string }>;
-type EditDraft = { lines: Array<{ itemId: string; itemName: string; requestedQty: number }>; reason: string };
+type EditDraft = {
+  lines: Array<{
+    lineId: string | null;
+    itemId: string;
+    itemName: string;
+    requestedQty: number;
+    approvedQty: number;
+    comment: string;
+  }>;
+  reason: string;
+};
 type ItemOption = { id: string; name: string; availableQty: number };
 
 const STATUS_PRIORITY: Record<QueueOrder["status"], number> = {
@@ -111,7 +120,6 @@ export default function WarehouseQueuePage() {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [expandedCheckinOrderId, setExpandedCheckinOrderId] = useState<string | null>(null);
 
-  const [approveDrafts, setApproveDrafts] = useState<Record<string, ApproveDraftByLine>>({});
   const [issueDrafts, setIssueDrafts] = useState<Record<string, IssueDraftByLine>>({});
   const [warehouseComments, setWarehouseComments] = useState<Record<string, string>>({});
   const [checkinDrafts, setCheckinDrafts] = useState<Record<string, CheckinDraftByLine>>({});
@@ -147,12 +155,6 @@ export default function WarehouseQueuePage() {
   );
 
   function ensureDrafts(order: QueueOrder) {
-    setApproveDrafts((prev) => {
-      if (prev[order.id]) return prev;
-      const next: ApproveDraftByLine = {};
-      for (const line of order.lines) next[line.id] = { approvedQty: line.requestedQty, comment: "" };
-      return { ...prev, [order.id]: next };
-    });
     setIssueDrafts((prev) => {
       if (prev[order.id]) return prev;
       const next: IssueDraftByLine = {};
@@ -181,9 +183,12 @@ export default function WarehouseQueuePage() {
         ...prev,
         [order.id]: {
           lines: order.lines.map((line) => ({
+            lineId: line.id,
             itemId: line.itemId,
             itemName: line.itemName,
             requestedQty: line.requestedQty,
+            approvedQty: line.requestedQty,
+            comment: "",
           })),
           reason: "",
         },
@@ -207,15 +212,18 @@ export default function WarehouseQueuePage() {
   async function approveOrder(order: QueueOrder) {
     setBusyOrderId(order.id);
     try {
-      const draft = approveDrafts[order.id];
+      const draft = editDrafts[order.id];
       const response = await fetch(`/api/orders/${order.id}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lines: order.lines.map((line) => ({
-            orderLineId: line.id,
-            approvedQty: draft?.[line.id]?.approvedQty ?? line.requestedQty,
-            comment: draft?.[line.id]?.comment?.trim() || undefined,
+          lines: order.lines.map((line) => {
+            const edited = draft?.lines.find((entry) => entry.lineId === line.id);
+            return {
+              orderLineId: line.id,
+              approvedQty: edited?.approvedQty ?? edited?.requestedQty ?? line.requestedQty,
+              comment: edited?.comment?.trim() || undefined,
+            };
           })),
           warehouseComment: warehouseComments[order.id]?.trim() || undefined,
         }),
@@ -449,7 +457,10 @@ export default function WarehouseQueuePage() {
                     <button
                       className="ws-btn disabled:opacity-50"
                       type="button"
-                      onClick={() => setExpandedCheckinOrderId((prev) => (prev === order.id ? null : order.id))}
+                      onClick={() => {
+                        ensureDrafts(order);
+                        setExpandedCheckinOrderId((prev) => (prev === order.id ? null : order.id));
+                      }}
                       disabled={busyOrderId !== null || order.status !== "RETURN_DECLARED"}
                     >
                       {expandedCheckinOrderId === order.id ? "Скрыть приемку" : "Приемка по позициям"}
@@ -461,12 +472,35 @@ export default function WarehouseQueuePage() {
 
             {expandedOrderId === order.id ? (
               <div className="mt-4 space-y-3 rounded-2xl border border-[var(--border)] bg-white p-3">
+                {(order.status === "ISSUED" || order.status === "RETURN_DECLARED") ? (
+                  <div className="ws-card p-3">
+                    <div className="mb-2 text-sm font-semibold">Полный состав заявки</div>
+                    <div className="space-y-1 text-sm">
+                      {order.lines.map((line) => (
+                        <div key={line.id} className="rounded-lg border border-[var(--border)] px-2 py-1">
+                          {line.itemName}: запрос {line.requestedQty}, согласовано {line.approvedQty ?? 0}, выдано{" "}
+                          {line.issuedQty ?? 0}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {(order.status === "SUBMITTED" || order.status === "APPROVED") && editDrafts[order.id] ? (
                   <div className="ws-card p-3">
                     <div className="mb-2 text-sm font-semibold">Корректировка корзины клиентской заявки</div>
+                    <div className="mb-2 text-xs text-[var(--muted)]">
+                      В одной таблице: запрос клиента, согласованное количество и комментарий клиенту.
+                    </div>
+                    <div className="mb-2 grid grid-cols-1 gap-2 text-xs text-[var(--muted)] sm:grid-cols-[1fr_90px_90px_1fr_auto]">
+                      <div>Позиция</div>
+                      <div>Запрос</div>
+                      <div>Соглас.</div>
+                      <div>Комментарий</div>
+                      <div />
+                    </div>
                     <div className="space-y-2">
                       {editDrafts[order.id].lines.map((line, idx) => (
-                        <div key={`${line.itemId}-${idx}`} className="grid grid-cols-[1fr_110px_auto] items-center gap-2">
+                        <div key={`${line.itemId}-${idx}`} className="grid grid-cols-1 gap-2 rounded-xl border border-[var(--border)] p-2 sm:grid-cols-[1fr_90px_90px_1fr_auto]">
                           <div className="text-sm">{line.itemName}</div>
                           <input
                             className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
@@ -479,11 +513,61 @@ export default function WarehouseQueuePage() {
                                 [order.id]: {
                                   ...prev[order.id],
                                   lines: prev[order.id].lines.map((entry, entryIdx) =>
-                                    entryIdx === idx ? { ...entry, requestedQty: Math.max(1, Number(event.target.value)) } : entry,
+                                        entryIdx === idx
+                                          ? {
+                                              ...entry,
+                                              requestedQty: Math.max(1, Number(event.target.value)),
+                                              approvedQty: Math.max(1, Number(event.target.value)),
+                                            }
+                                          : entry,
                                   ),
                                 },
                               }))
                             }
+                          />
+                          <input
+                            className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                            type="number"
+                            min={0}
+                            max={line.requestedQty}
+                            value={line.approvedQty}
+                            onChange={(event) =>
+                              setEditDrafts((prev) => ({
+                                ...prev,
+                                [order.id]: {
+                                  ...prev[order.id],
+                                  lines: prev[order.id].lines.map((entry, entryIdx) =>
+                                    entryIdx === idx
+                                      ? {
+                                          ...entry,
+                                          approvedQty: Math.max(0, Math.min(line.requestedQty, Number(event.target.value))),
+                                        }
+                                      : entry,
+                                  ),
+                                },
+                              }))
+                            }
+                          />
+                          <input
+                            className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                            value={line.comment}
+                            onChange={(event) =>
+                              setEditDrafts((prev) => ({
+                                ...prev,
+                                [order.id]: {
+                                  ...prev[order.id],
+                                  lines: prev[order.id].lines.map((entry, entryIdx) =>
+                                    entryIdx === idx
+                                      ? {
+                                          ...entry,
+                                          comment: event.target.value,
+                                        }
+                                      : entry,
+                                  ),
+                                },
+                              }))
+                            }
+                            placeholder="Комментарий клиенту"
                           />
                           <button
                             className="ws-btn"
@@ -544,7 +628,17 @@ export default function WarehouseQueuePage() {
                             ...prev,
                             [order.id]: {
                               ...prev[order.id],
-                              lines: [...prev[order.id].lines, { itemId: option.id, itemName: option.name, requestedQty: draft.qty }],
+                                      lines: [
+                                        ...prev[order.id].lines,
+                                        {
+                                          lineId: null,
+                                          itemId: option.id,
+                                          itemName: option.name,
+                                          requestedQty: draft.qty,
+                                          approvedQty: draft.qty,
+                                          comment: "",
+                                        },
+                                      ],
                             },
                           }));
                         }}
@@ -573,63 +667,6 @@ export default function WarehouseQueuePage() {
                         Сохранить изменения
                       </button>
                     </div>
-                  </div>
-                ) : null}
-
-                {order.status === "SUBMITTED" ? (
-                  <div className="ws-card p-3">
-                    <div className="mb-2 text-sm font-semibold">Согласование по позициям</div>
-                    <div className="space-y-2">
-                      {order.lines.map((line) => (
-                        <div key={line.id} className="rounded-xl border border-[var(--border)] p-2">
-                          <div className="text-sm font-medium">{line.itemName}</div>
-                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                            <input
-                              className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                              type="number"
-                              min={0}
-                              max={line.requestedQty}
-                              value={approveDrafts[order.id]?.[line.id]?.approvedQty ?? line.requestedQty}
-                              onChange={(event) =>
-                                setApproveDrafts((prev) => ({
-                                  ...prev,
-                                  [order.id]: {
-                                    ...(prev[order.id] ?? {}),
-                                    [line.id]: {
-                                      approvedQty: Math.max(0, Math.min(line.requestedQty, Number(event.target.value))),
-                                      comment: prev[order.id]?.[line.id]?.comment ?? "",
-                                    },
-                                  },
-                                }))
-                              }
-                            />
-                            <input
-                              className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                              value={approveDrafts[order.id]?.[line.id]?.comment ?? ""}
-                              onChange={(event) =>
-                                setApproveDrafts((prev) => ({
-                                  ...prev,
-                                  [order.id]: {
-                                    ...(prev[order.id] ?? {}),
-                                    [line.id]: {
-                                      approvedQty: prev[order.id]?.[line.id]?.approvedQty ?? line.requestedQty,
-                                      comment: event.target.value,
-                                    },
-                                  },
-                                }))
-                              }
-                              placeholder="Комментарий по позиции"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <input
-                      className="mt-2 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                      value={warehouseComments[order.id] ?? ""}
-                      onChange={(event) => setWarehouseComments((prev) => ({ ...prev, [order.id]: event.target.value }))}
-                      placeholder="Общий комментарий склада"
-                    />
                   </div>
                 ) : null}
 

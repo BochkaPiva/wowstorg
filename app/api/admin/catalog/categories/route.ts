@@ -21,6 +21,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     orderBy: [{ name: "asc" }],
     include: {
       _count: { select: { items: true } },
+      items: {
+        include: {
+          item: { select: { id: true, name: true } },
+        },
+        orderBy: { item: { name: "asc" } },
+      },
     },
   });
 
@@ -30,6 +36,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       name: category.name,
       description: category.description,
       itemCount: category._count.items,
+      items: category.items.map((entry) => ({
+        id: entry.item.id,
+        name: entry.item.name,
+      })),
       createdAt: category.createdAt.toISOString(),
       updatedAt: category.updatedAt.toISOString(),
     })),

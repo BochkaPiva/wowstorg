@@ -18,6 +18,11 @@ const SCENARIOS = [
     title: "Пакеты",
     description: "CRUD готовых пакетов и их состав",
   },
+  {
+    href: "/warehouse/inventory/rented",
+    title: "Сдано в аренду",
+    description: "Какие позиции сейчас у клиентов и до какой даты",
+  },
 ];
 
 export default function WarehouseInventoryPage() {

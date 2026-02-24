@@ -23,6 +23,15 @@ type Order = {
   updatedAt: string;
   lines: OrderLine[];
 };
+type EditableOrderDetails = {
+  id: string;
+  startDate: string;
+  endDate: string;
+  customerName: string | null;
+  eventName: string | null;
+  notes: string | null;
+  lines: Array<{ id: string; itemId: string; requestedQty: number; item: { name: string } }>;
+};
 
 type ReturnCondition = "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING";
 type ReturnDraft = Record<string, { returnedQty: number; condition: ReturnCondition; comment: string }>;
@@ -62,6 +71,10 @@ export default function MyOrdersPage() {
   const [expandedReturnOrderId, setExpandedReturnOrderId] = useState<string | null>(null);
   const [returnDrafts, setReturnDrafts] = useState<Record<string, ReturnDraft>>({});
   const [returnComments, setReturnComments] = useState<Record<string, string>>({});
+  const [expandedEditOrderId, setExpandedEditOrderId] = useState<string | null>(null);
+  const [editDrafts, setEditDrafts] = useState<
+    Record<string, { startDate: string; endDate: string; eventName: string; notes: string; lines: Array<{ itemId: string; itemName: string; requestedQty: number }> }>
+  >({});
 
   async function loadOrders() {
     setStatus("Обновляем...");
@@ -157,6 +170,68 @@ export default function MyOrdersPage() {
     }
   }
 
+  async function openEdit(order: Order) {
+    if (order.status !== "SUBMITTED") return;
+    if (!editDrafts[order.id]) {
+      const response = await fetch(`/api/orders/${order.id}`);
+      const payload = (await response.json()) as { order?: EditableOrderDetails; error?: { message?: string } };
+      if (!response.ok || !payload.order) {
+        setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось загрузить заявку для редактирования."}`);
+        return;
+      }
+      setEditDrafts((prev) => ({
+        ...prev,
+        [order.id]: {
+          startDate: payload.order!.startDate,
+          endDate: payload.order!.endDate,
+          eventName: payload.order!.eventName ?? "",
+          notes: payload.order!.notes ?? "",
+          lines: payload.order!.lines.map((line) => ({
+            itemId: line.itemId,
+            itemName: line.item.name,
+            requestedQty: line.requestedQty,
+          })),
+        },
+      }));
+    }
+    setExpandedEditOrderId((prev) => (prev === order.id ? null : order.id));
+  }
+
+  async function saveEdit(order: Order) {
+    const draft = editDrafts[order.id];
+    if (!draft || draft.lines.length === 0) {
+      setStatus("В заявке должна быть хотя бы одна позиция.");
+      return;
+    }
+    setBusyOrderId(order.id);
+    try {
+      const response = await fetch(`/api/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: draft.startDate,
+          endDate: draft.endDate,
+          eventName: draft.eventName.trim() || null,
+          notes: draft.notes.trim() || null,
+          lines: draft.lines.map((line) => ({
+            itemId: line.itemId,
+            requestedQty: line.requestedQty,
+          })),
+        }),
+      });
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось сохранить правки."}`);
+        return;
+      }
+      setStatus("Заявка обновлена.");
+      setExpandedEditOrderId(null);
+      await loadOrders();
+    } finally {
+      setBusyOrderId(null);
+    }
+  }
+
   const sorted = useMemo(
     () => [...orders].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
     [orders],
@@ -188,7 +263,7 @@ export default function MyOrdersPage() {
                 </div>
                 <div className="text-xs text-[var(--muted)]">Даты: {order.startDate} - {order.endDate}</div>
                 <div className="text-xs text-[var(--muted)]">
-                  Источник: {order.orderSource} • обновлено: {new Date(order.updatedAt).toLocaleString("ru-RU")}
+                  Обновлено: {new Date(order.updatedAt).toLocaleString("ru-RU")}
                 </div>
                 <div className="text-xs text-[var(--muted)]">
                   Состав: {order.lines.slice(0, 3).map((line) => `${line.itemName} x${line.requestedQty}`).join(", ")}
@@ -215,8 +290,112 @@ export default function MyOrdersPage() {
                     </button>
                   </div>
                 ) : null}
+                {order.status === "SUBMITTED" ? (
+                  <button className="ws-btn" onClick={() => void openEdit(order)}>
+                    {expandedEditOrderId === order.id ? "Скрыть редактирование" : "Редактировать заявку"}
+                  </button>
+                ) : null}
               </div>
             </div>
+
+            {expandedEditOrderId === order.id ? (
+              <div className="mt-3 space-y-2 rounded-xl border border-[var(--border)] bg-white p-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="text-xs text-[var(--muted)]">
+                    Дата начала
+                    <input
+                      className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                      type="date"
+                      value={editDrafts[order.id]?.startDate ?? order.startDate}
+                      onChange={(event) =>
+                        setEditDrafts((prev) => ({
+                          ...prev,
+                          [order.id]: { ...prev[order.id], startDate: event.target.value },
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="text-xs text-[var(--muted)]">
+                    Дата окончания
+                    <input
+                      className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                      type="date"
+                      value={editDrafts[order.id]?.endDate ?? order.endDate}
+                      onChange={(event) =>
+                        setEditDrafts((prev) => ({
+                          ...prev,
+                          [order.id]: { ...prev[order.id], endDate: event.target.value },
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+                <input
+                  className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                  value={editDrafts[order.id]?.eventName ?? ""}
+                  onChange={(event) =>
+                    setEditDrafts((prev) => ({
+                      ...prev,
+                      [order.id]: { ...prev[order.id], eventName: event.target.value },
+                    }))
+                  }
+                  placeholder="Мероприятие"
+                />
+                <input
+                  className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                  value={editDrafts[order.id]?.notes ?? ""}
+                  onChange={(event) =>
+                    setEditDrafts((prev) => ({
+                      ...prev,
+                      [order.id]: { ...prev[order.id], notes: event.target.value },
+                    }))
+                  }
+                  placeholder="Комментарий"
+                />
+                {(editDrafts[order.id]?.lines ?? []).map((line, idx) => (
+                  <div key={`${line.itemId}-${idx}`} className="grid grid-cols-[1fr_90px_auto] items-center gap-2">
+                    <div className="text-sm">{line.itemName}</div>
+                    <input
+                      className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                      type="number"
+                      min={1}
+                      value={line.requestedQty}
+                      onChange={(event) =>
+                        setEditDrafts((prev) => ({
+                          ...prev,
+                          [order.id]: {
+                            ...prev[order.id],
+                            lines: prev[order.id].lines.map((entry, entryIdx) =>
+                              entryIdx === idx ? { ...entry, requestedQty: Math.max(1, Number(event.target.value)) } : entry,
+                            ),
+                          },
+                        }))
+                      }
+                    />
+                    <button
+                      className="ws-btn"
+                      type="button"
+                      onClick={() =>
+                        setEditDrafts((prev) => ({
+                          ...prev,
+                          [order.id]: {
+                            ...prev[order.id],
+                            lines: prev[order.id].lines.filter((_, entryIdx) => entryIdx !== idx),
+                          },
+                        }))
+                      }
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                ))}
+                <div className="flex justify-end">
+                  <button className="ws-btn-primary" onClick={() => void saveEdit(order)} disabled={busyOrderId !== null}>
+                    Сохранить заявку
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             {expandedReturnOrderId === order.id ? (
               <div className="mt-3 space-y-2 rounded-xl border border-[var(--border)] bg-white p-3">

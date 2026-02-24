@@ -8,6 +8,7 @@ type Category = {
   name: string;
   description: string | null;
   itemCount: number;
+  items?: Array<{ id: string; name: string }>;
 };
 
 export default function AdminCategoriesPage() {
@@ -182,6 +183,13 @@ export default function AdminCategoriesPage() {
                 </button>
               </div>
               <div className="mt-1 text-xs text-zinc-500">Позиций в категории: {category.itemCount}</div>
+              <div className="mt-1 text-xs text-zinc-500">
+                {category.items && category.items.length > 0
+                  ? `Состав: ${category.items.slice(0, 6).map((item) => item.name).join(", ")}${
+                      category.items.length > 6 ? ` +${category.items.length - 6}` : ""
+                    }`
+                  : "Состав пока пуст."}
+              </div>
             </div>
           );
         })}

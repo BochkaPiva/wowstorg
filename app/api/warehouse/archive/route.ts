@@ -186,6 +186,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
   }
 
+  function orderTotal(
+    order: (typeof orders)[0],
+  ): number {
+    const days = Math.max(
+      1,
+      Math.ceil(
+        (order.endDate.getTime() - order.startDate.getTime()) / (24 * 60 * 60 * 1000),
+      ),
+    );
+    let sum = 0;
+    for (const line of order.lines) {
+      const qty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+      sum += qty * Number(line.pricePerDaySnapshot) * days;
+    }
+    if (order.orderSource === "GREENWICH_INTERNAL") {
+      sum *= 1 - Number(order.discountRate);
+    }
+    return Math.round(sum);
+  }
+
   return NextResponse.json({
     orders: orders.map((order) => ({
       id: order.id,
@@ -197,6 +217,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       startDate: order.startDate.toISOString().slice(0, 10),
       endDate: order.endDate.toISOString().slice(0, 10),
       notes: order.notes,
+      totalAmount: orderTotal(order),
       createdBy: {
         username: order.createdBy.username,
         telegramId: order.createdBy.telegramId.toString(),

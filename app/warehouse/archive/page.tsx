@@ -6,6 +6,15 @@ type ArchiveStatus = "ALL" | "CLOSED" | "CANCELLED";
 type ArchiveSource = "ALL" | "GREENWICH_INTERNAL" | "WOWSTORG_EXTERNAL";
 type Customer = { id: string; name: string };
 
+const CLIENT_DECLARATION_MARKER = "CLIENT_RETURN_DECLARATION_B64:";
+
+function notesForDisplay(notes: string | null): string | null {
+  if (!notes || !notes.trim()) return null;
+  const idx = notes.indexOf(CLIENT_DECLARATION_MARKER);
+  const text = idx >= 0 ? notes.slice(0, idx).trim() : notes.trim();
+  return text.length > 0 ? text : null;
+}
+
 type ArchiveOrder = {
   id: string;
   status: "CLOSED" | "CANCELLED";
@@ -16,6 +25,7 @@ type ArchiveOrder = {
   endDate: string;
   updatedAt: string;
   closedAt: string | null;
+  totalAmount?: number;
   createdBy: { username: string | null; telegramId: string };
   notes: string | null;
   lines: Array<{ id: string; itemId: string; requestedQty: number; approvedQty: number | null; issuedQty: number | null }>;
@@ -155,6 +165,11 @@ export default function WarehouseArchivePage() {
                   Состав: {order.lines.slice(0, 3).map((line) => `${line.itemId} x${line.requestedQty}`).join(", ")}
                   {order.lines.length > 3 ? ` +${order.lines.length - 3}` : ""}
                 </div>
+                {order.totalAmount != null && order.totalAmount > 0 ? (
+                  <div className="text-sm font-medium text-[var(--brand)]">
+                    Сумма: {order.totalAmount.toLocaleString("ru-RU")} ₽
+                  </div>
+                ) : null}
               </div>
               <div className="flex items-center gap-2">
                 <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusChip(order.status)}`}>
@@ -174,7 +189,9 @@ export default function WarehouseArchivePage() {
                     {line.issuedQty !== null ? ` • выдано: ${line.issuedQty}` : ""}
                   </div>
                 ))}
-                {order.notes ? <div className="text-xs text-[var(--muted)]">Комментарий: {order.notes}</div> : null}
+                {notesForDisplay(order.notes) ? (
+                  <div className="text-xs text-[var(--muted)]">Комментарий: {notesForDisplay(order.notes)}</div>
+                ) : null}
               </div>
             ) : null}
           </article>

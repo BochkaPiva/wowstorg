@@ -20,6 +20,7 @@ type Order = {
   startDate: string;
   endDate: string;
   notes: string | null;
+  totalAmount?: number;
   updatedAt: string;
   lines: OrderLine[];
 };
@@ -269,6 +270,11 @@ export default function MyOrdersPage() {
                   Состав: {order.lines.slice(0, 3).map((line) => `${line.itemName} x${line.requestedQty}`).join(", ")}
                   {order.lines.length > 3 ? ` +${order.lines.length - 3}` : ""}
                 </div>
+                {order.totalAmount != null && order.totalAmount > 0 ? (
+                  <div className="text-sm font-medium text-[var(--brand)]">
+                    Сумма: {order.totalAmount.toLocaleString("ru-RU")} ₽
+                  </div>
+                ) : null}
               </div>
               <div className="flex flex-col items-end gap-2">
                 <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusClass(order.status)}`}>

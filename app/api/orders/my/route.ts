@@ -34,6 +34,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     orderBy: [{ createdAt: "desc" }],
   });
 
+  function orderTotal(order: (typeof orders)[0]): number {
+    const days = Math.max(
+      1,
+      Math.ceil(
+        (order.endDate.getTime() - order.startDate.getTime()) / (24 * 60 * 60 * 1000),
+      ),
+    );
+    let sum = 0;
+    for (const line of order.lines) {
+      const qty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+      sum += qty * Number(line.pricePerDaySnapshot) * days;
+    }
+    if (order.orderSource === "GREENWICH_INTERNAL") {
+      sum *= 1 - Number(order.discountRate);
+    }
+    return Math.round(sum);
+  }
+
   return NextResponse.json({
     orders: orders.map((order) => ({
       id: order.id,
@@ -44,6 +62,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       eventName: order.eventName,
       orderSource: order.orderSource,
       notes: order.notes,
+      totalAmount: orderTotal(order),
       updatedAt: order.updatedAt.toISOString(),
       lines: order.lines.map((line) => ({
         id: line.id,

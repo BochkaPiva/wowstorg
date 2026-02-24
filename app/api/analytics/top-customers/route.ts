@@ -42,9 +42,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const orders = await prisma.order.findMany({
     where: {
-      status: {
-        in: [OrderStatus.ISSUED, OrderStatus.RETURN_DECLARED, OrderStatus.CLOSED],
-      },
+      status: OrderStatus.CLOSED,
       startDate: {
         gte: startDate ?? undefined,
       },

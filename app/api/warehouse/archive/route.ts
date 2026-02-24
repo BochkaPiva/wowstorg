@@ -105,9 +105,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         include: {
           item: {
             select: {
+              name: true,
               itemType: true,
             },
           },
+          checkinLine: true,
         },
         orderBy: [{ createdAt: "asc" }],
       },
@@ -125,11 +127,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       "eventName",
       "startDate",
       "endDate",
-      "lineItemId",
+      "lineItemName",
       "lineItemType",
       "requestedQty",
       "approvedQty",
       "issuedQty",
+      "returnedQty",
       "updatedAt",
     ].join(",");
 
@@ -165,11 +168,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           order.eventName,
           order.startDate.toISOString().slice(0, 10),
           order.endDate.toISOString().slice(0, 10),
-          line.itemId,
+          line.item.name,
           line.item.itemType,
           line.requestedQty,
           line.approvedQty,
           line.issuedQty,
+          line.checkinLine?.returnedQty ?? "",
           order.updatedAt.toISOString(),
         ]
           .map(escapeCsv)
@@ -227,10 +231,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       lines: order.lines.map((line) => ({
         id: line.id,
         itemId: line.itemId,
+        itemName: line.item.name,
         itemType: line.item.itemType,
         requestedQty: line.requestedQty,
         approvedQty: line.approvedQty,
         issuedQty: line.issuedQty,
+        returnedQty: line.checkinLine?.returnedQty ?? null,
+        pricePerDay: line.pricePerDaySnapshot ? Number(line.pricePerDaySnapshot) : null,
       })),
     })),
   });

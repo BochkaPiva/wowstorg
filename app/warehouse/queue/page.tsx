@@ -246,14 +246,13 @@ export default function WarehouseQueuePage() {
   async function issueOrder(order: QueueOrder) {
     setBusyOrderId(order.id);
     try {
-      const issueDraft = issueDrafts[order.id];
       const response = await fetch(`/api/orders/${order.id}/issue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lines: order.lines.map((line) => ({
             orderLineId: line.id,
-            issuedQty: issueDraft?.[line.id] ?? (line.approvedQty ?? line.requestedQty),
+            issuedQty: line.approvedQty ?? line.requestedQty,
           })),
         }),
       });
@@ -266,6 +265,26 @@ export default function WarehouseQueuePage() {
       await loadQueue();
     } catch {
       setStatus("Ошибка сети при выдаче.");
+    } finally {
+      setBusyOrderId(null);
+    }
+  }
+
+  async function cancelOrder(order: QueueOrder) {
+    if (order.status !== "SUBMITTED" && order.status !== "APPROVED") return;
+    if (!confirm("Отменить заявку? Она попадёт в архив как отменённая.")) return;
+    setBusyOrderId(order.id);
+    try {
+      const response = await fetch(`/api/orders/${order.id}/cancel`, { method: "POST" });
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        setStatus(payload.error?.message ?? "Не удалось отменить заявку.");
+        return;
+      }
+      setStatus("Заявка отменена.");
+      await loadQueue();
+    } catch {
+      setStatus("Ошибка сети при отмене.");
     } finally {
       setBusyOrderId(null);
     }
@@ -446,6 +465,17 @@ export default function WarehouseQueuePage() {
                     disabled={busyOrderId !== null}
                   >
                     {busyOrderId === order.id ? "..." : "Выдать"}
+                  </button>
+                ) : null}
+                {(order.status === "SUBMITTED" || order.status === "APPROVED") ? (
+                  <button
+                    className="ws-btn disabled:opacity-50"
+                    type="button"
+                    onClick={() => void cancelOrder(order)}
+                    disabled={busyOrderId !== null}
+                    title="Отменить заявку (попадёт в архив)"
+                  >
+                    Отменить заявку
                   </button>
                 ) : null}
                 {(order.status === "ISSUED" || order.status === "RETURN_DECLARED") ? (
@@ -675,35 +705,9 @@ export default function WarehouseQueuePage() {
                 ) : null}
 
                 {order.status === "APPROVED" ? (
-                  <div className="ws-card p-3">
-                    <div className="mb-2 text-sm font-semibold">Выдача по позициям</div>
-                    <div className="space-y-2">
-                      {order.lines.map((line) => (
-                        <div key={line.id} className="grid grid-cols-[1fr_110px] items-center gap-2 rounded-xl border border-[var(--border)] p-2">
-                          <div className="text-sm">{line.itemName}</div>
-                          <input
-                            className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                            type="number"
-                            min={0}
-                            max={line.approvedQty ?? line.requestedQty}
-                            value={issueDrafts[order.id]?.[line.id] ?? (line.approvedQty ?? line.requestedQty)}
-                            onChange={(event) =>
-                              setIssueDrafts((prev) => ({
-                                ...prev,
-                                [order.id]: {
-                                  ...(prev[order.id] ?? {}),
-                                  [line.id]: Math.max(
-                                    0,
-                                    Math.min(line.approvedQty ?? line.requestedQty, Number(event.target.value)),
-                                  ),
-                                },
-                              }))
-                            }
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <p className="text-xs text-[var(--muted)]">
+                    Выдача будет по согласованным количествам. Нажмите «Выдать» выше.
+                  </p>
                 ) : null}
               </div>
             ) : null}

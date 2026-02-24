@@ -76,6 +76,8 @@ export default function MyOrdersPage() {
   const [editDrafts, setEditDrafts] = useState<
     Record<string, { startDate: string; endDate: string; eventName: string; notes: string; lines: Array<{ itemId: string; itemName: string; requestedQty: number }> }>
   >({});
+  const [editItems, setEditItems] = useState<Record<string, { id: string; name: string }[]>>({});
+  const [newLineDraft, setNewLineDraft] = useState<Record<string, { itemId: string; qty: number }>>({});
 
   async function loadOrders() {
     setStatus("Обновляем...");
@@ -88,6 +90,26 @@ export default function MyOrdersPage() {
     }
     setOrders(payload.orders);
     setStatus(`Заявок: ${payload.orders.length}.`);
+  }
+
+  async function cancelOrder(order: Order) {
+    if (order.status !== "SUBMITTED") return;
+    if (!confirm("Отменить заявку? Она попадёт в архив как отменённая.")) return;
+    setBusyOrderId(order.id);
+    try {
+      const response = await fetch(`/api/orders/${order.id}/cancel`, { method: "POST" });
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        setStatus(payload.error?.message ?? "Не удалось отменить заявку.");
+        return;
+      }
+      setStatus("Заявка отменена.");
+      await loadOrders();
+    } catch {
+      setStatus("Ошибка сети при отмене.");
+    } finally {
+      setBusyOrderId(null);
+    }
   }
 
   useEffect(() => {
@@ -174,26 +196,37 @@ export default function MyOrdersPage() {
   async function openEdit(order: Order) {
     if (order.status !== "SUBMITTED") return;
     if (!editDrafts[order.id]) {
-      const response = await fetch(`/api/orders/${order.id}`);
-      const payload = (await response.json()) as { order?: EditableOrderDetails; error?: { message?: string } };
-      if (!response.ok || !payload.order) {
-        setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось загрузить заявку для редактирования."}`);
+      const [orderRes, itemsRes] = await Promise.all([
+        fetch(`/api/orders/${order.id}`),
+        fetch(`/api/items?startDate=${order.startDate}&endDate=${order.endDate}&limit=300`),
+      ]);
+      const orderPayload = (await orderRes.json()) as { order?: EditableOrderDetails; error?: { message?: string } };
+      if (!orderRes.ok || !orderPayload.order) {
+        setStatus(`Ошибка: ${orderPayload.error?.message ?? "Не удалось загрузить заявку для редактирования."}`);
         return;
       }
       setEditDrafts((prev) => ({
         ...prev,
         [order.id]: {
-          startDate: payload.order!.startDate,
-          endDate: payload.order!.endDate,
-          eventName: payload.order!.eventName ?? "",
-          notes: payload.order!.notes ?? "",
-          lines: payload.order!.lines.map((line) => ({
+          startDate: orderPayload.order!.startDate,
+          endDate: orderPayload.order!.endDate,
+          eventName: orderPayload.order!.eventName ?? "",
+          notes: orderPayload.order!.notes ?? "",
+          lines: orderPayload.order!.lines.map((line) => ({
             itemId: line.itemId,
             itemName: line.item.name,
             requestedQty: line.requestedQty,
           })),
         },
       }));
+      if (itemsRes.ok) {
+        const itemsPayload = (await itemsRes.json()) as { items?: { id: string; name: string }[] };
+        setEditItems((prev) => ({
+          ...prev,
+          [order.id]: (itemsPayload.items ?? []).map((i) => ({ id: i.id, name: i.name })),
+        }));
+      }
+      setNewLineDraft((prev) => ({ ...prev, [order.id]: { itemId: "", qty: 1 } }));
     }
     setExpandedEditOrderId((prev) => (prev === order.id ? null : order.id));
   }
@@ -297,20 +330,30 @@ export default function MyOrdersPage() {
                   </div>
                 ) : null}
                 {order.status === "SUBMITTED" ? (
-                  <button className="ws-btn" onClick={() => void openEdit(order)}>
-                    {expandedEditOrderId === order.id ? "Скрыть редактирование" : "Редактировать заявку"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button className="ws-btn" onClick={() => void openEdit(order)}>
+                      {expandedEditOrderId === order.id ? "Скрыть редактирование" : "Редактировать заявку"}
+                    </button>
+                    <button
+                      className="ws-btn disabled:opacity-50"
+                      onClick={() => void cancelOrder(order)}
+                      disabled={busyOrderId !== null}
+                      title="Отменить заявку (попадёт в архив)"
+                    >
+                      Отменить заявку
+                    </button>
+                  </div>
                 ) : null}
               </div>
             </div>
 
             {expandedEditOrderId === order.id ? (
-              <div className="mt-3 space-y-2 rounded-xl border border-[var(--border)] bg-white p-3">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="text-xs text-[var(--muted)]">
+              <div className="mt-3 space-y-3 rounded-xl border border-[var(--border)] bg-white p-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-xs font-medium text-[var(--muted)]">
                     Дата начала
                     <input
-                      className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                      className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
                       type="date"
                       value={editDrafts[order.id]?.startDate ?? order.startDate}
                       onChange={(event) =>
@@ -321,10 +364,10 @@ export default function MyOrdersPage() {
                       }
                     />
                   </label>
-                  <label className="text-xs text-[var(--muted)]">
+                  <label className="block text-xs font-medium text-[var(--muted)]">
                     Дата окончания
                     <input
-                      className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                      className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
                       type="date"
                       value={editDrafts[order.id]?.endDate ?? order.endDate}
                       onChange={(event) =>
@@ -336,66 +379,135 @@ export default function MyOrdersPage() {
                     />
                   </label>
                 </div>
-                <input
-                  className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                  value={editDrafts[order.id]?.eventName ?? ""}
-                  onChange={(event) =>
-                    setEditDrafts((prev) => ({
-                      ...prev,
-                      [order.id]: { ...prev[order.id], eventName: event.target.value },
-                    }))
-                  }
-                  placeholder="Мероприятие"
-                />
-                <input
-                  className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                  value={editDrafts[order.id]?.notes ?? ""}
-                  onChange={(event) =>
-                    setEditDrafts((prev) => ({
-                      ...prev,
-                      [order.id]: { ...prev[order.id], notes: event.target.value },
-                    }))
-                  }
-                  placeholder="Комментарий"
-                />
-                {(editDrafts[order.id]?.lines ?? []).map((line, idx) => (
-                  <div key={`${line.itemId}-${idx}`} className="grid grid-cols-[1fr_90px_auto] items-center gap-2">
-                    <div className="text-sm">{line.itemName}</div>
-                    <input
-                      className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                      type="number"
-                      min={1}
-                      value={line.requestedQty}
-                      onChange={(event) =>
-                        setEditDrafts((prev) => ({
-                          ...prev,
-                          [order.id]: {
-                            ...prev[order.id],
-                            lines: prev[order.id].lines.map((entry, entryIdx) =>
-                              entryIdx === idx ? { ...entry, requestedQty: Math.max(1, Number(event.target.value)) } : entry,
-                            ),
-                          },
-                        }))
-                      }
-                    />
-                    <button
-                      className="ws-btn"
-                      type="button"
-                      onClick={() =>
-                        setEditDrafts((prev) => ({
-                          ...prev,
-                          [order.id]: {
-                            ...prev[order.id],
-                            lines: prev[order.id].lines.filter((_, entryIdx) => entryIdx !== idx),
-                          },
-                        }))
-                      }
-                    >
-                      Удалить
-                    </button>
+                <label className="block text-xs font-medium text-[var(--muted)]">
+                  Мероприятие
+                  <input
+                    className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                    value={editDrafts[order.id]?.eventName ?? ""}
+                    onChange={(event) =>
+                      setEditDrafts((prev) => ({
+                        ...prev,
+                        [order.id]: { ...prev[order.id], eventName: event.target.value },
+                      }))
+                    }
+                    placeholder="Название мероприятия"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-[var(--muted)]">
+                  Комментарий
+                  <input
+                    className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                    value={editDrafts[order.id]?.notes ?? ""}
+                    onChange={(event) =>
+                      setEditDrafts((prev) => ({
+                        ...prev,
+                        [order.id]: { ...prev[order.id], notes: event.target.value },
+                      }))
+                    }
+                    placeholder="Комментарий к заявке"
+                  />
+                </label>
+                <div>
+                  <div className="mb-1 text-xs font-medium text-[var(--muted)]">Состав</div>
+                  <div className="space-y-2">
+                    {(editDrafts[order.id]?.lines ?? []).map((line, idx) => (
+                      <div key={`${line.itemId}-${idx}`} className="grid grid-cols-[1fr_80px_auto] items-center gap-2 rounded-lg border border-[var(--border)] px-2 py-1.5">
+                        <span className="text-sm">{line.itemName}</span>
+                        <input
+                          className="rounded-lg border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                          type="number"
+                          min={1}
+                          value={line.requestedQty}
+                          onChange={(event) =>
+                            setEditDrafts((prev) => ({
+                              ...prev,
+                              [order.id]: {
+                                ...prev[order.id],
+                                lines: prev[order.id].lines.map((entry, entryIdx) =>
+                                  entryIdx === idx ? { ...entry, requestedQty: Math.max(1, Number(event.target.value)) } : entry,
+                                ),
+                              },
+                            }))
+                          }
+                        />
+                        <button
+                          className="ws-btn text-xs"
+                          type="button"
+                          onClick={() =>
+                            setEditDrafts((prev) => ({
+                              ...prev,
+                              [order.id]: {
+                                ...prev[order.id],
+                                lines: prev[order.id].lines.filter((_, entryIdx) => entryIdx !== idx),
+                              },
+                            }))
+                          }
+                        >
+                          Удалить
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-                <div className="flex justify-end">
+                </div>
+                <div className="flex flex-wrap items-end gap-2 border-t border-[var(--border)] pt-2">
+                  <label className="min-w-0 flex-1 text-xs font-medium text-[var(--muted)]">
+                    Добавить позицию
+                    <div className="mt-1 flex gap-2">
+                      <select
+                        className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                        value={newLineDraft[order.id]?.itemId ?? ""}
+                        onChange={(e) =>
+                          setNewLineDraft((prev) => ({
+                            ...prev,
+                            [order.id]: { ...(prev[order.id] ?? { itemId: "", qty: 1 }), itemId: e.target.value },
+                          }))
+                        }
+                      >
+                        <option value="">— выбрать —</option>
+                        {(editItems[order.id] ?? []).map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className="w-16 rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                        type="number"
+                        min={1}
+                        value={newLineDraft[order.id]?.qty ?? 1}
+                        onChange={(e) =>
+                          setNewLineDraft((prev) => ({
+                            ...prev,
+                            [order.id]: { ...(prev[order.id] ?? { itemId: "", qty: 1 }), qty: Math.max(1, Number(e.target.value)) },
+                          }))
+                        }
+                      />
+                      <button
+                        className="ws-btn"
+                        type="button"
+                        disabled={!newLineDraft[order.id]?.itemId}
+                        onClick={() => {
+                          const draft = newLineDraft[order.id];
+                          const itemId = draft?.itemId;
+                          if (!itemId) return;
+                          const item = (editItems[order.id] ?? []).find((i) => i.id === itemId);
+                          if (!item) return;
+                          setEditDrafts((prev) => ({
+                            ...prev,
+                            [order.id]: {
+                              ...prev[order.id],
+                              lines: [...prev[order.id].lines, { itemId, itemName: item.name, requestedQty: draft?.qty ?? 1 }],
+                            },
+                          }));
+                          setNewLineDraft((prev) => ({ ...prev, [order.id]: { itemId: "", qty: 1 } }));
+                        }}
+                      >
+                        Добавить
+                      </button>
+                    </div>
+                  </label>
+                </div>
+                <div className="flex justify-end pt-1">
                   <button className="ws-btn-primary" onClick={() => void saveEdit(order)} disabled={busyOrderId !== null}>
                     Сохранить заявку
                   </button>

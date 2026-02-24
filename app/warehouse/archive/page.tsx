@@ -28,7 +28,16 @@ type ArchiveOrder = {
   totalAmount?: number;
   createdBy: { username: string | null; telegramId: string };
   notes: string | null;
-  lines: Array<{ id: string; itemId: string; requestedQty: number; approvedQty: number | null; issuedQty: number | null }>;
+  lines: Array<{
+    id: string;
+    itemId: string;
+    itemName: string;
+    requestedQty: number;
+    approvedQty: number | null;
+    issuedQty: number | null;
+    returnedQty: number | null;
+    pricePerDay: number | null;
+  }>;
 };
 
 function statusChip(status: ArchiveOrder["status"]): string {
@@ -162,7 +171,7 @@ export default function WarehouseArchivePage() {
                   {order.closedAt ? ` • Закрыто: ${new Date(order.closedAt).toLocaleString("ru-RU")}` : ""}
                 </div>
                 <div className="text-xs text-[var(--muted)]">
-                  Состав: {order.lines.slice(0, 3).map((line) => `${line.itemId} x${line.requestedQty}`).join(", ")}
+                  Состав: {order.lines.slice(0, 3).map((line) => `${line.itemName} x${line.requestedQty}`).join(", ")}
                   {order.lines.length > 3 ? ` +${order.lines.length - 3}` : ""}
                 </div>
                 {order.totalAmount != null && order.totalAmount > 0 ? (
@@ -184,9 +193,12 @@ export default function WarehouseArchivePage() {
               <div className="mt-3 space-y-2 rounded-xl border border-[var(--border)] bg-white p-3 text-sm">
                 {order.lines.map((line) => (
                   <div key={line.id} className="rounded-lg border border-[var(--border)] px-2 py-1">
-                    {line.itemId} • запрошено: {line.requestedQty}
+                    <span className="font-medium">{line.itemName}</span>
+                    {" • запрошено: "}{line.requestedQty}
                     {line.approvedQty !== null ? ` • согласовано: ${line.approvedQty}` : ""}
                     {line.issuedQty !== null ? ` • выдано: ${line.issuedQty}` : ""}
+                    {line.returnedQty !== null ? ` • принято: ${line.returnedQty}` : ""}
+                    {line.pricePerDay != null ? ` • цена выдачи: ${line.pricePerDay.toLocaleString("ru-RU")} ₽/сут` : ""}
                   </div>
                 ))}
                 {notesForDisplay(order.notes) ? (

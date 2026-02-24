@@ -1,175 +1,135 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-type Item = {
+type Tab = "all" | "categories" | "kits";
+type ItemStatus = "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | string;
+
+type ItemRow = {
   id: string;
   name: string;
+  itemType: string;
+  availabilityStatus: ItemStatus;
   availableQty: number;
-  imageUrls?: string[];
+  categories?: Array<{ id: string; name: string }>;
 };
-
-type Customer = {
-  id: string;
-  name: string;
-};
-
-type Role = "GREENWICH" | "WAREHOUSE" | "ADMIN";
-
-type OrderLineDraft = {
-  itemId: string;
-  requestedQty: number;
-};
-
+type Category = { id: string; name: string; itemCount: number };
 type Kit = {
   id: string;
   name: string;
   description: string | null;
-  coverImageUrl: string | null;
-  lines: Array<{
-    id: string;
-    defaultQty: number;
-    item: {
-      id: string;
-      name: string;
-      availableQty: number;
-    };
-  }>;
+  lines: Array<{ defaultQty: number; item: { id: string; name: string } }>;
 };
+type CartLine = { itemId: string; name: string; qty: number };
+type Customer = { id: string; name: string };
+
+function getVisualStatus(item: ItemRow): { dot: string; label: string } {
+  if (item.availabilityStatus === "BROKEN") return { dot: "bg-red-500", label: "Сломано" };
+  if (item.availabilityStatus === "MISSING") return { dot: "bg-zinc-500", label: "Отсутствует" };
+  if (item.availabilityStatus === "NEEDS_REPAIR") return { dot: "bg-amber-500", label: "Требуется ремонт" };
+  if (item.availableQty <= 0) return { dot: "bg-orange-500", label: "Занято на выбранные даты" };
+  return { dot: "bg-emerald-500", label: "Доступно" };
+}
+
+function canAddToCart(item: ItemRow): boolean {
+  return item.availabilityStatus === "ACTIVE" && item.availableQty > 0;
+}
 
 export default function CreateOrderPage() {
-  const [role, setRole] = useState<Role | null>(null);
-  const [items, setItems] = useState<Item[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [kits, setKits] = useState<Kit[]>([]);
-  const [selectedKitId, setSelectedKitId] = useState("");
+  const [tab, setTab] = useState<Tab>("all");
+  const [status, setStatus] = useState("Загрузка быстрой выдачи...");
   const [startDate, setStartDate] = useState("2026-03-01");
   const [endDate, setEndDate] = useState("2026-03-03");
+  const [search, setSearch] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+
+  const [items, setItems] = useState<ItemRow[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [kits, setKits] = useState<Kit[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [eventName, setEventName] = useState("");
   const [notes, setNotes] = useState("");
-  const [issueImmediately, setIssueImmediately] = useState(true);
-  const [lines, setLines] = useState<OrderLineDraft[]>([{ itemId: "", requestedQty: 1 }]);
-  const [status, setStatus] = useState("Загрузка...");
+  const [cart, setCart] = useState<CartLine[]>([]);
+
+  useEffect(() => {
+    const raw = globalThis.localStorage.getItem("quick-issue-cart-v1");
+    if (raw) setCart(JSON.parse(raw) as CartLine[]);
+  }, []);
+
+  useEffect(() => {
+    globalThis.localStorage.setItem("quick-issue-cart-v1", JSON.stringify(cart));
+  }, [cart]);
 
   useEffect(() => {
     let ignore = false;
     async function load() {
-      const meRes = await fetch("/api/auth/me");
-      if (!meRes.ok) {
-        if (!ignore) setStatus("Нужна авторизация.");
-        return;
-      }
-      const mePayload = (await meRes.json()) as { user: { role: Role } };
-      if (!ignore) {
-        setRole(mePayload.user.role);
-      }
-
-      const [itemsRes, customersRes, kitsRes] = await Promise.all([
-        fetch(`/api/items?startDate=${startDate}&endDate=${endDate}&limit=200`),
+      const [iRes, cRes, kRes, custRes] = await Promise.all([
+        fetch(
+          `/api/items?startDate=${startDate}&endDate=${endDate}&search=${encodeURIComponent(search)}&limit=300&includeInactive=true`,
+        ),
+        fetch("/api/categories"),
+        fetch(`/api/kits?startDate=${startDate}&endDate=${endDate}&includeInactive=true`),
         fetch("/api/customers"),
-        fetch(`/api/kits?startDate=${startDate}&endDate=${endDate}`),
       ]);
-
-      if (itemsRes.ok) {
-        const itemsPayload = (await itemsRes.json()) as {
-          items: Array<{ id: string; name: string; availableQty: number; imageUrls?: string[] }>;
-        };
-        if (!ignore) setItems(itemsPayload.items);
-      }
-      if (customersRes.ok) {
-        const customersPayload = (await customersRes.json()) as {
-          customers: Customer[];
-        };
-        if (!ignore) setCustomers(customersPayload.customers);
-      }
-      if (kitsRes.ok) {
-        const kitsPayload = (await kitsRes.json()) as {
-          kits: Array<{
-            id: string;
-            name: string;
-            description: string | null;
-            coverImageUrl: string | null;
-            lines: Array<{
-              id: string;
-              defaultQty: number;
-              item: { id: string; name: string; availableQty: number };
-            }>;
-          }>;
-        };
-        if (!ignore) setKits(kitsPayload.kits);
-      }
-      if (!ignore) setStatus("Заполните форму и отправьте заказ.");
+      if (iRes.ok) setItems(((await iRes.json()) as { items: ItemRow[] }).items);
+      if (cRes.ok) setCategories(((await cRes.json()) as { categories: Category[] }).categories);
+      if (kRes.ok) setKits(((await kRes.json()) as { kits: Kit[] }).kits);
+      if (custRes.ok) setCustomers(((await custRes.json()) as { customers: Customer[] }).customers);
+      if (!ignore) setStatus("Быстрая выдача обновлена.");
     }
     void load();
     return () => {
       ignore = true;
     };
-  }, [startDate, endDate]);
+  }, [startDate, endDate, search]);
 
-  const canUseExternal = role === "WAREHOUSE" || role === "ADMIN";
-  const lineOptions = useMemo(
-    () => items.map((item) => ({ value: item.id, label: `${item.name} (доступно: ${item.availableQty})` })),
-    [items],
+  const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+  const activeCategory = useMemo(
+    () => categories.find((category) => category.id === selectedCategoryId) ?? null,
+    [categories, selectedCategoryId],
   );
 
-  function updateLine(index: number, next: Partial<OrderLineDraft>) {
-    setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...next } : line)));
-  }
-
-  function addLine() {
-    setLines((prev) => [...prev, { itemId: "", requestedQty: 1 }]);
-  }
-
-  function removeLine(index: number) {
-    setLines((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function addSelectedKitToOrder() {
-    if (!selectedKitId) {
-      setStatus("Выбери пакет, который нужно добавить.");
+  function addItem(item: ItemRow, qty = 1) {
+    if (!canAddToCart(item)) {
+      setStatus(`Позиция «${item.name}» недоступна для добавления.`);
       return;
     }
-    const kit = kits.find((entry) => entry.id === selectedKitId);
-    if (!kit) {
-      setStatus("Пакет не найден.");
-      return;
-    }
-
-    setLines((prev) => {
-      const next = [...prev];
-      for (const line of kit.lines) {
-        const existingIndex = next.findIndex((entry) => entry.itemId === line.item.id);
-        if (existingIndex >= 0) {
-          next[existingIndex] = {
-            ...next[existingIndex],
-            requestedQty: next[existingIndex].requestedQty + line.defaultQty,
-          };
-        } else {
-          next.push({
-            itemId: line.item.id,
-            requestedQty: line.defaultQty,
-          });
-        }
+    setCart((prev) => {
+      const index = prev.findIndex((entry) => entry.itemId === item.id);
+      if (index >= 0) {
+        const currentQty = prev[index].qty;
+        const nextQty = Math.min(currentQty + qty, item.availableQty);
+        if (nextQty === currentQty) return prev;
+        const next = [...prev];
+        next[index] = { ...next[index], qty: nextQty };
+        return next;
       }
-      return next;
+      return [...prev, { itemId: item.id, name: item.name, qty: Math.min(qty, item.availableQty) }];
     });
-
-    setStatus(`Пакет "${kit.name}" добавлен в заказ.`);
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setStatus("Отправка...");
+  function addKit(kit: Kit) {
+    for (const line of kit.lines) {
+      const item = itemById.get(line.item.id);
+      if (!item || !canAddToCart(item)) continue;
+      addItem(item, line.defaultQty);
+    }
+    setStatus(`Пакет «${kit.name}» добавлен в корзину.`);
+  }
 
-    const preparedLines = lines
-      .filter((line) => line.itemId && line.requestedQty > 0)
-      .map((line) => ({
-        itemId: line.itemId,
-        requestedQty: Number(line.requestedQty),
-      }));
-
+  async function submitOrder() {
+    if (cart.length === 0) {
+      setStatus("Корзина пуста.");
+      return;
+    }
+    if (!customerId && customerName.trim().length === 0) {
+      setStatus("Укажите заказчика: выберите из базы или введите нового.");
+      return;
+    }
+    setStatus("Оформляем быструю выдачу...");
     const response = await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -177,146 +137,144 @@ export default function CreateOrderPage() {
         startDate,
         endDate,
         customerId: customerId || undefined,
-        customerName: customerName || undefined,
-        eventName: eventName || null,
-        notes: notes || null,
-        issueImmediately: canUseExternal ? issueImmediately : false,
-        orderSource: canUseExternal ? "WOWSTORG_EXTERNAL" : "GREENWICH_INTERNAL",
-        lines: preparedLines,
+        customerName: customerName.trim() || undefined,
+        eventName: eventName.trim() || null,
+        notes: notes.trim() || null,
+        orderSource: "WOWSTORG_EXTERNAL",
+        issueImmediately: true,
+        lines: cart.map((line) => ({ itemId: line.itemId, requestedQty: line.qty })),
       }),
     });
-
-    const payload = (await response.json()) as {
-      order?: { id: string; status: string };
-      error?: { message?: string };
-    };
+    const payload = (await response.json()) as { order?: { id: string; status: string }; error?: { message?: string } };
     if (!response.ok || !payload.order) {
-      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось создать заказ."}`);
+      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось создать выдачу."}`);
       return;
     }
-
-    setStatus(`Заказ ${payload.order.id} создан, статус: ${payload.order.status}`);
+    setCart([]);
+    setStatus(`Выдача ${payload.order.id} оформлена, статус: ${payload.order.status}.`);
   }
+
+  const visibleItems = useMemo(
+    () =>
+      (selectedCategoryId ? items.filter((item) => item.categories?.some((cat) => cat.id === selectedCategoryId)) : items).sort((a, b) => {
+        const av = canAddToCart(a) ? 0 : 1;
+        const bv = canAddToCart(b) ? 0 : 1;
+        if (av !== bv) return av - bv;
+        return a.name.localeCompare(b.name, "ru");
+      }),
+    [items, selectedCategoryId],
+  );
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-semibold">Новый заказ</h1>
-      <p className="text-sm text-zinc-600">{status}</p>
+      <h1 className="text-2xl font-semibold text-[var(--brand)]">Быстрая выдача</h1>
+      <p className="text-sm text-[var(--muted)]">{status}</p>
 
-      <form onSubmit={submit} className="space-y-4 rounded border border-zinc-200 bg-white p-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">
-            <span className="mb-1 block font-medium">Start date</span>
-            <input className="w-full rounded border border-zinc-300 px-2 py-1" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block font-medium">End date</span>
-            <input className="w-full rounded border border-zinc-300 px-2 py-1" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-          </label>
+      <div className="ws-card grid gap-2 p-3 sm:grid-cols-3">
+        <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Поиск по позициям" value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button className={tab === "all" ? "ws-btn-primary" : "ws-btn"} type="button" onClick={() => { setTab("all"); setSelectedCategoryId(""); }}>Все позиции</button>
+        <button className={tab === "categories" ? "ws-btn-primary" : "ws-btn"} type="button" onClick={() => setTab("categories")}>Подборки</button>
+        <button className={tab === "kits" ? "ws-btn-primary" : "ws-btn"} type="button" onClick={() => setTab("kits")}>Пакеты</button>
+      </div>
+
+      {activeCategory ? (
+        <div className="ws-card flex items-center justify-between p-2 text-sm">
+          <span>Фильтр подборки: <strong>{activeCategory.name}</strong></span>
+          <button className="ws-btn" type="button" onClick={() => setSelectedCategoryId("")}>Показать все позиции</button>
         </div>
+      ) : null}
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">
-            <span className="mb-1 block font-medium">Заказчик (из базы)</span>
-            <select className="w-full rounded border border-zinc-300 px-2 py-1" value={customerId} onChange={(event) => setCustomerId(event.target.value)}>
-              <option value="">-- выберите --</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block font-medium">Новый заказчик (если нет в списке)</span>
-            <input className="w-full rounded border border-zinc-300 px-2 py-1" value={customerName} onChange={(event) => setCustomerName(event.target.value)} />
-          </label>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">
-            <span className="mb-1 block font-medium">Мероприятие (опционально)</span>
-            <input className="w-full rounded border border-zinc-300 px-2 py-1" value={eventName} onChange={(event) => setEventName(event.target.value)} />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block font-medium">Комментарий</span>
-            <input className="w-full rounded border border-zinc-300 px-2 py-1" value={notes} onChange={(event) => setNotes(event.target.value)} />
-          </label>
-        </div>
-
-        {canUseExternal ? (
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={issueImmediately} onChange={(event) => setIssueImmediately(event.target.checked)} />
-            Сразу выдать клиенту (для внешнего заказа WowStorg)
-          </label>
-        ) : null}
-
-        <div className="space-y-2 rounded border border-zinc-200 bg-zinc-50 p-3">
-          <div className="text-sm font-medium">Готовые пакеты</div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-            <select
-              className="rounded border border-zinc-300 px-2 py-1"
-              value={selectedKitId}
-              onChange={(event) => setSelectedKitId(event.target.value)}
-            >
-              <option value="">-- выберите пакет --</option>
-              {kits.map((kit) => (
-                <option key={kit.id} value={kit.id}>
-                  {kit.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100"
-              onClick={addSelectedKitToOrder}
-            >
-              Добавить пакет
+      {tab === "categories" ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {categories.map((category) => (
+            <button key={category.id} className="ws-card p-4 text-left hover:bg-violet-50" type="button" onClick={() => { setSelectedCategoryId(category.id); setTab("all"); }}>
+              <div className="font-medium">{category.name}</div>
+              <div className="text-xs text-[var(--muted)]">Позиций: {category.itemCount}</div>
             </button>
-          </div>
-          {selectedKitId ? (
-            <div className="text-xs text-zinc-600">
-              {
-                kits.find((entry) => entry.id === selectedKitId)?.description ??
-                  "Описание для пакета отсутствует."
-              }
-            </div>
-          ) : null}
+          ))}
         </div>
+      ) : null}
 
-        <div className="space-y-2">
-          <div className="text-sm font-medium">Позиции</div>
-          {lines.map((line, index) => (
-            <div key={index} className="grid gap-2 sm:grid-cols-[1fr_120px_auto]">
-              <select className="rounded border border-zinc-300 px-2 py-1" value={line.itemId} onChange={(event) => updateLine(index, { itemId: event.target.value })}>
-                <option value="">-- выберите позицию --</option>
-                {lineOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                className="rounded border border-zinc-300 px-2 py-1"
-                type="number"
-                min={1}
-                value={line.requestedQty}
-                onChange={(event) => updateLine(index, { requestedQty: Number(event.target.value) })}
-              />
-              <button type="button" className="rounded border border-zinc-300 px-2 py-1 text-sm hover:bg-zinc-100" onClick={() => removeLine(index)} disabled={lines.length === 1}>
-                Удалить
-              </button>
+      {tab === "kits" ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {kits.map((kit) => (
+            <div key={kit.id} className="ws-card p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-medium">{kit.name}</div>
+                  <div className="text-xs text-[var(--muted)]">{kit.description ?? "Без описания"}</div>
+                </div>
+                <button className="ws-btn" type="button" onClick={() => addKit(kit)}>Добавить пакет</button>
+              </div>
             </div>
           ))}
-          <button type="button" className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100" onClick={addLine}>
-            + Добавить позицию
-          </button>
+        </div>
+      ) : null}
+
+      {tab === "all" ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {visibleItems.map((item) => {
+            const visual = getVisualStatus(item);
+            const isAddable = canAddToCart(item);
+            return (
+              <div key={item.id} className="ws-card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="inline-flex items-center gap-2 font-medium">
+                      <i className={`h-2.5 w-2.5 rounded-full ${visual.dot}`} />
+                      {item.name}
+                    </div>
+                    <div className="text-xs text-[var(--muted)]">{item.itemType} • {visual.label} • доступно: {item.availableQty}</div>
+                  </div>
+                  <button className="ws-btn disabled:opacity-50" type="button" onClick={() => addItem(item)} disabled={!isAddable}>В корзину</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <div className="ws-card space-y-3 p-3">
+        <div className="font-semibold">Корзина ({cart.length})</div>
+        {cart.map((line) => (
+          <div key={line.itemId} className="grid grid-cols-[1fr_90px_auto] items-center gap-2">
+            <div className="text-sm">{line.name}</div>
+            <input
+              className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+              type="number"
+              min={1}
+              value={line.qty}
+              onChange={(event) =>
+                setCart((prev) =>
+                  prev.map((entry) =>
+                    entry.itemId === line.itemId ? { ...entry, qty: Math.max(1, Number(event.target.value)) } : entry,
+                  ),
+                )
+              }
+            />
+            <button className="ws-btn" type="button" onClick={() => setCart((prev) => prev.filter((entry) => entry.itemId !== line.itemId))}>Удалить</button>
+          </div>
+        ))}
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <select className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+            <option value="">Заказчик из базы</option>
+            {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+          </select>
+          <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Новый заказчик (если нет в базе)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+          <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Мероприятие (опционально)" value={eventName} onChange={(e) => setEventName(e.target.value)} />
+          <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Комментарий (опционально)" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
-        <button className="rounded bg-zinc-900 px-3 py-2 text-sm text-white hover:bg-zinc-700" type="submit">
-          Создать заказ
-        </button>
-      </form>
+        <div className="flex justify-end">
+          <button className="ws-btn-primary disabled:opacity-50" type="button" onClick={() => void submitOrder()} disabled={cart.length === 0}>Оформить выдачу</button>
+        </div>
+      </div>
     </section>
   );
 }

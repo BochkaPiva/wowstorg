@@ -24,21 +24,6 @@ const SCENARIOS = [
     description: "База клиентов, контакты, активность",
   },
   {
-    href: "/admin/categories",
-    title: "Категории подборок",
-    description: "Группы позиций: Крафт игры, Фото зоны и т.д.",
-  },
-  {
-    href: "/admin/items",
-    title: "Позиции и фото",
-    description: "Редактирование карточек реквизита и изображений",
-  },
-  {
-    href: "/admin/kits",
-    title: "Пакеты",
-    description: "Готовые наборы и составы позиций для быстрой заявки",
-  },
-  {
     href: "/admin/analytics",
     title: "Аналитика",
     description: "Топ реквизита и топ заказчиков за период",

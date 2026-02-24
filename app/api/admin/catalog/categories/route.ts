@@ -1,11 +1,11 @@
 import { Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "@/lib/api-auth";
+import { isWarehouseSide, requireUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
-function isAdmin(role: Role): boolean {
-  return role === Role.ADMIN;
+function canManageCatalog(role: Role): boolean {
+  return isWarehouseSide(role);
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -13,8 +13,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!auth.ok) {
     return auth.response;
   }
-  if (!isAdmin(auth.user.role)) {
-    return fail(403, "Only admin can manage catalog.");
+  if (!canManageCatalog(auth.user.role)) {
+    return fail(403, "Only warehouse/admin can manage catalog.");
   }
 
   const categories = await prisma.category.findMany({
@@ -41,8 +41,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!auth.ok) {
     return auth.response;
   }
-  if (!isAdmin(auth.user.role)) {
-    return fail(403, "Only admin can manage catalog.");
+  if (!canManageCatalog(auth.user.role)) {
+    return fail(403, "Only warehouse/admin can manage catalog.");
   }
 
   let body: unknown;

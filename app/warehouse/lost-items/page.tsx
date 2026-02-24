@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type LostItemRow = {
   id: string;
@@ -29,6 +29,7 @@ export default function WarehouseLostItemsPage() {
   const [status, setStatus] = useState("Загружаем реестр утерянного реквизита...");
   const [filter, setFilter] = useState<LostItemStatus | "ALL">("ALL");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
   async function loadRows(nextFilter: LostItemStatus | "ALL" = filter) {
     setStatus("Обновляем список...");
@@ -67,6 +68,8 @@ export default function WarehouseLostItemsPage() {
   }
 
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     void loadRows();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

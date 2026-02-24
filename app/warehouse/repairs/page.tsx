@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type ProblemItem = {
   id: string;
@@ -19,6 +19,7 @@ export default function WarehouseRepairsPage() {
   const [status, setStatus] = useState("Загружаем проблемный реквизит...");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [qtyByItem, setQtyByItem] = useState<Record<string, number>>({});
+  const hasLoadedRef = useRef(false);
 
   async function loadItems() {
     setStatus("Обновляем список...");
@@ -47,6 +48,8 @@ export default function WarehouseRepairsPage() {
   }
 
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     void loadItems();
   }, []);
 

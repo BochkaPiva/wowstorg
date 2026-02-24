@@ -1,13 +1,13 @@
 import { Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "@/lib/api-auth";
+import { isWarehouseSide, requireUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
 type Params = { params: Promise<{ id: string }> };
 
-function isAdmin(role: Role): boolean {
-  return role === Role.ADMIN;
+function canManageCatalog(role: Role): boolean {
+  return isWarehouseSide(role);
 }
 
 type KitLineInput = {
@@ -55,8 +55,8 @@ export async function PATCH(
   if (!auth.ok) {
     return auth.response;
   }
-  if (!isAdmin(auth.user.role)) {
-    return fail(403, "Only admin can manage catalog.");
+  if (!canManageCatalog(auth.user.role)) {
+    return fail(403, "Only warehouse/admin can manage catalog.");
   }
 
   const { id } = await params;
@@ -148,8 +148,8 @@ export async function DELETE(
   if (!auth.ok) {
     return auth.response;
   }
-  if (!isAdmin(auth.user.role)) {
-    return fail(403, "Only admin can manage catalog.");
+  if (!canManageCatalog(auth.user.role)) {
+    return fail(403, "Only warehouse/admin can manage catalog.");
   }
 
   const { id } = await params;

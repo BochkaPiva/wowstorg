@@ -196,8 +196,8 @@ export default function AdminKitsPage() {
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Пакеты</h1>
-        <Link href="/admin" className="text-sm text-zinc-600 hover:text-zinc-900">
-          Назад в админку
+        <Link href="/warehouse/inventory" className="text-sm text-zinc-600 hover:text-zinc-900">
+          Назад в инвентарь
         </Link>
       </div>
       <p className="text-sm text-zinc-700">{status}</p>

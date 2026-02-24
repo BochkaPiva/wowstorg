@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 
 type Tab = "all" | "categories" | "kits";
 type Role = "GREENWICH" | "WAREHOUSE" | "ADMIN";
-type OrderSource = "GREENWICH_INTERNAL" | "WOWSTORG_EXTERNAL";
 type ItemStatus = "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | string;
 
 type ItemRow = {
@@ -80,7 +79,7 @@ export default function CatalogPage() {
 
       const [iRes, cRes, kRes, custRes] = await Promise.all([
         fetch(
-          `/api/items?startDate=${startDate}&endDate=${endDate}&search=${encodeURIComponent(search)}&limit=300&includeInactive=true`,
+          `/api/items?startDate=${startDate}&endDate=${endDate}&search=${encodeURIComponent(search)}&limit=300`,
         ),
         fetch("/api/categories"),
         fetch(`/api/kits?startDate=${startDate}&endDate=${endDate}`),
@@ -149,7 +148,13 @@ export default function CatalogPage() {
     );
   }
 
+  const isGreenwich = role === "GREENWICH";
+
   async function submitOrder() {
+    if (!isGreenwich) {
+      setStatus("Этот раздел для заявок Greenwich. Для склада используйте «Быструю выдачу».");
+      return;
+    }
     if (cart.length === 0) {
       setStatus("Корзина пуста.");
       return;
@@ -168,7 +173,6 @@ export default function CatalogPage() {
     }
 
     setStatus("Оформляем заявку...");
-    const orderSource: OrderSource = role === "GREENWICH" ? "GREENWICH_INTERNAL" : "WOWSTORG_EXTERNAL";
     const response = await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -179,7 +183,7 @@ export default function CatalogPage() {
         customerName: customerName.trim() || undefined,
         eventName: eventName.trim() || null,
         notes: notes.trim() || null,
-        orderSource,
+        orderSource: "GREENWICH_INTERNAL",
         issueImmediately: false,
         lines: cart.map((line) => ({ itemId: line.itemId, requestedQty: line.qty })),
       }),
@@ -211,6 +215,11 @@ export default function CatalogPage() {
     <section className="space-y-4">
       <h1 className="text-2xl font-semibold text-[var(--brand)]">Каталог и оформление заявки</h1>
       <p className="text-sm text-[var(--muted)]">{status}</p>
+      {!isGreenwich ? (
+        <div className="ws-card border p-3 text-sm">
+          Для сотрудников склада/админа оформление внешних заказов выполняется в разделе `Быстрая выдача`.
+        </div>
+      ) : null}
 
       <div className="ws-card grid gap-2 p-3 sm:grid-cols-3">
         <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -354,7 +363,7 @@ export default function CatalogPage() {
         </div>
 
         <div className="flex justify-end">
-          <button className="ws-btn-primary disabled:opacity-50" type="button" onClick={() => void submitOrder()} disabled={cart.length === 0}>
+          <button className="ws-btn-primary disabled:opacity-50" type="button" onClick={() => void submitOrder()} disabled={cart.length === 0 || !isGreenwich}>
             Оформить заявку
           </button>
         </div>

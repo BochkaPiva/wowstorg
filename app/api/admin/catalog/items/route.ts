@@ -1,11 +1,11 @@
 import { AvailabilityStatus, ItemType, Prisma, Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "@/lib/api-auth";
+import { isWarehouseSide, requireUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
-function isAdmin(role: Role): boolean {
-  return role === Role.ADMIN;
+function canManageCatalog(role: Role): boolean {
+  return isWarehouseSide(role);
 }
 
 function parseItemType(raw: unknown): ItemType | null {
@@ -29,8 +29,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!auth.ok) {
     return auth.response;
   }
-  if (!isAdmin(auth.user.role)) {
-    return fail(403, "Only admin can manage catalog.");
+  if (!canManageCatalog(auth.user.role)) {
+    return fail(403, "Only warehouse/admin can manage catalog.");
   }
 
   const search = request.nextUrl.searchParams.get("search")?.trim() ?? "";
@@ -74,8 +74,8 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   if (!auth.ok) {
     return auth.response;
   }
-  if (!isAdmin(auth.user.role)) {
-    return fail(403, "Only admin can manage catalog.");
+  if (!canManageCatalog(auth.user.role)) {
+    return fail(403, "Only warehouse/admin can manage catalog.");
   }
 
   let body: unknown;
@@ -267,8 +267,8 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
   if (!auth.ok) {
     return auth.response;
   }
-  if (!isAdmin(auth.user.role)) {
-    return fail(403, "Only admin can manage catalog.");
+  if (!canManageCatalog(auth.user.role)) {
+    return fail(403, "Only warehouse/admin can manage catalog.");
   }
 
   let body: unknown;

@@ -66,8 +66,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const orderSource = isGreenwich
     ? OrderSource.GREENWICH_INTERNAL
     : (parsed.orderSource ?? OrderSource.WOWSTORG_EXTERNAL);
-  const issueImmediately =
-    isGreenwich ? false : parsed.issueImmediately !== false;
+  const issueImmediately = isGreenwich
+    ? false
+    : parsed.orderSource === OrderSource.WOWSTORG_EXTERNAL
+      ? parsed.issueImmediately === true
+      : false;
 
   const parsedRange = validateDateRange(parsed.startDate, parsed.endDate);
   if (!parsedRange.ok) {

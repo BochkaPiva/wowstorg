@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireWarehouseUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
 import { parseApproveInput, serializeOrder } from "@/lib/orders";
+import { notifyOrderOwner } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 type Params = {
@@ -33,7 +34,23 @@ export async function POST(
 
   const order = await prisma.order.findUnique({
     where: { id },
-    include: { customer: true, lines: true },
+    include: {
+      customer: true,
+      createdBy: {
+        select: {
+          telegramId: true,
+        },
+      },
+      lines: {
+        include: {
+          item: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!order) {
@@ -45,6 +62,7 @@ export async function POST(
   }
 
   const updateByLineId = new Map(parsed.lines.map((line) => [line.orderLineId, line.approvedQty]));
+  const commentByLineId = new Map(parsed.lines.map((line) => [line.orderLineId, line.comment ?? null]));
   if (updateByLineId.size !== order.lines.length) {
     return fail(400, "Payload must include approvedQty for every order line.");
   }
@@ -71,11 +89,49 @@ export async function POST(
       ),
     );
 
+    const shortages = order.lines
+      .map((line) => {
+        const approvedQty = updateByLineId.get(line.id) ?? 0;
+        if (approvedQty >= line.requestedQty) {
+          return null;
+        }
+        return {
+          itemId: line.itemId,
+          requestedQty: line.requestedQty,
+          approvedQty,
+          comment: commentByLineId.get(line.id),
+        };
+      })
+      .filter((entry) => entry !== null);
+
+    const shortageText =
+      shortages.length > 0
+        ? shortages
+            .map(
+              (entry) =>
+                `${entry.itemId}: запрошено ${entry.requestedQty}, подтверждено ${entry.approvedQty}${
+                  entry.comment ? ` (${entry.comment})` : ""
+                }`,
+            )
+            .join("; ")
+        : "";
+
+    const composedNote = [
+      parsed.warehouseComment ? `Комментарий склада: ${parsed.warehouseComment}` : "",
+      shortageText ? `Недостача по позициям: ${shortageText}` : "",
+    ]
+      .filter((entry) => entry.length > 0)
+      .join("\n");
+
     await tx.order.update({
       where: { id: order.id },
       data: {
         status: "APPROVED",
         approvedById: auth.user.id,
+        notes:
+          composedNote.length > 0
+            ? `${order.notes ? `${order.notes}\n` : ""}${composedNote}`
+            : order.notes,
       },
     });
 
@@ -83,6 +139,18 @@ export async function POST(
       where: { id: order.id },
       include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
     });
+  });
+
+  await notifyOrderOwner({
+    orderId: order.id,
+    ownerTelegramId: order.createdBy.telegramId.toString(),
+    title: "Заявка обработана складом (этап согласования).",
+    lines: order.lines.map((line) => ({
+      itemName: line.item.name,
+      requestedQty: line.requestedQty,
+      approvedQty: updateByLineId.get(line.id) ?? 0,
+    })),
+    comment: parsed.warehouseComment ?? null,
   });
 
   return NextResponse.json({

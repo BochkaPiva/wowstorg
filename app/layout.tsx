@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Warehouse System",
-  description: "Warehouse rental MVP",
+  title: "WowStorg Hub",
+  description: "Система аренды и выдачи реквизита",
 };
 
 export default function RootLayout({
@@ -24,36 +24,33 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ru">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="min-h-screen bg-zinc-50 text-zinc-900">
-          <header className="border-b border-zinc-200 bg-white">
+        <div className="min-h-screen text-zinc-900">
+          <header className="border-b border-[var(--border)] bg-white/90 backdrop-blur">
             <nav className="mx-auto flex w-full max-w-6xl flex-wrap gap-4 px-4 py-3 text-sm">
-              <Link href="/" className="font-semibold">
-                Warehouse System
+              <Link href="/" className="font-semibold text-[var(--brand)]">
+                WowStorg Hub
               </Link>
               <Link href="/dev-login" className="text-zinc-700 hover:text-zinc-900">
-                Dev Login
+                Dev-вход
               </Link>
               <Link href="/catalog" className="text-zinc-700 hover:text-zinc-900">
-                Catalog
-              </Link>
-              <Link href="/orders/new" className="text-zinc-700 hover:text-zinc-900">
-                New Order
+                Каталог
               </Link>
               <Link href="/my-orders" className="text-zinc-700 hover:text-zinc-900">
-                My Orders
+                Мои заявки
               </Link>
               <Link href="/warehouse/queue" className="text-zinc-700 hover:text-zinc-900">
-                Warehouse Queue
+                Очередь склада
               </Link>
               <Link href="/warehouse/archive" className="text-zinc-700 hover:text-zinc-900">
-                Warehouse Archive
+                Архив
               </Link>
               <Link href="/admin" className="text-zinc-700 hover:text-zinc-900">
-                Admin
+                Админ
               </Link>
             </nav>
           </header>

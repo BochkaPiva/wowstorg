@@ -64,122 +64,78 @@ async function main() {
     },
   });
 
-  await prisma.category.upsert({
-    where: { name: "Cameras" },
-    update: { description: "Camera equipment" },
-    create: { id: "cat_cameras", name: "Cameras", description: "Camera equipment" },
-  });
-  await prisma.category.upsert({
-    where: { name: "Lighting" },
-    update: { description: "Lighting equipment" },
-    create: { id: "cat_lighting", name: "Lighting", description: "Lighting equipment" },
-  });
-  await prisma.category.upsert({
-    where: { name: "Consumables" },
-    update: { description: "One-time use supplies" },
-    create: { id: "cat_consumables", name: "Consumables", description: "One-time use supplies" },
-  });
+  const categoryDefs = [
+    ["cat_games", "Крафт игры", "Игровые наборы и реквизит"],
+    ["cat_photozone", "Фотозоны", "Декор и элементы фотозон"],
+    ["cat_light", "Свет", "Световые приборы"],
+    ["cat_sound", "Звук", "Аудио оборудование"],
+    ["cat_stage", "Сцена", "Сценические элементы"],
+    ["cat_consumables", "Расходники", "Ленты, батарейки, крепеж"],
+  ];
+  for (const [id, name, description] of categoryDefs) {
+    await prisma.category.upsert({
+      where: { name },
+      update: { description },
+      create: { id, name, description },
+    });
+  }
 
-  await prisma.item.upsert({
-    where: { id: "itm_camera_fx3" },
-    update: {
-      name: "Sony FX3",
-      itemType: ItemType.ASSET,
-      availabilityStatus: AvailabilityStatus.ACTIVE,
-      stockTotal: 3,
-      pricePerDay: 12000,
-      locationText: "A-1",
-    },
-    create: {
-      id: "itm_camera_fx3",
-      name: "Sony FX3",
-      description: "Cinema camera body",
-      itemType: ItemType.ASSET,
-      availabilityStatus: AvailabilityStatus.ACTIVE,
-      stockTotal: 3,
-      pricePerDay: 12000,
-      locationText: "A-1",
-    },
-  });
+  const items = [
+    ["itm_cam_fx3", "Sony FX3", ItemType.ASSET, 4, 12000, "A-01", "cat_photozone"],
+    ["itm_cam_a7s3", "Sony A7S III", ItemType.ASSET, 3, 9000, "A-02", "cat_photozone"],
+    ["itm_light_300d", "Aputure 300D", ItemType.ASSET, 6, 4500, "B-01", "cat_light"],
+    ["itm_light_tube", "Nanlite Tube", ItemType.ASSET, 10, 1800, "B-02", "cat_light"],
+    ["itm_mic_kit", "Набор микрофонов", ItemType.ASSET, 5, 2500, "C-01", "cat_sound"],
+    ["itm_speaker", "Акустическая колонка", ItemType.ASSET, 8, 3000, "C-02", "cat_sound"],
+    ["itm_xlr_5m", "Кабель XLR 5м", ItemType.BULK, 80, 120, "C-03", "cat_sound"],
+    ["itm_stand_light", "Стойка света", ItemType.BULK, 40, 200, "B-03", "cat_light"],
+    ["itm_game_jenga", "Дженга XXL", ItemType.ASSET, 6, 1300, "D-01", "cat_games"],
+    ["itm_game_ring", "Кольцеброс", ItemType.ASSET, 10, 700, "D-02", "cat_games"],
+    ["itm_game_darts", "Дартс безопасный", ItemType.ASSET, 8, 650, "D-03", "cat_games"],
+    ["itm_game_boxing", "Силомер", ItemType.ASSET, 2, 6000, "D-04", "cat_games"],
+    ["itm_photo_arch", "Арка фотозоны", ItemType.ASSET, 7, 1900, "E-01", "cat_photozone"],
+    ["itm_photo_neon", "Неоновая вывеска", ItemType.ASSET, 9, 1500, "E-02", "cat_photozone"],
+    ["itm_photo_flower", "Стойка цветов", ItemType.BULK, 15, 350, "E-03", "cat_photozone"],
+    ["itm_stage_cube", "Сценический куб", ItemType.BULK, 25, 450, "F-01", "cat_stage"],
+    ["itm_stage_podium", "Подиум секционный", ItemType.BULK, 20, 500, "F-02", "cat_stage"],
+    ["itm_led_screen", "LED-панель", ItemType.ASSET, 4, 10000, "F-03", "cat_stage"],
+    ["itm_tape_gaffer", "Гаффер лента", ItemType.CONSUMABLE, 200, 80, "G-01", "cat_consumables"],
+    ["itm_zip_ties", "Хомуты", ItemType.CONSUMABLE, 500, 15, "G-02", "cat_consumables"],
+    ["itm_battery_aa", "Батарейки AA", ItemType.CONSUMABLE, 800, 35, "G-03", "cat_consumables"],
+    ["itm_extension", "Удлинитель 10м", ItemType.BULK, 70, 100, "G-04", "cat_consumables"],
+    ["itm_fog_machine", "Дым машина", ItemType.ASSET, 3, 3500, "H-01", "cat_stage"],
+    ["itm_fan", "Вентилятор сценический", ItemType.ASSET, 6, 800, "H-02", "cat_stage"],
+    ["itm_table_craft", "Стол крафт", ItemType.BULK, 16, 220, "H-03", "cat_games"],
+    ["itm_chairs", "Стулья складные", ItemType.BULK, 120, 40, "H-04", "cat_games"],
+    ["itm_projector", "Проектор", ItemType.ASSET, 5, 4200, "I-01", "cat_stage"],
+    ["itm_screen", "Экран проекционный", ItemType.ASSET, 7, 1600, "I-02", "cat_stage"],
+    ["itm_decor_set", "Декор комплект", ItemType.ASSET, 11, 1200, "I-03", "cat_photozone"],
+    ["itm_game_quest", "Квест набор", ItemType.ASSET, 6, 2800, "I-04", "cat_games"],
+  ];
 
-  await prisma.item.upsert({
-    where: { id: "itm_light_aputure300d" },
-    update: {
-      name: "Aputure 300D",
-      itemType: ItemType.ASSET,
-      availabilityStatus: AvailabilityStatus.ACTIVE,
-      stockTotal: 4,
-      pricePerDay: 4500,
-      locationText: "B-2",
-    },
-    create: {
-      id: "itm_light_aputure300d",
-      name: "Aputure 300D",
-      description: "Continuous light fixture",
-      itemType: ItemType.ASSET,
-      availabilityStatus: AvailabilityStatus.ACTIVE,
-      stockTotal: 4,
-      pricePerDay: 4500,
-      locationText: "B-2",
-    },
-  });
-
-  await prisma.item.upsert({
-    where: { id: "itm_cable_xlr" },
-    update: {
-      name: "XLR Cable 5m",
-      itemType: ItemType.BULK,
-      availabilityStatus: AvailabilityStatus.ACTIVE,
-      stockTotal: 20,
-      pricePerDay: 150,
-      locationText: "C-3",
-    },
-    create: {
-      id: "itm_cable_xlr",
-      name: "XLR Cable 5m",
-      description: "Audio cable",
-      itemType: ItemType.BULK,
-      availabilityStatus: AvailabilityStatus.ACTIVE,
-      stockTotal: 20,
-      pricePerDay: 150,
-      locationText: "C-3",
-    },
-  });
-
-  await prisma.item.upsert({
-    where: { id: "itm_tape_gaffer" },
-    update: {
-      name: "Gaffer Tape",
-      itemType: ItemType.CONSUMABLE,
-      availabilityStatus: AvailabilityStatus.ACTIVE,
-      stockTotal: 50,
-      pricePerDay: 80,
-      locationText: "D-1",
-    },
-    create: {
-      id: "itm_tape_gaffer",
-      name: "Gaffer Tape",
-      description: "Consumable tape roll",
-      itemType: ItemType.CONSUMABLE,
-      availabilityStatus: AvailabilityStatus.ACTIVE,
-      stockTotal: 50,
-      pricePerDay: 80,
-      locationText: "D-1",
-    },
-  });
+  for (const [id, name, itemType, stockTotal, pricePerDay, locationText] of items) {
+    await prisma.item.upsert({
+      where: { id },
+      update: { name, itemType, availabilityStatus: AvailabilityStatus.ACTIVE, stockTotal, pricePerDay, locationText },
+      create: {
+        id,
+        name,
+        description: `${name} — тестовая позиция`,
+        itemType,
+        availabilityStatus: AvailabilityStatus.ACTIVE,
+        stockTotal,
+        pricePerDay,
+        locationText,
+      },
+    });
+  }
 
   const categories = await prisma.category.findMany({
-    where: { id: { in: ["cat_cameras", "cat_lighting", "cat_consumables"] } },
+    where: { id: { in: categoryDefs.map((entry) => entry[0]) } },
     select: { id: true, name: true },
   });
-  const categoryByName = new Map(categories.map((c) => [c.name, c.id]));
-
-  const itemCategoryPairs = [
-    ["itm_camera_fx3", categoryByName.get("Cameras")],
-    ["itm_light_aputure300d", categoryByName.get("Lighting")],
-    ["itm_cable_xlr", categoryByName.get("Lighting")],
-    ["itm_tape_gaffer", categoryByName.get("Consumables")],
-  ];
+  const categoryById = new Map(categories.map((entry) => [entry.id, entry.id]));
+  const itemCategoryPairs = items.map((entry) => [entry[0], categoryById.get(entry[6])] as const);
 
   for (const [itemId, categoryId] of itemCategoryPairs) {
     if (!categoryId) continue;
@@ -190,25 +146,33 @@ async function main() {
     });
   }
 
-  await prisma.kit.upsert({
-    where: { id: "kit_interview_basic" },
-    update: {
-      name: "Interview Basic Kit",
-      description: "Camera + light + cables",
-      isActive: true,
-    },
-    create: {
-      id: "kit_interview_basic",
-      name: "Interview Basic Kit",
-      description: "Camera + light + cables",
-      isActive: true,
-    },
-  });
+  const kits = [
+    ["kit_craft_party", "Крафт вечеринка", "Игровой комплект для крафт-зоны", "https://images.unsplash.com/photo-1489515217757-5fd1be406fef?w=640"],
+    ["kit_photo_basic", "Фотозона базовая", "Арка, декор и свет", "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=640"],
+    ["kit_stage_show", "Сцена шоу", "Свет, звук и экран", "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=640"],
+    ["kit_quick_interview", "Интервью быстрый", "Камера, свет и микрофоны", "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=640"],
+  ];
+  for (const [id, name, description, coverImageUrl] of kits) {
+    await prisma.kit.upsert({
+      where: { id },
+      update: { name, description, coverImageUrl, isActive: true },
+      create: { id, name, description, coverImageUrl, isActive: true },
+    });
+  }
 
   const kitLines = [
-    { kitId: "kit_interview_basic", itemId: "itm_camera_fx3", defaultQty: 1 },
-    { kitId: "kit_interview_basic", itemId: "itm_light_aputure300d", defaultQty: 2 },
-    { kitId: "kit_interview_basic", itemId: "itm_cable_xlr", defaultQty: 4 },
+    { kitId: "kit_craft_party", itemId: "itm_game_jenga", defaultQty: 2 },
+    { kitId: "kit_craft_party", itemId: "itm_game_ring", defaultQty: 2 },
+    { kitId: "kit_craft_party", itemId: "itm_table_craft", defaultQty: 2 },
+    { kitId: "kit_photo_basic", itemId: "itm_photo_arch", defaultQty: 1 },
+    { kitId: "kit_photo_basic", itemId: "itm_photo_neon", defaultQty: 1 },
+    { kitId: "kit_photo_basic", itemId: "itm_light_tube", defaultQty: 2 },
+    { kitId: "kit_stage_show", itemId: "itm_led_screen", defaultQty: 1 },
+    { kitId: "kit_stage_show", itemId: "itm_speaker", defaultQty: 2 },
+    { kitId: "kit_stage_show", itemId: "itm_fog_machine", defaultQty: 1 },
+    { kitId: "kit_quick_interview", itemId: "itm_cam_fx3", defaultQty: 1 },
+    { kitId: "kit_quick_interview", itemId: "itm_light_300d", defaultQty: 2 },
+    { kitId: "kit_quick_interview", itemId: "itm_mic_kit", defaultQty: 1 },
   ];
 
   for (const line of kitLines) {
@@ -247,12 +211,12 @@ async function main() {
         lines: {
           create: [
             {
-              itemId: "itm_camera_fx3",
+              itemId: "itm_cam_fx3",
               requestedQty: 1,
               pricePerDaySnapshot: 8400,
             },
             {
-              itemId: "itm_light_aputure300d",
+              itemId: "itm_light_300d",
               requestedQty: 2,
               pricePerDaySnapshot: 3150,
             },

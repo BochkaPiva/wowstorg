@@ -9,6 +9,7 @@ import {
   toAvailabilityStatus,
   toIncidentType,
 } from "@/lib/orders";
+import { notifyOrderOwner } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 type Params = {
@@ -55,6 +56,11 @@ export async function POST(
     where: { id },
     include: {
       customer: true,
+      createdBy: {
+        select: {
+          telegramId: true,
+        },
+      },
       lines: {
         include: {
           item: true,
@@ -188,6 +194,21 @@ export async function POST(
       where: { id: order.id },
       include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
     });
+  });
+
+  await notifyOrderOwner({
+    orderId: order.id,
+    ownerTelegramId: order.createdBy.telegramId.toString(),
+    title: "Приемка по заявке завершена.",
+    lines: order.lines.map((line) => {
+      const checked = inputByLineId.get(line.id);
+      return {
+        itemName: line.item.name,
+        requestedQty: line.requestedQty,
+        approvedQty: line.approvedQty ?? line.requestedQty,
+        issuedQty: checked ? checked.returnedQty : line.issuedQty ?? line.approvedQty ?? line.requestedQty,
+      };
+    }),
   });
 
   return NextResponse.json({

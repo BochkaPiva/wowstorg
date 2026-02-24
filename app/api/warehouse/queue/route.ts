@@ -35,6 +35,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         include: {
           item: {
             select: {
+              id: true,
+              name: true,
               itemType: true,
             },
           },
@@ -75,6 +77,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       lines: order.lines.map((line) => ({
         id: line.id,
         itemId: line.itemId,
+        itemName: line.item.name,
         itemType: line.item.itemType,
         requestedQty: line.requestedQty,
         approvedQty: line.approvedQty,

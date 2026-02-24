@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireWarehouseUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
 import { parseIssueInput, serializeOrder } from "@/lib/orders";
+import { notifyOrderOwner } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 type Params = {
@@ -36,6 +37,11 @@ export async function POST(
     where: { id },
     include: {
       customer: true,
+      createdBy: {
+        select: {
+          telegramId: true,
+        },
+      },
       lines: {
         include: { item: true },
       },
@@ -117,6 +123,18 @@ export async function POST(
       where: { id: order.id },
       include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
     });
+  });
+
+  await notifyOrderOwner({
+    orderId: order.id,
+    ownerTelegramId: order.createdBy.telegramId.toString(),
+    title: "Заявка выдана.",
+    lines: order.lines.map((line) => ({
+      itemName: line.item.name,
+      requestedQty: line.requestedQty,
+      approvedQty: line.approvedQty ?? line.requestedQty,
+      issuedQty: inputByLineId.get(line.id) ?? 0,
+    })),
   });
 
   return NextResponse.json({

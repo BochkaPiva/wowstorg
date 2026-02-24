@@ -9,6 +9,7 @@ import {
   serializeOrder,
   validateDateRange,
 } from "@/lib/orders";
+import { notifyWarehouseAboutNewOrder } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 function normalizeLines(
@@ -206,7 +207,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
   });
 
+  const serialized = serializeOrder(order);
+  if (serialized.status === "SUBMITTED") {
+    await notifyWarehouseAboutNewOrder({
+      orderId: String(serialized.id),
+      customerName: (serialized.customerName as string | null) ?? null,
+      startDate: String(serialized.startDate),
+      endDate: String(serialized.endDate),
+    });
+  }
+
   return NextResponse.json({
-    order: serializeOrder(order),
+    order: serialized,
   });
 }

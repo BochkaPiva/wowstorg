@@ -45,7 +45,9 @@ export type ApproveOrderInput = {
   lines: Array<{
     orderLineId: string;
     approvedQty: number;
+    comment?: string | null;
   }>;
+  warehouseComment?: string | null;
 };
 
 export type IssueOrderInput = {
@@ -324,6 +326,10 @@ export function parseApproveInput(body: unknown): ApproveOrderInput | null {
     return {
       orderLineId: line.orderLineId.trim(),
       approvedQty,
+      comment:
+        typeof line.comment === "string" && line.comment.trim().length > 0
+          ? line.comment.trim()
+          : null,
     };
   });
 
@@ -331,7 +337,14 @@ export function parseApproveInput(body: unknown): ApproveOrderInput | null {
     return null;
   }
 
-  return { lines: lines as ApproveOrderInput["lines"] };
+  return {
+    lines: lines as ApproveOrderInput["lines"],
+    warehouseComment:
+      typeof payload.warehouseComment === "string" &&
+      payload.warehouseComment.trim().length > 0
+        ? payload.warehouseComment.trim()
+        : null,
+  };
 }
 
 export function parseIssueInput(body: unknown): IssueOrderInput | null {

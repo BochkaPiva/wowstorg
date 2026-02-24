@@ -68,9 +68,8 @@ async function resolveTelegramInitData(maxAttempts = 8, delayMs = 250): Promise<
 function roleTiles(role: AppRole | null): Tile[] {
   if (role === "GREENWICH") {
     return [
-      { href: "/orders/new", title: "Создать заявку", description: "Заказчик обязателен, мероприятие опционально" },
-      { href: "/my-orders", title: "Мои заявки", description: "Статусы и возврат по выданным заказам" },
-      { href: "/catalog", title: "Каталог", description: "Наличие по датам и цены со скидкой 30%" },
+      { href: "/catalog", title: "Каталог и оформление", description: "Соберите корзину и оформите заявку" },
+      { href: "/my-orders", title: "Мои заявки", description: "Статусы, выдача и возврат" },
     ];
   }
   if (role === "WAREHOUSE") {
@@ -167,7 +166,7 @@ export default function Home() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Warehouse System</h1>
+      <h1 className="text-2xl font-semibold text-[var(--brand)]">WowStorg Hub</h1>
       <p className="text-zinc-600">{status}</p>
       {user ? (
         <p className="text-sm text-zinc-700">

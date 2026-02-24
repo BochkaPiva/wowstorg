@@ -24,9 +24,7 @@ async function handleCommand(chatId: number, command: string): Promise<void> {
   if (command.startsWith("/start")) {
     await sendTelegramMessage({
       chatId,
-      text:
-        "Welcome. Use the button below to open Warehouse Mini App.\n" +
-        "Greenwich and Warehouse see different UI based on role.",
+      text: "Добро пожаловать. Нажмите кнопку ниже, чтобы открыть мини-приложение.",
       inlineKeyboard: buildMainKeyboard(webAppUrl),
     });
     return;

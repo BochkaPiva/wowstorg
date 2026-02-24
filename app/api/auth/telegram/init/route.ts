@@ -24,6 +24,7 @@ function parseBootstrapAdminIds(raw: string | undefined): Set<string> {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  try {
   let body: InitAuthBody;
 
   try {
@@ -50,7 +51,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const telegramUser = verified.value.user;
-  const telegramIdString = String(telegramUser.id);
+  const telegramIdString = String(telegramUser.id).trim();
+  if (!/^\d+$/.test(telegramIdString)) {
+    return fail(400, "Invalid Telegram user id.");
+  }
   const telegramId = BigInt(telegramIdString);
 
   let user = await prisma.user.findUnique({
@@ -97,4 +101,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     telegramId: user.telegramId.toString(),
     role: user.role,
   });
+  } catch (error) {
+    const message =
+      error instanceof Error && process.env.NODE_ENV !== "production"
+        ? `Telegram init failed: ${error.message}`
+        : "Telegram init failed.";
+    return fail(500, message);
+  }
 }

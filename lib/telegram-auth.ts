@@ -1,22 +1,12 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 export type TelegramInitUser = {
-  id: number | string;
+  id: number;
   username?: string;
   first_name?: string;
   last_name?: string;
   language_code?: string;
 };
-
-function parseTelegramId(value: unknown): string | null {
-  if (typeof value === "string" && /^\d+$/.test(value.trim())) {
-    return value.trim();
-  }
-  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
-    return String(value);
-  }
-  return null;
-}
 
 export type VerifiedInitData = {
   user: TelegramInitUser;
@@ -98,11 +88,9 @@ export function verifyTelegramInitData(
     return { ok: false, reason: "Invalid user payload JSON." };
   }
 
-  const parsedTelegramId = parseTelegramId(user.id);
-  if (!parsedTelegramId) {
+  if (!user.id || !Number.isFinite(user.id)) {
     return { ok: false, reason: "Invalid Telegram user id." };
   }
-  user.id = parsedTelegramId;
 
   return {
     ok: true,

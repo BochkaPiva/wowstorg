@@ -107,7 +107,9 @@ export async function POST(
     }
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
+  let updated;
+  try {
+    updated = await prisma.$transaction(async (tx) => {
     const itemDeltaById = new Map<
       string,
       { inRepair: number; broken: number; missing: number }
@@ -223,8 +225,13 @@ export async function POST(
       include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
     });
   });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return fail(500, `Ошибка при закрытии заявки: ${msg}`);
+  }
 
-  await notifyOrderOwner({
+  try {
+    await notifyOrderOwner({
     ownerTelegramId: order.createdBy.telegramId.toString(),
     title: "Приемка по заявке завершена.",
     startDate: order.startDate.toISOString().slice(0, 10),
@@ -257,6 +264,9 @@ export async function POST(
       },
     ],
   });
+  } catch {
+    // Уведомление не блокирует успех приёмки
+  }
 
   return NextResponse.json({
     order: serializeOrder(updated),

@@ -404,7 +404,8 @@ export default function WarehouseQueuePage() {
         payload = {};
       }
       if (!response.ok) {
-        setStatus(`Ошибка приемки: ${payload.error?.message ?? (raw || "операция не выполнена")}`);
+        const msg = payload.error?.message ?? (raw?.slice(0, 200) || "операция не выполнена");
+        setStatus(`Ошибка приемки (${response.status}): ${msg}`);
         return;
       }
       setExpandedCheckinOrderId(null);

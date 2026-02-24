@@ -224,7 +224,7 @@ export default function WarehouseQueuePage() {
               approvedQty: edited?.approvedQty ?? edited?.requestedQty ?? line.requestedQty,
               comment: edited?.comment?.trim() || undefined,
             };
-          })),
+          }),
           warehouseComment: warehouseComments[order.id]?.trim() || undefined,
         }),
       });

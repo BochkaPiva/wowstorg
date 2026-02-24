@@ -25,6 +25,7 @@ export async function POST(
 
   const targetStatus = resolveAvailabilityStatusFromBuckets({
     currentStatus: item.availabilityStatus,
+    stockTotal: item.stockTotal,
     stockInRepair: item.stockInRepair,
     stockBroken: item.stockBroken,
     stockMissing: item.stockMissing,

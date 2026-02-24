@@ -203,6 +203,7 @@ export async function POST(
           stockMissing: nextStockMissing,
           availabilityStatus: resolveAvailabilityStatusFromBuckets({
             currentStatus: item.availabilityStatus,
+            stockTotal: item.stockTotal,
             stockInRepair: nextStockInRepair,
             stockBroken: nextStockBroken,
             stockMissing: nextStockMissing,

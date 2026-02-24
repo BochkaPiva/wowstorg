@@ -88,6 +88,7 @@ export async function PATCH(request: NextRequest, { params }: Params): Promise<N
         stockTotal: nextStockTotal,
         availabilityStatus: resolveAvailabilityStatusFromBuckets({
           currentStatus: item.availabilityStatus,
+          stockTotal: nextStockTotal,
           stockInRepair: item.stockInRepair,
           stockBroken: item.stockBroken,
           stockMissing: nextStockMissing,

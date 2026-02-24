@@ -16,6 +16,8 @@ type ClientReturnLine = {
   comment?: string;
 };
 
+const CLIENT_DECLARATION_MARKER = "CLIENT_RETURN_DECLARATION_B64:";
+
 function parseClientDeclaration(
   body: unknown,
 ): { lines: ClientReturnLine[]; comment?: string } | null {
@@ -126,13 +128,45 @@ export async function POST(
         ? `Комментарий клиента: ${declaration.comment}`
         : null;
 
+  const declarationMachineChunk =
+    declaration && declaration.lines.length > 0
+      ? `${CLIENT_DECLARATION_MARKER}${Buffer.from(
+          JSON.stringify({
+            createdAt: new Date().toISOString(),
+            lines: declaration.lines.map((line) => {
+              const orderLine = lineMap.get(line.orderLineId)!;
+              const issuedQty = orderLine.issuedQty ?? orderLine.approvedQty ?? orderLine.requestedQty;
+              return {
+                orderLineId: line.orderLineId,
+                itemId: orderLine.itemId,
+                returnedQty: line.returnedQty,
+                issuedQty,
+                condition: line.condition,
+                comment: line.comment ?? null,
+              };
+            }),
+            comment: declaration.comment ?? null,
+          }),
+          "utf8",
+        ).toString("base64")}`
+      : null;
+
   const updated = await prisma.$transaction(async (tx) => {
     await tx.order.update({
       where: { id: order.id },
       data: {
         status: "RETURN_DECLARED",
         returnDeclaredAt: new Date(),
-        notes: declarationText ? `${order.notes ? `${order.notes}\n` : ""}${declarationText}` : order.notes,
+        notes:
+          declarationText || declarationMachineChunk
+            ? [
+                order.notes ?? "",
+                declarationText ?? "",
+                declarationMachineChunk ?? "",
+              ]
+                .filter((entry) => entry.length > 0)
+                .join("\n")
+            : order.notes,
       },
     });
 

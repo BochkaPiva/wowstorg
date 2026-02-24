@@ -14,6 +14,44 @@ const QUEUE_STATUSES: OrderStatus[] = [
   OrderStatus.RETURN_DECLARED,
 ];
 
+const CLIENT_DECLARATION_MARKER = "CLIENT_RETURN_DECLARATION_B64:";
+
+type ClientDeclaredLine = {
+  orderLineId: string;
+  itemId: string;
+  returnedQty: number;
+  issuedQty: number;
+  condition: "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING";
+  comment: string | null;
+};
+
+function parseClientDeclaration(noteText: string | null): {
+  lines: ClientDeclaredLine[];
+  comment: string | null;
+} | null {
+  if (!noteText || !noteText.includes(CLIENT_DECLARATION_MARKER)) {
+    return null;
+  }
+
+  const markerIndex = noteText.lastIndexOf(CLIENT_DECLARATION_MARKER);
+  if (markerIndex < 0) return null;
+  const encoded = noteText.slice(markerIndex + CLIENT_DECLARATION_MARKER.length).trim();
+  if (!encoded) return null;
+
+  try {
+    const decoded = JSON.parse(Buffer.from(encoded, "base64").toString("utf8")) as {
+      lines?: ClientDeclaredLine[];
+      comment?: string | null;
+    };
+    return {
+      lines: Array.isArray(decoded.lines) ? decoded.lines : [],
+      comment: decoded.comment ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const auth = await requireWarehouseUser(request);
   if (!auth.ok) {
@@ -78,6 +116,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       endDate: order.endDate.toISOString().slice(0, 10),
       pickupTime: order.pickupTime,
       notes: order.notes,
+      clientDeclaration: parseClientDeclaration(order.notes),
       createdBy: {
         id: order.createdBy.id,
         username: order.createdBy.username,

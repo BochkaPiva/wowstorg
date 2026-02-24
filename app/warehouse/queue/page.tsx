@@ -25,6 +25,17 @@ type QueueOrder = {
   startDate: string;
   endDate: string;
   notes: string | null;
+  clientDeclaration: {
+    lines: Array<{
+      orderLineId: string;
+      itemId: string;
+      returnedQty: number;
+      issuedQty: number;
+      condition: "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING";
+      comment: string | null;
+    }>;
+    comment: string | null;
+  } | null;
   createdBy: { username: string | null; telegramId: string };
   lines: QueueLine[];
 };
@@ -319,14 +330,18 @@ export default function WarehouseQueuePage() {
 
   async function checkinDetailed(order: QueueOrder) {
     const draft = checkinDrafts[order.id] ?? {};
-    const lines = Object.entries(draft)
-      .filter(([, value]) => value.checked)
-      .map(([orderLineId, value]) => ({
-        orderLineId,
-        returnedQty: value.returnedQty,
-        condition: value.condition,
-        comment: value.comment.trim() || undefined,
-      }));
+    const lines = order.lines
+      .filter((line) => line.itemType !== "CONSUMABLE")
+      .map((line) => {
+        const value = draft[line.id];
+        const fallbackQty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+        return {
+          orderLineId: line.id,
+          returnedQty: Number.isInteger(value?.returnedQty) ? value.returnedQty : fallbackQty,
+          condition: value?.condition ?? "OK",
+          comment: value?.comment?.trim() || undefined,
+        };
+      });
     if (lines.length === 0) {
       setStatus("Отметьте минимум одну позицию для приемки.");
       return;
@@ -641,11 +656,28 @@ export default function WarehouseQueuePage() {
             {expandedCheckinOrderId === order.id ? (
               <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white p-3">
                 <div className="mb-2 text-sm font-semibold">Приемка по позициям</div>
+                {order.clientDeclaration ? (
+                  <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+                    <div className="font-semibold">Что отметил клиент при возврате:</div>
+                    <ul className="mt-1 space-y-1">
+                      {order.clientDeclaration.lines.map((line) => (
+                        <li key={line.orderLineId}>
+                          {line.itemId}: {line.returnedQty} из {line.issuedQty}, статус {line.condition}
+                          {line.comment ? ` (${line.comment})` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                    {order.clientDeclaration.comment ? (
+                      <div className="mt-1">Комментарий клиента: {order.clientDeclaration.comment}</div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="space-y-2">
                   {order.lines
                     .filter((line) => line.itemType !== "CONSUMABLE")
                     .map((line) => {
                       const draft = checkinDrafts[order.id]?.[line.id];
+                      const clientLine = order.clientDeclaration?.lines.find((entry) => entry.orderLineId === line.id);
                       return (
                         <div key={line.id} className="rounded-xl border border-[var(--border)] p-2">
                           <label className="mb-1 inline-flex items-center gap-2 text-sm">
@@ -664,6 +696,12 @@ export default function WarehouseQueuePage() {
                             />
                             <span>{line.itemName}</span>
                           </label>
+                          {clientLine ? (
+                            <div className="mb-1 text-xs text-amber-800">
+                              Клиент указал: {clientLine.returnedQty} из {clientLine.issuedQty}, {clientLine.condition}
+                              {clientLine.comment ? ` (${clientLine.comment})` : ""}
+                            </div>
+                          ) : null}
                           <div className="grid gap-2 sm:grid-cols-3">
                             <input
                               className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"

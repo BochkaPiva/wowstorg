@@ -63,6 +63,14 @@ function statusText(status: QueueOrder["status"]): string {
   }
 }
 
+function statusBadge(status: QueueOrder["status"]): string {
+  if (status === "SUBMITTED") return "bg-violet-100 text-violet-800 border-violet-200";
+  if (status === "APPROVED") return "bg-indigo-100 text-indigo-800 border-indigo-200";
+  if (status === "RETURN_DECLARED") return "bg-amber-100 text-amber-800 border-amber-200";
+  if (status === "ISSUED") return "bg-sky-100 text-sky-800 border-sky-200";
+  return "bg-zinc-100 text-zinc-700 border-zinc-200";
+}
+
 function cardClass(status: QueueOrder["status"]): string {
   if (status === "SUBMITTED") return "bg-violet-50 border-violet-200";
   if (status === "APPROVED") return "bg-indigo-50 border-indigo-200";
@@ -178,52 +186,60 @@ export default function WarehouseQueuePage() {
 
   async function approveOrder(order: QueueOrder) {
     setBusyOrderId(order.id);
-    const draft = approveDrafts[order.id];
-    const response = await fetch(`/api/orders/${order.id}/approve`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        lines: order.lines.map((line) => ({
-          orderLineId: line.id,
-          approvedQty: draft?.[line.id]?.approvedQty ?? line.requestedQty,
-          comment: draft?.[line.id]?.comment?.trim() || undefined,
-        })),
-        warehouseComment: warehouseComments[order.id]?.trim() || undefined,
-      }),
-    });
-    const payload = (await response.json()) as { error?: { message?: string } };
-    if (!response.ok) {
-      setStatus(`Ошибка подтверждения: ${payload.error?.message ?? "проверьте данные"}`);
+    try {
+      const draft = approveDrafts[order.id];
+      const response = await fetch(`/api/orders/${order.id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lines: order.lines.map((line) => ({
+            orderLineId: line.id,
+            approvedQty: draft?.[line.id]?.approvedQty ?? line.requestedQty,
+            comment: draft?.[line.id]?.comment?.trim() || undefined,
+          })),
+          warehouseComment: warehouseComments[order.id]?.trim() || undefined,
+        }),
+      });
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        setStatus(`Ошибка подтверждения: ${payload.error?.message ?? "проверьте данные"}`);
+        return;
+      }
+      setStatus(`Заявка ${order.id} согласована.`);
+      await loadQueue();
+    } catch {
+      setStatus("Ошибка сети при подтверждении.");
+    } finally {
       setBusyOrderId(null);
-      return;
     }
-    setBusyOrderId(null);
-    setStatus(`Заявка ${order.id} согласована.`);
-    await loadQueue();
   }
 
   async function issueOrder(order: QueueOrder) {
     setBusyOrderId(order.id);
-    const issueDraft = issueDrafts[order.id];
-    const response = await fetch(`/api/orders/${order.id}/issue`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        lines: order.lines.map((line) => ({
-          orderLineId: line.id,
-          issuedQty: issueDraft?.[line.id] ?? (line.approvedQty ?? line.requestedQty),
-        })),
-      }),
-    });
-    const payload = (await response.json()) as { error?: { message?: string } };
-    if (!response.ok) {
-      setStatus(`Ошибка выдачи: ${payload.error?.message ?? "операция не выполнена"}`);
+    try {
+      const issueDraft = issueDrafts[order.id];
+      const response = await fetch(`/api/orders/${order.id}/issue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lines: order.lines.map((line) => ({
+            orderLineId: line.id,
+            issuedQty: issueDraft?.[line.id] ?? (line.approvedQty ?? line.requestedQty),
+          })),
+        }),
+      });
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        setStatus(`Ошибка выдачи: ${payload.error?.message ?? "операция не выполнена"}`);
+        return;
+      }
+      setStatus(`Заявка ${order.id} выдана.`);
+      await loadQueue();
+    } catch {
+      setStatus("Ошибка сети при выдаче.");
+    } finally {
       setBusyOrderId(null);
-      return;
     }
-    setBusyOrderId(null);
-    setStatus(`Заявка ${order.id} выдана.`);
-    await loadQueue();
   }
 
   async function saveWarehouseEdit(order: QueueOrder) {
@@ -233,26 +249,30 @@ export default function WarehouseQueuePage() {
       return;
     }
     setBusyOrderId(order.id);
-    const response = await fetch(`/api/orders/${order.id}/warehouse-edit`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        lines: draft.lines.map((line) => ({
-          itemId: line.itemId,
-          requestedQty: line.requestedQty,
-        })),
-        reason: draft.reason.trim() || undefined,
-      }),
-    });
-    const payload = (await response.json()) as { error?: { message?: string } };
-    if (!response.ok) {
-      setStatus(`Ошибка правки: ${payload.error?.message ?? "не удалось обновить"}`);
+    try {
+      const response = await fetch(`/api/orders/${order.id}/warehouse-edit`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lines: draft.lines.map((line) => ({
+            itemId: line.itemId,
+            requestedQty: line.requestedQty,
+          })),
+          reason: draft.reason.trim() || undefined,
+        }),
+      });
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        setStatus(`Ошибка правки: ${payload.error?.message ?? "не удалось обновить"}`);
+        return;
+      }
+      setStatus(`Состав заявки ${order.id} обновлен.`);
+      await loadQueue();
+    } catch {
+      setStatus("Ошибка сети при сохранении правок.");
+    } finally {
       setBusyOrderId(null);
-      return;
     }
-    setBusyOrderId(null);
-    setStatus(`Состав заявки ${order.id} обновлен.`);
-    await loadQueue();
   }
 
   async function checkinFastAllOk(order: QueueOrder) {
@@ -268,21 +288,25 @@ export default function WarehouseQueuePage() {
       return;
     }
     setBusyOrderId(order.id);
-    const response = await fetch(`/api/orders/${order.id}/check-in`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lines }),
-    });
-    const payload = (await response.json()) as { error?: { message?: string } };
-    if (!response.ok) {
-      setStatus(`Ошибка приемки: ${payload.error?.message ?? "операция не выполнена"}`);
+    try {
+      const response = await fetch(`/api/orders/${order.id}/check-in`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lines }),
+      });
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        setStatus(`Ошибка приемки: ${payload.error?.message ?? "операция не выполнена"}`);
+        return;
+      }
+      setExpandedCheckinOrderId(null);
+      setStatus(`Заявка ${order.id} закрыта.`);
+      await loadQueue();
+    } catch {
+      setStatus("Ошибка сети при приемке.");
+    } finally {
       setBusyOrderId(null);
-      return;
     }
-    setBusyOrderId(null);
-    setExpandedCheckinOrderId(null);
-    setStatus(`Заявка ${order.id} закрыта.`);
-    await loadQueue();
   }
 
   async function checkinDetailed(order: QueueOrder) {
@@ -300,21 +324,25 @@ export default function WarehouseQueuePage() {
       return;
     }
     setBusyOrderId(order.id);
-    const response = await fetch(`/api/orders/${order.id}/check-in`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lines }),
-    });
-    const payload = (await response.json()) as { error?: { message?: string } };
-    if (!response.ok) {
-      setStatus(`Ошибка приемки: ${payload.error?.message ?? "операция не выполнена"}`);
+    try {
+      const response = await fetch(`/api/orders/${order.id}/check-in`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lines }),
+      });
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        setStatus(`Ошибка приемки: ${payload.error?.message ?? "операция не выполнена"}`);
+        return;
+      }
+      setExpandedCheckinOrderId(null);
+      setStatus(`Заявка ${order.id} закрыта.`);
+      await loadQueue();
+    } catch {
+      setStatus("Ошибка сети при приемке.");
+    } finally {
       setBusyOrderId(null);
-      return;
     }
-    setBusyOrderId(null);
-    setExpandedCheckinOrderId(null);
-    setStatus(`Заявка ${order.id} закрыта.`);
-    await loadQueue();
   }
 
   return (
@@ -344,7 +372,9 @@ export default function WarehouseQueuePage() {
                 <div className="text-xs text-[var(--muted)]">Состав: {previewLines(order.lines)}</div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-medium">{statusText(order.status)}</span>
+                <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusBadge(order.status)}`}>
+                  {statusText(order.status)}
+                </span>
                 <button className="ws-btn" type="button" onClick={() => void openOrder(order)}>
                   {expandedOrderId === order.id ? "Скрыть детали" : "Открыть детали"}
                 </button>

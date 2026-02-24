@@ -59,7 +59,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     where.itemType = itemTypeRaw as ItemType;
   }
 
-  const canSeeInactive = isWarehouseSide(auth.user.role) && includeInactive;
+  const canSeeInactive = includeInactive || isWarehouseSide(auth.user.role);
   if (!canSeeInactive) {
     where.availabilityStatus = "ACTIVE";
   }

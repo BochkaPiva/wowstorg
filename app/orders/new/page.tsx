@@ -11,6 +11,8 @@ type ItemRow = {
   itemType: string;
   availabilityStatus: ItemStatus;
   availableQty: number;
+  pricePerDay: number;
+  pricePerDayDiscounted: number;
   categories?: Array<{ id: string; name: string }>;
 };
 type Category = { id: string; name: string; itemCount: number };
@@ -18,10 +20,25 @@ type Kit = {
   id: string;
   name: string;
   description: string | null;
-  lines: Array<{ defaultQty: number; item: { id: string; name: string } }>;
+  lines: Array<{
+    defaultQty: number;
+    item: { id: string; name: string; pricePerDay: number; pricePerDayDiscounted: number };
+  }>;
 };
 type CartLine = { itemId: string; name: string; qty: number };
 type Customer = { id: string; name: string };
+
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat("ru-RU").format(Math.round(value));
+}
+
+function calcDays(startDate: string, endDate: string): number {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  const diffMs = end.getTime() - start.getTime();
+  const days = Math.round(diffMs / 86400000);
+  return Number.isFinite(days) && days > 0 ? days : 1;
+}
 
 function getVisualStatus(item: ItemRow): { dot: string; label: string } {
   if (item.availabilityStatus === "BROKEN") return { dot: "bg-red-500", label: "Сломано" };
@@ -87,6 +104,17 @@ export default function CreateOrderPage() {
   }, [startDate, endDate, search]);
 
   const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+  const rentalDays = useMemo(() => calcDays(startDate, endDate), [startDate, endDate]);
+  const cartSubtotalPerDay = useMemo(
+    () =>
+      cart.reduce((sum, line) => {
+        const item = itemById.get(line.itemId);
+        if (!item) return sum;
+        return sum + line.qty * item.pricePerDay;
+      }, 0),
+    [cart, itemById],
+  );
+  const cartTotal = cartSubtotalPerDay * rentalDays;
   const activeCategory = useMemo(
     () => categories.find((category) => category.id === selectedCategoryId) ?? null,
     [categories, selectedCategoryId],
@@ -213,6 +241,10 @@ export default function CreateOrderPage() {
                 <div>
                   <div className="font-medium">{kit.name}</div>
                   <div className="text-xs text-[var(--muted)]">{kit.description ?? "Без описания"}</div>
+                  <div className="text-xs text-[var(--muted)]">
+                    Цена пакета/сутки:{" "}
+                    {formatMoney(kit.lines.reduce((sum, line) => sum + line.defaultQty * line.item.pricePerDay, 0))} ₽
+                  </div>
                 </div>
                 <button className="ws-btn" type="button" onClick={() => addKit(kit)}>Добавить пакет</button>
               </div>
@@ -235,6 +267,7 @@ export default function CreateOrderPage() {
                       {item.name}
                     </div>
                     <div className="text-xs text-[var(--muted)]">{item.itemType} • {visual.label} • доступно: {item.availableQty}</div>
+                    <div className="text-xs text-[var(--muted)]">Цена/сутки: {formatMoney(item.pricePerDay)} ₽</div>
                   </div>
                   <button className="ws-btn disabled:opacity-50" type="button" onClick={() => addItem(item)} disabled={!isAddable}>В корзину</button>
                 </div>
@@ -248,7 +281,15 @@ export default function CreateOrderPage() {
         <div className="font-semibold">Корзина ({cart.length})</div>
         {cart.map((line) => (
           <div key={line.itemId} className="grid grid-cols-[1fr_90px_auto] items-center gap-2">
-            <div className="text-sm">{line.name}</div>
+            <div className="text-sm">
+              {line.name}
+              {itemById.get(line.itemId) ? (
+                <div className="text-xs text-[var(--muted)]">
+                  {line.qty} x {formatMoney(itemById.get(line.itemId)!.pricePerDay)} ₽/сутки ={" "}
+                  {formatMoney(line.qty * itemById.get(line.itemId)!.pricePerDay)} ₽/сутки
+                </div>
+              ) : null}
+            </div>
             <input
               className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
               type="number"
@@ -274,6 +315,11 @@ export default function CreateOrderPage() {
           <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Новый заказчик (если нет в базе)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
           <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Мероприятие (опционально)" value={eventName} onChange={(e) => setEventName(e.target.value)} />
           <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Комментарий (опционально)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+        <div className="rounded-xl border border-[var(--border)] bg-violet-50 p-3 text-sm">
+          <div>Суток аренды: {rentalDays}</div>
+          <div>Итого за сутки: {formatMoney(cartSubtotalPerDay)} ₽</div>
+          <div className="font-semibold text-[var(--brand)]">Общая сумма: {formatMoney(cartTotal)} ₽</div>
         </div>
 
         <div className="flex justify-end">

@@ -12,6 +12,8 @@ type ItemRow = {
   itemType: string;
   availabilityStatus: ItemStatus;
   availableQty: number;
+  pricePerDay: number;
+  pricePerDayDiscounted: number;
   categories?: Array<{ id: string; name: string }>;
 };
 
@@ -20,10 +22,25 @@ type Kit = {
   id: string;
   name: string;
   description: string | null;
-  lines: Array<{ defaultQty: number; item: { id: string; name: string } }>;
+  lines: Array<{
+    defaultQty: number;
+    item: { id: string; name: string; pricePerDay: number; pricePerDayDiscounted: number };
+  }>;
 };
 type CartLine = { itemId: string; name: string; qty: number };
 type Customer = { id: string; name: string };
+
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat("ru-RU").format(Math.round(value));
+}
+
+function calcDays(startDate: string, endDate: string): number {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  const diffMs = end.getTime() - start.getTime();
+  const days = Math.round(diffMs / 86400000);
+  return Number.isFinite(days) && days > 0 ? days : 1;
+}
 
 function getVisualStatus(item: ItemRow): { dot: string; label: string } {
   if (item.availabilityStatus === "BROKEN") return { dot: "bg-red-500", label: "Сломано" };
@@ -149,6 +166,18 @@ export default function CatalogPage() {
   }
 
   const isGreenwich = role === "GREENWICH";
+  const rentalDays = useMemo(() => calcDays(startDate, endDate), [startDate, endDate]);
+  const cartSubtotalPerDay = useMemo(
+    () =>
+      cart.reduce((sum, line) => {
+        const item = itemById.get(line.itemId);
+        if (!item) return sum;
+        const price = isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay;
+        return sum + line.qty * price;
+      }, 0),
+    [cart, itemById, isGreenwich],
+  );
+  const cartTotal = cartSubtotalPerDay * rentalDays;
 
   async function submitOrder() {
     if (!isGreenwich) {
@@ -288,6 +317,18 @@ export default function CatalogPage() {
                 <div>
                   <div className="font-medium">{kit.name}</div>
                   <div className="text-xs text-[var(--muted)]">{kit.description ?? "Без описания"}</div>
+                    <div className="text-xs text-[var(--muted)]">
+                      Цена пакета/сутки:{" "}
+                      {formatMoney(
+                        kit.lines.reduce((sum, line) => {
+                          const unit = isGreenwich
+                            ? line.item.pricePerDayDiscounted
+                            : line.item.pricePerDay;
+                          return sum + line.defaultQty * unit;
+                        }, 0),
+                      )}{" "}
+                      ₽
+                    </div>
                   <div className="mt-2 text-xs text-[var(--muted)]">
                     {kit.lines.slice(0, 4).map((line) => `${line.item.name} x${line.defaultQty}`).join(", ")}
                     {kit.lines.length > 4 ? ` +${kit.lines.length - 4}` : ""}
@@ -318,6 +359,9 @@ export default function CatalogPage() {
                     <div className="text-xs text-[var(--muted)]">
                       {item.itemType} • {visual.label} • доступно: {item.availableQty}
                     </div>
+                    <div className="text-xs text-[var(--muted)]">
+                      Цена/сутки: {formatMoney(isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay)} ₽
+                    </div>
                   </div>
                   <button className="ws-btn disabled:opacity-50" type="button" onClick={() => addItem(item)} disabled={!isAddable}>
                     В корзину
@@ -337,7 +381,15 @@ export default function CatalogPage() {
           const maxQty = item ? Math.max(1, item.availableQty) : 1;
           return (
             <div key={line.itemId} className="grid grid-cols-[1fr_90px_auto] items-center gap-2">
-              <div className="text-sm">{line.name}</div>
+              <div className="text-sm">
+                {line.name}
+                {item ? (
+                  <div className="text-xs text-[var(--muted)]">
+                    {line.qty} x {formatMoney(isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay)} ₽/сутки ={" "}
+                    {formatMoney(line.qty * (isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay))} ₽/сутки
+                  </div>
+                ) : null}
+              </div>
               <input
                 className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
                 type="number"
@@ -365,6 +417,11 @@ export default function CatalogPage() {
           <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Новый заказчик (если нет в базе)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
           <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Мероприятие (опционально)" value={eventName} onChange={(e) => setEventName(e.target.value)} />
           <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Комментарий (опционально)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+        <div className="rounded-xl border border-[var(--border)] bg-violet-50 p-3 text-sm">
+          <div>Суток аренды: {rentalDays}</div>
+          <div>Итого за сутки: {formatMoney(cartSubtotalPerDay)} ₽</div>
+          <div className="font-semibold text-[var(--brand)]">Общая сумма: {formatMoney(cartTotal)} ₽</div>
         </div>
 
         <div className="flex justify-end">

@@ -54,8 +54,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     orderBy: [{ isEmergency: "desc" }, { updatedAt: "desc" }],
   });
 
+  const visibleOrders = orders.filter((order) => {
+    if (order.status !== OrderStatus.ISSUED) {
+      return true;
+    }
+    // Hide issued orders that contain only consumables:
+    // they do not require check-in and clutter operational queue.
+    return order.lines.some((line) => line.item.itemType !== "CONSUMABLE");
+  });
+
   return NextResponse.json({
-    orders: orders.map((order) => ({
+    orders: visibleOrders.map((order) => ({
       id: order.id,
       status: order.status,
       isEmergency: order.isEmergency,

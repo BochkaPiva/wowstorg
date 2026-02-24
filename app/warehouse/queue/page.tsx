@@ -67,7 +67,7 @@ function cardClass(status: QueueOrder["status"]): string {
   if (status === "SUBMITTED") return "bg-violet-50 border-violet-200";
   if (status === "APPROVED") return "bg-indigo-50 border-indigo-200";
   if (status === "RETURN_DECLARED") return "bg-amber-50 border-amber-200";
-  if (status === "ISSUED") return "bg-slate-50 border-slate-200";
+  if (status === "ISSUED") return "bg-zinc-50 border-zinc-200";
   return "bg-white border-zinc-200";
 }
 
@@ -392,7 +392,7 @@ export default function WarehouseQueuePage() {
             </div>
 
             {expandedOrderId === order.id ? (
-              <div className="mt-4 space-y-3 rounded-2xl border border-white/60 bg-white/70 p-3">
+              <div className="mt-4 space-y-3 rounded-2xl border border-[var(--border)] bg-white p-3">
                 {(order.status === "SUBMITTED" || order.status === "APPROVED") && editDrafts[order.id] ? (
                   <div className="ws-card p-3">
                     <div className="mb-2 text-sm font-semibold">Корректировка корзины клиентской заявки</div>
@@ -600,7 +600,7 @@ export default function WarehouseQueuePage() {
             ) : null}
 
             {expandedCheckinOrderId === order.id ? (
-              <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white/80 p-3">
+              <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white p-3">
                 <div className="mb-2 text-sm font-semibold">Приемка по позициям</div>
                 <div className="space-y-2">
                   {order.lines

@@ -164,11 +164,12 @@ export default function WarehouseQueuePage() {
       const next: CheckinDraftByLine = {};
       for (const line of order.lines) {
         if (line.itemType !== "CONSUMABLE") {
+          const clientLine = order.clientDeclaration?.lines.find((entry) => entry.orderLineId === line.id);
           next[line.id] = {
             checked: true,
-            returnedQty: line.issuedQty ?? line.approvedQty ?? line.requestedQty,
-            condition: "OK",
-            comment: "",
+            returnedQty: clientLine?.returnedQty ?? (line.issuedQty ?? line.approvedQty ?? line.requestedQty),
+            condition: clientLine?.condition ?? "OK",
+            comment: clientLine?.comment ?? "",
           };
         }
       }
@@ -295,6 +296,10 @@ export default function WarehouseQueuePage() {
   }
 
   async function checkinFastAllOk(order: QueueOrder) {
+    if (order.status !== "RETURN_DECLARED") {
+      setStatus("Приемка доступна только после того, как клиент отправит возврат на приемку.");
+      return;
+    }
     const lines = order.lines
       .filter((line) => line.itemType !== "CONSUMABLE")
       .map((line) => ({
@@ -329,6 +334,10 @@ export default function WarehouseQueuePage() {
   }
 
   async function checkinDetailed(order: QueueOrder) {
+    if (order.status !== "RETURN_DECLARED") {
+      setStatus("Приемка доступна только после того, как клиент отправит возврат на приемку.");
+      return;
+    }
     const draft = checkinDrafts[order.id] ?? {};
     const lines = order.lines
       .filter((line) => line.itemType !== "CONSUMABLE")
@@ -433,7 +442,7 @@ export default function WarehouseQueuePage() {
                       className="ws-btn disabled:opacity-50"
                       type="button"
                       onClick={() => void checkinFastAllOk(order)}
-                      disabled={busyOrderId !== null}
+                      disabled={busyOrderId !== null || order.status !== "RETURN_DECLARED"}
                     >
                       Принять все (ОК)
                     </button>
@@ -441,7 +450,7 @@ export default function WarehouseQueuePage() {
                       className="ws-btn disabled:opacity-50"
                       type="button"
                       onClick={() => setExpandedCheckinOrderId((prev) => (prev === order.id ? null : order.id))}
-                      disabled={busyOrderId !== null}
+                      disabled={busyOrderId !== null || order.status !== "RETURN_DECLARED"}
                     >
                       {expandedCheckinOrderId === order.id ? "Скрыть приемку" : "Приемка по позициям"}
                     </button>
@@ -661,13 +670,18 @@ export default function WarehouseQueuePage() {
             {expandedCheckinOrderId === order.id ? (
               <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white p-3">
                 <div className="mb-2 text-sm font-semibold">Приемка по позициям</div>
+                {order.status !== "RETURN_DECLARED" ? (
+                  <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+                    Клиент еще не отправил возврат на приемку. Дождитесь статуса «Ожидает приемки».
+                  </div>
+                ) : null}
                 {order.clientDeclaration ? (
                   <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
                     <div className="font-semibold">Что отметил клиент при возврате:</div>
                     <ul className="mt-1 space-y-1">
                       {order.clientDeclaration.lines.map((line) => (
                         <li key={line.orderLineId}>
-                          {line.itemId}: {line.returnedQty} из {line.issuedQty}, статус {line.condition}
+                          {order.lines.find((entry) => entry.id === line.orderLineId)?.itemName ?? line.itemId}: {line.returnedQty} из {line.issuedQty}, статус {line.condition}
                           {line.comment ? ` (${line.comment})` : ""}
                         </li>
                       ))}
@@ -685,22 +699,7 @@ export default function WarehouseQueuePage() {
                       const clientLine = order.clientDeclaration?.lines.find((entry) => entry.orderLineId === line.id);
                       return (
                         <div key={line.id} className="rounded-xl border border-[var(--border)] p-2">
-                          <label className="mb-1 inline-flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={draft?.checked ?? true}
-                              onChange={(event) =>
-                                setCheckinDrafts((prev) => ({
-                                  ...prev,
-                                  [order.id]: {
-                                    ...(prev[order.id] ?? {}),
-                                    [line.id]: { ...(prev[order.id]?.[line.id] ?? draft), checked: event.target.checked } as CheckinDraftByLine[string],
-                                  },
-                                }))
-                              }
-                            />
-                            <span>{line.itemName}</span>
-                          </label>
+                          <div className="mb-1 text-sm">{line.itemName}</div>
                           {clientLine ? (
                             <div className="mb-1 text-xs text-amber-800">
                               Клиент указал: {clientLine.returnedQty} из {clientLine.issuedQty}, {clientLine.condition}

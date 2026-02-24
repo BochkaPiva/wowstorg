@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 type OrderLine = {
   id: string;
   itemId: string;
+  itemName: string;
   requestedQty: number;
   approvedQty: number | null;
   issuedQty: number | null;
@@ -24,7 +25,7 @@ type Order = {
 };
 
 type ReturnCondition = "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING";
-type ReturnDraft = Record<string, { checked: boolean; returnedQty: number; condition: ReturnCondition; comment: string }>;
+type ReturnDraft = Record<string, { returnedQty: number; condition: ReturnCondition; comment: string }>;
 
 function statusText(status: Order["status"]): string {
   switch (status) {
@@ -85,7 +86,7 @@ export default function MyOrdersPage() {
       const draft: ReturnDraft = {};
       for (const line of order.lines) {
         const issuedQty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
-        draft[line.id] = { checked: true, returnedQty: issuedQty, condition: "OK", comment: "" };
+        draft[line.id] = { returnedQty: issuedQty, condition: "OK", comment: "" };
       }
       return { ...prev, [order.id]: draft };
     });
@@ -126,18 +127,12 @@ export default function MyOrdersPage() {
       setStatus("Сначала откройте форму возврата.");
       return;
     }
-    const lines = Object.entries(draft)
-      .filter(([, value]) => value.checked)
-      .map(([orderLineId, value]) => ({
+    const lines = Object.entries(draft).map(([orderLineId, value]) => ({
         orderLineId,
         returnedQty: value.returnedQty,
         condition: value.condition,
         comment: value.comment.trim() || undefined,
       }));
-    if (lines.length === 0) {
-      setStatus("Отметьте хотя бы одну позицию в форме возврата.");
-      return;
-    }
 
     setBusyOrderId(order.id);
     try {
@@ -196,7 +191,7 @@ export default function MyOrdersPage() {
                   Источник: {order.orderSource} • обновлено: {new Date(order.updatedAt).toLocaleString("ru-RU")}
                 </div>
                 <div className="text-xs text-[var(--muted)]">
-                  Состав: {order.lines.slice(0, 3).map((line) => `${line.itemId} x${line.requestedQty}`).join(", ")}
+                  Состав: {order.lines.slice(0, 3).map((line) => `${line.itemName} x${line.requestedQty}`).join(", ")}
                   {order.lines.length > 3 ? ` +${order.lines.length - 3}` : ""}
                 </div>
               </div>
@@ -230,22 +225,7 @@ export default function MyOrdersPage() {
                   const draft = returnDrafts[order.id]?.[line.id];
                   return (
                     <div key={line.id} className="rounded-xl border border-[var(--border)] p-2">
-                      <label className="mb-1 inline-flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={draft?.checked ?? true}
-                          onChange={(event) =>
-                            setReturnDrafts((prev) => ({
-                              ...prev,
-                              [order.id]: {
-                                ...(prev[order.id] ?? {}),
-                                [line.id]: { ...(prev[order.id]?.[line.id] ?? draft), checked: event.target.checked } as ReturnDraft[string],
-                              },
-                            }))
-                          }
-                        />
-                        <span>{line.itemId}</span>
-                      </label>
+                      <div className="mb-1 text-sm">{line.itemName}</div>
                       <div className="grid gap-2 sm:grid-cols-3">
                         <input
                           className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"

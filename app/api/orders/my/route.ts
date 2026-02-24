@@ -2,7 +2,6 @@ import { Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
-import { serializeOrder } from "@/lib/orders";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -22,6 +21,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     include: {
       customer: true,
       lines: {
+        include: {
+          item: {
+            select: {
+              name: true,
+            },
+          },
+        },
         orderBy: [{ createdAt: "asc" }],
       },
     },
@@ -29,6 +35,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   });
 
   return NextResponse.json({
-    orders: orders.map((order) => serializeOrder(order)),
+    orders: orders.map((order) => ({
+      id: order.id,
+      status: order.status,
+      startDate: order.startDate.toISOString().slice(0, 10),
+      endDate: order.endDate.toISOString().slice(0, 10),
+      customerName: order.customer?.name ?? null,
+      eventName: order.eventName,
+      orderSource: order.orderSource,
+      notes: order.notes,
+      updatedAt: order.updatedAt.toISOString(),
+      lines: order.lines.map((line) => ({
+        id: line.id,
+        itemId: line.itemId,
+        itemName: line.item.name,
+        requestedQty: line.requestedQty,
+        approvedQty: line.approvedQty,
+        issuedQty: line.issuedQty,
+      })),
+    })),
   });
 }

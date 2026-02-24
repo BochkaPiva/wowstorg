@@ -70,6 +70,8 @@ export default function CreateOrderPage() {
   const [eventName, setEventName] = useState("");
   const [notes, setNotes] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   useEffect(() => {
     const raw = globalThis.localStorage.getItem("quick-issue-cart-v1");
@@ -192,6 +194,32 @@ export default function CreateOrderPage() {
       }),
     [items, selectedCategoryId],
   );
+  const totalPages = Math.max(1, Math.ceil(visibleItems.length / PAGE_SIZE));
+  const pagedItems = useMemo(
+    () => visibleItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [visibleItems, page],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab, selectedCategoryId, search, startDate, endDate]);
+
+  function setItemQty(item: ItemRow, qty: number) {
+    const boundedQty = Math.max(0, Math.min(item.availableQty, qty));
+    setCart((prev) => {
+      const index = prev.findIndex((entry) => entry.itemId === item.id);
+      if (boundedQty <= 0) {
+        if (index < 0) return prev;
+        return prev.filter((entry) => entry.itemId !== item.id);
+      }
+      if (index < 0) {
+        return [...prev, { itemId: item.id, name: item.name, qty: boundedQty }];
+      }
+      const next = [...prev];
+      next[index] = { ...next[index], qty: boundedQty };
+      return next;
+    });
+  }
 
   return (
     <section className="space-y-4">
@@ -255,9 +283,11 @@ export default function CreateOrderPage() {
 
       {tab === "all" ? (
         <div className="grid gap-3 md:grid-cols-2">
-          {visibleItems.map((item) => {
+          {pagedItems.map((item) => {
             const visual = getVisualStatus(item);
             const isAddable = canAddToCart(item);
+            const inCart = cart.find((entry) => entry.itemId === item.id);
+            const qty = inCart?.qty ?? 0;
             return (
               <div key={item.id} className="ws-card p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -269,11 +299,36 @@ export default function CreateOrderPage() {
                     <div className="text-xs text-[var(--muted)]">{item.itemType} • {visual.label} • доступно: {item.availableQty}</div>
                     <div className="text-xs text-[var(--muted)]">Цена/сутки: {formatMoney(item.pricePerDay)} ₽</div>
                   </div>
-                  <button className="ws-btn disabled:opacity-50" type="button" onClick={() => addItem(item)} disabled={!isAddable}>В корзину</button>
+                  {qty > 0 ? (
+                    <div className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-2 py-1">
+                      <button className="ws-btn" type="button" onClick={() => setItemQty(item, qty - 1)}>
+                        -
+                      </button>
+                      <span className="min-w-6 text-center text-sm font-medium">{qty}</span>
+                      <button className="ws-btn" type="button" onClick={() => setItemQty(item, qty + 1)}>
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <button className="ws-btn disabled:opacity-50" type="button" onClick={() => addItem(item)} disabled={!isAddable}>В корзину</button>
+                  )}
                 </div>
               </div>
             );
           })}
+        </div>
+      ) : null}
+      {tab === "all" && totalPages > 1 ? (
+        <div className="flex items-center justify-center gap-2">
+          <button className="ws-btn" type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+            Назад
+          </button>
+          <span className="text-sm text-[var(--muted)]">
+            Страница {page} из {totalPages}
+          </span>
+          <button className="ws-btn" type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+            Далее
+          </button>
         </div>
       ) : null}
 

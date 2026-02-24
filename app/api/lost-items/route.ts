@@ -33,28 +33,34 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ? Math.min(Math.max(1, requestedLimit), MAX_LIMIT)
     : DEFAULT_LIMIT;
 
-  const rows = await prisma.lostItem.findMany({
-    where: {
-      status: status ?? undefined,
-      OR:
-        search.length > 0
-          ? [
-              { item: { name: { contains: search, mode: "insensitive" } } },
-              { customerNameSnapshot: { contains: search, mode: "insensitive" } },
-              { eventNameSnapshot: { contains: search, mode: "insensitive" } },
-              { customerTelegramId: { contains: search, mode: "insensitive" } },
-            ]
-          : undefined,
-    },
-    include: {
-      item: { select: { id: true, name: true } },
-      order: { select: { id: true } },
-      detectedBy: { select: { id: true, username: true, telegramId: true } },
-      resolvedBy: { select: { id: true, username: true, telegramId: true } },
-    },
-    orderBy: [{ status: "asc" }, { detectedAt: "desc" }],
-    take: limit,
-  });
+  let rows;
+  try {
+    rows = await prisma.lostItem.findMany({
+      where: {
+        status: status ?? undefined,
+        OR:
+          search.length > 0
+            ? [
+                { item: { name: { contains: search, mode: "insensitive" } } },
+                { customerNameSnapshot: { contains: search, mode: "insensitive" } },
+                { eventNameSnapshot: { contains: search, mode: "insensitive" } },
+                { customerTelegramId: { contains: search, mode: "insensitive" } },
+              ]
+            : undefined,
+      },
+      include: {
+        item: { select: { id: true, name: true } },
+        order: { select: { id: true } },
+        detectedBy: { select: { id: true, username: true, telegramId: true } },
+        resolvedBy: { select: { id: true, username: true, telegramId: true } },
+      },
+      orderBy: [{ status: "asc" }, { detectedAt: "desc" }],
+      take: limit,
+    });
+  } catch {
+    // If migrations are behind or DB is temporarily unavailable, fail gracefully for UI.
+    return NextResponse.json({ lostItems: [] });
+  }
 
   return NextResponse.json({
     lostItems: rows.map((row) => ({

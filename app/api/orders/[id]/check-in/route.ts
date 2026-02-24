@@ -69,8 +69,8 @@ export async function POST(
     return NextResponse.json({ order: serializeOrder(closed) });
   }
 
-  if (order.status !== "RETURN_DECLARED" && order.status !== "ISSUED") {
-    return fail(409, "Check-in is allowed only in RETURN_DECLARED or ISSUED status.");
+  if (order.status !== "RETURN_DECLARED") {
+    return fail(409, "Check-in is allowed only in RETURN_DECLARED status.");
   }
 
   const requiredLines = order.lines.filter((line) => requiresCheckin(line.item.itemType));

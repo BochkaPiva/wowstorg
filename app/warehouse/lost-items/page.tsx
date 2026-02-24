@@ -102,10 +102,10 @@ export default function WarehouseLostItemsPage() {
               void loadRows(next);
             }}
           >
-            <option value="ALL">Все статусы</option>
+            <option value="ALL">Открытые и списанные</option>
             <option value="OPEN">Только открытые</option>
-            <option value="FOUND">Найденные</option>
-            <option value="WRITTEN_OFF">Списанные</option>
+            <option value="WRITTEN_OFF">Только списанные</option>
+            <option value="FOUND">Найденные (архив)</option>
           </select>
           <button className="ws-btn-primary" type="button" onClick={() => void loadRows()}>
             Обновить

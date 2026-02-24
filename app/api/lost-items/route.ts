@@ -22,8 +22,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const params = request.nextUrl.searchParams;
-  const status = parseStatus(params.get("status"));
-  if (params.get("status") && !status) {
+  const statusParam = params.get("status");
+  const status = parseStatus(statusParam);
+  if (statusParam && statusParam !== "ALL" && !status) {
     return fail(400, "Invalid lost item status.");
   }
 
@@ -33,11 +34,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ? Math.min(Math.max(1, requestedLimit), MAX_LIMIT)
     : DEFAULT_LIMIT;
 
+  // По умолчанию показываем только открытые и списанные; найденные пропадают из списка.
+  const statusFilter =
+    status !== null
+      ? status
+      : { in: [LostItemStatus.OPEN, LostItemStatus.WRITTEN_OFF] as LostItemStatus[] };
+
   let rows;
   try {
     rows = await prisma.lostItem.findMany({
       where: {
-        status: status ?? undefined,
+        status: statusFilter,
         OR:
           search.length > 0
             ? [

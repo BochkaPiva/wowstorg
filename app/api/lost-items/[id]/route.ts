@@ -68,6 +68,9 @@ export async function PATCH(request: NextRequest, { params }: Params): Promise<N
       stockMissingDelta = -existing.lostQty;
       stockTotalDelta = -existing.lostQty;
     }
+    if (existing.status === LostItemStatus.WRITTEN_OFF && nextStatus === LostItemStatus.FOUND) {
+      stockTotalDelta = existing.lostQty;
+    }
     if (
       (existing.status === LostItemStatus.FOUND || existing.status === LostItemStatus.WRITTEN_OFF) &&
       nextStatus === LostItemStatus.OPEN

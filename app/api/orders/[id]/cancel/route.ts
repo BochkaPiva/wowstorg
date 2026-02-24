@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
 import { serializeOrder } from "@/lib/orders";
+import { notifyOrderOwner } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 type Params = {
@@ -27,6 +28,7 @@ export async function POST(
     where: { id },
     include: {
       customer: true,
+      createdBy: { select: { telegramId: true } },
       lines: {
         orderBy: [{ createdAt: "asc" as const }],
       },
@@ -61,6 +63,22 @@ export async function POST(
         orderBy: [{ createdAt: "asc" }],
       },
     },
+  });
+
+  const cancelledByWarehouse = auth.user.role === Role.WAREHOUSE || auth.user.role === Role.ADMIN;
+  await notifyOrderOwner({
+    ownerTelegramId: order.createdBy.telegramId.toString(),
+    title: cancelledByWarehouse ? "Заявка отменена складом" : "Заявка отменена",
+    startDate: order.startDate.toISOString().slice(0, 10),
+    endDate: order.endDate.toISOString().slice(0, 10),
+    customerName: order.customer?.name ?? null,
+    eventName: order.eventName,
+    blocks: [
+      {
+        title: cancelledByWarehouse ? "Склад отменил эту заявку." : "Вы отменили заявку.",
+        lines: [`Заявка ${order.id} больше не активна.`],
+      },
+    ],
   });
 
   return NextResponse.json({

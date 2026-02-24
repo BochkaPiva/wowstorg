@@ -169,6 +169,11 @@ export default function CreateOrderPage() {
     <section className="space-y-4">
       <h1 className="text-2xl font-semibold text-[var(--brand)]">Быстрая выдача</h1>
       <p className="text-sm text-[var(--muted)]">{status}</p>
+      <div className="flex justify-end">
+        <button className="ws-btn" type="button" onClick={() => { globalThis.location.href = "/"; }}>
+          Назад
+        </button>
+      </div>
 
       <div className="ws-card grid gap-2 p-3 sm:grid-cols-3">
         <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />

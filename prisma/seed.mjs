@@ -3,6 +3,15 @@ import { PrismaClient, Role, ItemType, AvailabilityStatus } from "@prisma/client
 const prisma = new PrismaClient();
 
 async function main() {
+  const admin = await prisma.user.findFirst({
+    where: { role: Role.ADMIN },
+    select: { id: true },
+  });
+  if (!admin) {
+    console.log("Skip seed: no admin user found in DB.");
+    return;
+  }
+
   const greenwich = await prisma.user.upsert({
     where: { telegramId: BigInt(1000001) },
     update: { username: "greenwich_demo", role: Role.GREENWICH },
@@ -135,7 +144,7 @@ async function main() {
     select: { id: true, name: true },
   });
   const categoryById = new Map(categories.map((entry) => [entry.id, entry.id]));
-  const itemCategoryPairs = items.map((entry) => [entry[0], categoryById.get(entry[6])] as const);
+  const itemCategoryPairs = items.map((entry) => [entry[0], categoryById.get(entry[6])]);
 
   for (const [itemId, categoryId] of itemCategoryPairs) {
     if (!categoryId) continue;

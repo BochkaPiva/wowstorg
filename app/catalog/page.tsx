@@ -215,6 +215,11 @@ export default function CatalogPage() {
     <section className="space-y-4">
       <h1 className="text-2xl font-semibold text-[var(--brand)]">Каталог и оформление заявки</h1>
       <p className="text-sm text-[var(--muted)]">{status}</p>
+      <div className="flex justify-end">
+        <button className="ws-btn" type="button" onClick={() => { globalThis.location.href = "/"; }}>
+          Назад
+        </button>
+      </div>
       {!isGreenwich ? (
         <div className="ws-card border p-3 text-sm">
           Для сотрудников склада/админа оформление внешних заказов выполняется в разделе `Быстрая выдача`.

@@ -26,13 +26,47 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   });
 
   return NextResponse.json({
-    customers: customers.map((customer) => ({
-      id: customer.id,
-      name: customer.name,
-      contact: customer.contact,
-      notes: customer.notes,
-      isActive: customer.isActive,
-    })),
+    customers: await Promise.all(
+      customers.map(async (customer) => {
+        const orders = await prisma.order.findMany({
+          where: { customerId: customer.id },
+          select: {
+            startDate: true,
+            endDate: true,
+            lines: {
+              select: {
+                requestedQty: true,
+                approvedQty: true,
+                issuedQty: true,
+                pricePerDaySnapshot: true,
+              },
+            },
+          },
+        });
+        let ltv = 0;
+        for (const order of orders) {
+          const days = Math.max(
+            1,
+            Math.ceil(
+              (order.endDate.getTime() - order.startDate.getTime()) / (24 * 60 * 60 * 1000),
+            ),
+          );
+          for (const line of order.lines) {
+            const qty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+            ltv += qty * Number(line.pricePerDaySnapshot) * days;
+          }
+        }
+        return {
+          id: customer.id,
+          name: customer.name,
+          contact: customer.contact,
+          notes: customer.notes,
+          isActive: customer.isActive,
+          ltv,
+          ordersCount: orders.length,
+        };
+      }),
+    ),
   });
 }
 

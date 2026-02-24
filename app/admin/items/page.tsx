@@ -41,6 +41,18 @@ export default function AdminItemsPage() {
     categoryIds: string[];
     imageUrlsText: string;
   } | null>(null);
+  const [newItem, setNewItem] = useState({
+    name: "",
+    itemType: "ASSET" as "ASSET" | "BULK" | "CONSUMABLE",
+    availabilityStatus: "ACTIVE" as "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | "RETIRED",
+    stockTotal: 1,
+    stockInRepair: 0,
+    stockBroken: 0,
+    stockMissing: 0,
+    pricePerDay: 100,
+    categoryIds: [] as string[],
+    imageUrlsText: "",
+  });
 
   useEffect(() => {
     void Promise.all([loadItems(""), loadCategories()]);
@@ -128,6 +140,44 @@ export default function AdminItemsPage() {
     setBusy(false);
   }
 
+  async function createItem() {
+    if (!newItem.name.trim()) {
+      setStatus("Укажите название новой позиции.");
+      return;
+    }
+    setBusy(true);
+    const response = await fetch("/api/admin/catalog/items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: newItem.name.trim(),
+        itemType: newItem.itemType,
+        availabilityStatus: newItem.availabilityStatus,
+        stockTotal: newItem.stockTotal,
+        stockInRepair: newItem.stockInRepair,
+        stockBroken: newItem.stockBroken,
+        stockMissing: newItem.stockMissing,
+        pricePerDay: newItem.pricePerDay,
+        categoryIds: newItem.categoryIds,
+        imageUrls: newItem.imageUrlsText
+          .split("\n")
+          .map((entry) => entry.trim())
+          .filter((entry) => entry.length > 0),
+      }),
+    });
+    const payload = (await response.json()) as { error?: { message?: string }; item?: { id: string } };
+    if (!response.ok || !payload.item) {
+      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось создать позицию."}`);
+      setBusy(false);
+      return;
+    }
+    await loadItems(search);
+    setSelectedItemId(payload.item.id);
+    selectItem(payload.item.id);
+    setStatus("Позиция создана.");
+    setBusy(false);
+  }
+
   async function deleteItem() {
     if (!selectedItemId) {
       return;
@@ -163,8 +213,8 @@ export default function AdminItemsPage() {
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Позиции и фото</h1>
-        <Link href="/warehouse/inventory" className="text-sm text-zinc-600 hover:text-zinc-900">
-          Назад в инвентарь
+        <Link href="/warehouse/inventory" className="ws-btn">
+          Назад
         </Link>
       </div>
       <p className="text-sm text-zinc-700">{status}</p>
@@ -173,6 +223,23 @@ export default function AdminItemsPage() {
         <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" placeholder="Поиск по названию/ID" value={search} onChange={(event) => setSearch(event.target.value)} />
         <button className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100" type="button" onClick={() => void loadItems(search)}>
           Найти
+        </button>
+      </div>
+
+      <div className="space-y-2 rounded border border-zinc-200 bg-white p-3">
+        <div className="text-sm font-semibold">Добавить новую позицию</div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input className="rounded border border-zinc-300 px-2 py-1 text-sm" placeholder="Название" value={newItem.name} onChange={(event) => setNewItem((prev) => ({ ...prev, name: event.target.value }))} />
+          <select className="rounded border border-zinc-300 px-2 py-1 text-sm" value={newItem.itemType} onChange={(event) => setNewItem((prev) => ({ ...prev, itemType: event.target.value as "ASSET" | "BULK" | "CONSUMABLE" }))}>
+            <option value="ASSET">ASSET</option>
+            <option value="BULK">BULK</option>
+            <option value="CONSUMABLE">CONSUMABLE</option>
+          </select>
+          <input className="rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={newItem.stockTotal} onChange={(event) => setNewItem((prev) => ({ ...prev, stockTotal: Number(event.target.value) }))} placeholder="Всего" />
+          <input className="rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} step="0.01" value={newItem.pricePerDay} onChange={(event) => setNewItem((prev) => ({ ...prev, pricePerDay: Number(event.target.value) }))} placeholder="Цена/день" />
+        </div>
+        <button className="rounded bg-zinc-900 px-3 py-1 text-sm text-white hover:bg-zinc-700 disabled:opacity-50" type="button" onClick={() => void createItem()} disabled={busy}>
+          {busy ? "..." : "Создать позицию"}
         </button>
       </div>
 

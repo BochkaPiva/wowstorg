@@ -70,7 +70,12 @@ export default function AdminPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-semibold">Админка</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Админка</h1>
+        <button className="ws-btn" onClick={() => { globalThis.location.href = "/"; }}>
+          Назад
+        </button>
+      </div>
       <p className="text-sm text-zinc-700">{status}</p>
 
       {allowed ? (

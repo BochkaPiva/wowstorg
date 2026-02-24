@@ -23,19 +23,26 @@ export default function WarehouseRepairsPage() {
 
   async function loadItems() {
     setStatus("Обновляем список...");
-    const response = await fetch("/api/problem-items");
-    const payload = (await response.json()) as {
+    let response: Response;
+    try {
+      response = await fetch("/api/problem-items");
+    } catch {
+      setItems([]);
+      setStatus("Ошибка сети при загрузке списка.");
+      return;
+    }
+    const payload = (await response.json().catch(() => null)) as {
       items?: ProblemItem[];
       error?: { message?: string };
-    };
-    if (!response.ok || !payload.items) {
+    } | null;
+    if (!response.ok || !payload?.items) {
       setItems([]);
-      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось загрузить список."}`);
+      setStatus(`Ошибка: ${payload?.error?.message ?? "Не удалось загрузить список."}`);
       return;
     }
     const rows = payload.items;
     setItems(rows);
-    setStatus(`Проблемных позиций: ${rows.length}`);
+    setStatus(rows.length === 0 ? "Список пуст: проблемных позиций пока нет." : `Проблемных позиций: ${rows.length}`);
     setQtyByItem((prev) => {
       const next = { ...prev };
       for (const item of rows) {
@@ -77,9 +84,14 @@ export default function WarehouseRepairsPage() {
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-[var(--brand)]">Ремонт и списание</h1>
-        <button className="ws-btn-primary" onClick={() => void loadItems()} type="button">
-          Обновить
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="ws-btn" onClick={() => { globalThis.location.href = "/"; }} type="button">
+            Назад
+          </button>
+          <button className="ws-btn-primary" onClick={() => void loadItems()} type="button">
+            Обновить
+          </button>
+        </div>
       </div>
       <p className="text-sm text-[var(--muted)]">{status}</p>
 

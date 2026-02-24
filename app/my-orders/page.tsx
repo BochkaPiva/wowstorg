@@ -171,9 +171,14 @@ export default function MyOrdersPage() {
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-[var(--brand)]">Мои заявки</h1>
-        <button className="ws-btn-primary" onClick={() => void loadOrders()}>
-          Обновить
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="ws-btn" onClick={() => { globalThis.location.href = "/"; }}>
+            Назад
+          </button>
+          <button className="ws-btn-primary" onClick={() => void loadOrders()}>
+            Обновить
+          </button>
+        </div>
       </div>
 
       <p className="text-sm text-[var(--muted)]">{status}</p>

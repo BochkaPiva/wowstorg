@@ -93,7 +93,7 @@ export default function AdminAnalyticsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-[var(--brand)]">Аналитика</h1>
         <Link href="/admin" className="ws-btn">
-          Назад в админку
+          Назад
         </Link>
       </div>
 

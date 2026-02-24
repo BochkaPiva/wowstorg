@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { Suspense } from "react";
 import SwipeBack from "@/app/components/SwipeBack";
+import TopNavMenu from "@/app/components/TopNavMenu";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,29 +34,14 @@ export default function RootLayout({
         <SwipeBack />
         <div className="min-h-screen text-zinc-900">
           <header className="border-b border-[var(--border)] bg-white/90 backdrop-blur">
-            <nav className="mx-auto flex w-full max-w-6xl flex-wrap gap-4 px-4 py-3 text-sm">
+            <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 text-sm">
               <Link href="/" className="font-semibold text-[var(--brand)]">
                 WowStorg Hub
               </Link>
-              <Link href="/dev-login" className="text-zinc-700 hover:text-zinc-900">
-                Dev-вход
-              </Link>
-              <Link href="/catalog" className="text-zinc-700 hover:text-zinc-900">
-                Каталог
-              </Link>
-              <Link href="/my-orders" className="text-zinc-700 hover:text-zinc-900">
-                Мои заявки
-              </Link>
-              <Link href="/warehouse/queue" className="text-zinc-700 hover:text-zinc-900">
-                Очередь склада
-              </Link>
-              <Link href="/warehouse/archive" className="text-zinc-700 hover:text-zinc-900">
-                Архив
-              </Link>
-              <Link href="/admin" className="text-zinc-700 hover:text-zinc-900">
-                Админ
-              </Link>
-            </nav>
+              <Suspense fallback={null}>
+                <TopNavMenu />
+              </Suspense>
+            </div>
           </header>
           <main className="mx-auto w-full max-w-6xl px-4 py-6">{children}</main>
         </div>

@@ -9,6 +9,8 @@ type Customer = {
   contact: string | null;
   notes: string | null;
   isActive: boolean;
+  ltv: number;
+  ordersCount: number;
 };
 
 export default function AdminCustomersPage() {
@@ -137,8 +139,8 @@ export default function AdminCustomersPage() {
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Заказчики</h1>
-        <Link href="/admin" className="text-sm text-zinc-600 hover:text-zinc-900">
-          Назад в админку
+        <Link href="/admin" className="ws-btn">
+          Назад
         </Link>
       </div>
       <p className="text-sm text-zinc-700">{status}</p>
@@ -169,9 +171,13 @@ export default function AdminCustomersPage() {
           return (
             <div key={customer.id} className="rounded border border-zinc-200 bg-white p-3">
               <div className="text-xs text-zinc-500">id: {customer.id}</div>
+              <div className="text-xs text-zinc-500">
+                LTV: {Math.round(customer.ltv)} ₽ • Заказов: {customer.ordersCount}
+              </div>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 <input
                   className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                  placeholder="Название заказчика"
                   value={draft?.name ?? customer.name}
                   onChange={(event) =>
                     setDrafts((prev) => ({
@@ -187,6 +193,7 @@ export default function AdminCustomersPage() {
                 />
                 <input
                   className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                  placeholder="Контакт"
                   value={draft?.contact ?? customer.contact ?? ""}
                   onChange={(event) =>
                     setDrafts((prev) => ({
@@ -202,6 +209,7 @@ export default function AdminCustomersPage() {
                 />
                 <input
                   className="rounded border border-zinc-300 px-2 py-1 text-sm sm:col-span-2"
+                  placeholder="Заметки"
                   value={draft?.notes ?? customer.notes ?? ""}
                   onChange={(event) =>
                     setDrafts((prev) => ({

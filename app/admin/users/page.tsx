@@ -121,8 +121,8 @@ export default function AdminUsersPage() {
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Доступы пользователей</h1>
-        <Link href="/admin" className="text-sm text-zinc-600 hover:text-zinc-900">
-          Назад в админку
+        <Link href="/admin" className="ws-btn">
+          Назад
         </Link>
       </div>
       <p className="text-sm text-zinc-700">{status}</p>

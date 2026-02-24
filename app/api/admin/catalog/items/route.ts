@@ -262,6 +262,147 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   });
 }
 
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const auth = await requireUser(request);
+  if (!auth.ok) {
+    return auth.response;
+  }
+  if (!canManageCatalog(auth.user.role)) {
+    return fail(403, "Only warehouse/admin can manage catalog.");
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return fail(400, "Invalid JSON body.");
+  }
+  if (!body || typeof body !== "object") {
+    return fail(400, "Invalid payload.");
+  }
+
+  const payload = body as Record<string, unknown>;
+  const name =
+    typeof payload.name === "string" && payload.name.trim().length > 0
+      ? payload.name.trim()
+      : null;
+  const itemType = parseItemType(payload.itemType);
+  if (!name || !itemType) {
+    return fail(400, "name and valid itemType are required.");
+  }
+
+  const stockTotal =
+    typeof payload.stockTotal === "number" &&
+    Number.isInteger(payload.stockTotal) &&
+    payload.stockTotal >= 0
+      ? payload.stockTotal
+      : 0;
+  const stockInRepair =
+    typeof payload.stockInRepair === "number" &&
+    Number.isInteger(payload.stockInRepair) &&
+    payload.stockInRepair >= 0
+      ? payload.stockInRepair
+      : 0;
+  const stockBroken =
+    typeof payload.stockBroken === "number" &&
+    Number.isInteger(payload.stockBroken) &&
+    payload.stockBroken >= 0
+      ? payload.stockBroken
+      : 0;
+  const stockMissing =
+    typeof payload.stockMissing === "number" &&
+    Number.isInteger(payload.stockMissing) &&
+    payload.stockMissing >= 0
+      ? payload.stockMissing
+      : 0;
+
+  const pricePerDay =
+    typeof payload.pricePerDay === "number" && payload.pricePerDay >= 0
+      ? new Prisma.Decimal(payload.pricePerDay)
+      : null;
+  if (!pricePerDay) {
+    return fail(400, "pricePerDay must be a non-negative number.");
+  }
+
+  const availabilityStatus =
+    payload.availabilityStatus !== undefined
+      ? parseAvailabilityStatus(payload.availabilityStatus)
+      : AvailabilityStatus.ACTIVE;
+  if (!availabilityStatus) {
+    return fail(400, "Invalid availabilityStatus.");
+  }
+
+  const categoryIds =
+    Array.isArray(payload.categoryIds) &&
+    payload.categoryIds.every((entry) => typeof entry === "string" && entry.trim().length > 0)
+      ? payload.categoryIds.map((entry) => (entry as string).trim())
+      : [];
+
+  const imageUrls =
+    Array.isArray(payload.imageUrls) &&
+    payload.imageUrls.every((entry) => typeof entry === "string" && entry.trim().length > 0)
+      ? payload.imageUrls.map((entry) => (entry as string).trim())
+      : [];
+
+  const created = await prisma.$transaction(async (tx) => {
+    const item = await tx.item.create({
+      data: {
+        name,
+        description:
+          typeof payload.description === "string" && payload.description.trim().length > 0
+            ? payload.description.trim()
+            : null,
+        locationText:
+          typeof payload.locationText === "string" && payload.locationText.trim().length > 0
+            ? payload.locationText.trim()
+            : null,
+        itemType,
+        availabilityStatus,
+        stockTotal,
+        stockInRepair,
+        stockBroken,
+        stockMissing,
+        pricePerDay,
+      },
+    });
+
+    if (categoryIds.length > 0) {
+      await tx.itemCategory.createMany({
+        data: categoryIds.map((categoryId) => ({ itemId: item.id, categoryId })),
+        skipDuplicates: true,
+      });
+    }
+
+    if (imageUrls.length > 0) {
+      await tx.itemImage.createMany({
+        data: imageUrls.map((url) => ({ itemId: item.id, url })),
+      });
+    }
+
+    return tx.item.findUniqueOrThrow({
+      where: { id: item.id },
+      include: { categories: true, images: true },
+    });
+  });
+
+  return NextResponse.json({
+    item: {
+      id: created.id,
+      name: created.name,
+      itemType: created.itemType,
+      availabilityStatus: created.availabilityStatus,
+      stockTotal: created.stockTotal,
+      stockInRepair: created.stockInRepair,
+      stockBroken: created.stockBroken,
+      stockMissing: created.stockMissing,
+      pricePerDay: Number(created.pricePerDay),
+      categoryIds: created.categories.map((entry) => entry.categoryId),
+      imageUrls: created.images.map((image) => image.url),
+      updatedAt: created.updatedAt.toISOString(),
+    },
+  });
+}
+
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(request);
   if (!auth.ok) {

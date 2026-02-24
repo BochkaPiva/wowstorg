@@ -372,9 +372,14 @@ export default function WarehouseQueuePage() {
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-[var(--brand)]">Очередь заявок</h1>
-        <button className="ws-btn-primary disabled:opacity-50" onClick={() => void loadQueue()} disabled={busyOrderId !== null}>
-          Обновить заявки
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="ws-btn" onClick={() => { globalThis.location.href = "/"; }}>
+            Назад
+          </button>
+          <button className="ws-btn-primary disabled:opacity-50" onClick={() => void loadQueue()} disabled={busyOrderId !== null}>
+            Обновить заявки
+          </button>
+        </div>
       </div>
       <p className="text-sm text-[var(--muted)]">{status}</p>
 

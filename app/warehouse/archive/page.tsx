@@ -16,7 +16,9 @@ type ArchiveOrder = {
   endDate: string;
   updatedAt: string;
   closedAt: string | null;
-  lines: Array<{ id: string; itemId: string; requestedQty: number }>;
+  createdBy: { username: string | null; telegramId: string };
+  notes: string | null;
+  lines: Array<{ id: string; itemId: string; requestedQty: number; approvedQty: number | null; issuedQty: number | null }>;
 };
 
 function statusChip(status: ArchiveOrder["status"]): string {
@@ -37,6 +39,7 @@ export default function WarehouseArchivePage() {
   const [customerId, setCustomerId] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -96,6 +99,9 @@ export default function WarehouseArchivePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-[var(--brand)]">Архив склада</h1>
         <div className="flex items-center gap-2">
+          <button className="ws-btn" onClick={() => { globalThis.location.href = "/"; }}>
+            Назад
+          </button>
           <button className="ws-btn" onClick={() => { globalThis.location.href = `/api/warehouse/archive?${queryString}&format=csv`; }} disabled={loading}>
             CSV
           </button>
@@ -139,6 +145,9 @@ export default function WarehouseArchivePage() {
                   {order.startDate} - {order.endDate} • {order.orderSource}
                 </div>
                 <div className="text-xs text-[var(--muted)]">
+                  Коллега: {order.createdBy.username ?? `ID ${order.createdBy.telegramId}`}
+                </div>
+                <div className="text-xs text-[var(--muted)]">
                   Обновлено: {new Date(order.updatedAt).toLocaleString("ru-RU")}
                   {order.closedAt ? ` • Закрыто: ${new Date(order.closedAt).toLocaleString("ru-RU")}` : ""}
                 </div>
@@ -147,10 +156,27 @@ export default function WarehouseArchivePage() {
                   {order.lines.length > 3 ? ` +${order.lines.length - 3}` : ""}
                 </div>
               </div>
-              <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusChip(order.status)}`}>
-                {order.status === "CLOSED" ? "Закрыта" : "Отменена"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusChip(order.status)}`}>
+                  {order.status === "CLOSED" ? "Закрыта" : "Отменена"}
+                </span>
+                <button className="ws-btn" onClick={() => setExpandedOrderId((prev) => (prev === order.id ? null : order.id))}>
+                  {expandedOrderId === order.id ? "Скрыть детали" : "Открыть детали"}
+                </button>
+              </div>
             </div>
+            {expandedOrderId === order.id ? (
+              <div className="mt-3 space-y-2 rounded-xl border border-[var(--border)] bg-white p-3 text-sm">
+                {order.lines.map((line) => (
+                  <div key={line.id} className="rounded-lg border border-[var(--border)] px-2 py-1">
+                    {line.itemId} • запрошено: {line.requestedQty}
+                    {line.approvedQty !== null ? ` • согласовано: ${line.approvedQty}` : ""}
+                    {line.issuedQty !== null ? ` • выдано: ${line.issuedQty}` : ""}
+                  </div>
+                ))}
+                {order.notes ? <div className="text-xs text-[var(--muted)]">Комментарий: {order.notes}</div> : null}
+              </div>
+            ) : null}
           </article>
         ))}
         {orders.length === 0 ? <div className="ws-card p-6 text-center text-sm text-[var(--muted)]">По текущим фильтрам архив пуст.</div> : null}

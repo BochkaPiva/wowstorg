@@ -23,7 +23,12 @@ const SCENARIOS = [
 export default function WarehouseInventoryPage() {
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-semibold text-[var(--brand)]">Инвентарь</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-[var(--brand)]">Инвентарь</h1>
+        <button className="ws-btn" type="button" onClick={() => { globalThis.location.href = "/"; }}>
+          Назад
+        </button>
+      </div>
       <p className="text-sm text-[var(--muted)]">
         Управление списком реквизита, подборками и пакетами.
       </p>

@@ -34,18 +34,29 @@ export default function WarehouseLostItemsPage() {
   async function loadRows(nextFilter: LostItemStatus | "ALL" = filter) {
     setStatus("Обновляем список...");
     const query = nextFilter === "ALL" ? "" : `?status=${nextFilter}`;
-    const response = await fetch(`/api/lost-items${query}`);
-    const payload = (await response.json()) as {
+    let response: Response;
+    try {
+      response = await fetch(`/api/lost-items${query}`);
+    } catch {
+      setRows([]);
+      setStatus("Ошибка сети при загрузке реестра.");
+      return;
+    }
+    const payload = (await response.json().catch(() => null)) as {
       lostItems?: LostItemRow[];
       error?: { message?: string };
-    };
-    if (!response.ok || !payload.lostItems) {
+    } | null;
+    if (!response.ok || !payload?.lostItems) {
       setRows([]);
-      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось загрузить список."}`);
+      setStatus(`Ошибка: ${payload?.error?.message ?? "Не удалось загрузить список."}`);
       return;
     }
     setRows(payload.lostItems);
-    setStatus(`Позиций в реестре: ${payload.lostItems.length}.`);
+    setStatus(
+      payload.lostItems.length === 0
+        ? "Список пуст: утерянных позиций пока нет."
+        : `Позиций в реестре: ${payload.lostItems.length}.`,
+    );
   }
 
   async function updateStatus(id: string, nextStatus: LostItemStatus) {
@@ -79,6 +90,9 @@ export default function WarehouseLostItemsPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold text-[var(--brand)]">Утерянный реквизит</h1>
         <div className="flex gap-2">
+          <button className="ws-btn" type="button" onClick={() => { globalThis.location.href = "/"; }}>
+            Назад
+          </button>
           <select
             className="ws-btn"
             value={filter}

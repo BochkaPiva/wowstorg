@@ -197,18 +197,36 @@ export async function POST(
   });
 
   await notifyOrderOwner({
-    orderId: order.id,
     ownerTelegramId: order.createdBy.telegramId.toString(),
     title: "Приемка по заявке завершена.",
-    lines: order.lines.map((line) => {
-      const checked = inputByLineId.get(line.id);
-      return {
-        itemName: line.item.name,
-        requestedQty: line.requestedQty,
-        approvedQty: line.approvedQty ?? line.requestedQty,
-        issuedQty: checked ? checked.returnedQty : line.issuedQty ?? line.approvedQty ?? line.requestedQty,
-      };
-    }),
+    startDate: order.startDate.toISOString().slice(0, 10),
+    endDate: order.endDate.toISOString().slice(0, 10),
+    customerName: order.customer?.name ?? null,
+    eventName: order.eventName,
+    blocks: [
+      {
+        title: "Принято (ОК)",
+        lines: order.lines
+          .map((line) => ({ line, checked: inputByLineId.get(line.id) }))
+          .filter((entry) => entry.checked?.condition === "OK")
+          .map((entry) => {
+            const issuedQty = entry.line.issuedQty ?? entry.line.approvedQty ?? entry.line.requestedQty;
+            return `${entry.line.item.name}: ${entry.checked?.returnedQty ?? 0} из ${issuedQty}`;
+          }),
+      },
+      {
+        title: "Проблемы по позициям",
+        lines: order.lines
+          .map((line) => ({ line, checked: inputByLineId.get(line.id) }))
+          .filter((entry) => entry.checked && entry.checked.condition !== "OK")
+          .map((entry) => {
+            const issuedQty = entry.line.issuedQty ?? entry.line.approvedQty ?? entry.line.requestedQty;
+            return `${entry.line.item.name}: ${entry.checked?.returnedQty ?? 0} из ${issuedQty}, статус ${entry.checked?.condition}${
+              entry.checked?.comment ? ` (${entry.checked.comment})` : ""
+            }`;
+          }),
+      },
+    ],
   });
 
   return NextResponse.json({

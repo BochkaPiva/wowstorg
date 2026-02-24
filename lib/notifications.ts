@@ -54,23 +54,33 @@ export async function notifyWarehouseAboutNewOrder(params: {
 }
 
 export async function notifyOrderOwner(params: {
-  orderId: string;
   ownerTelegramId: string | null;
   title: string;
-  lines: Array<{ itemName: string; requestedQty: number; approvedQty?: number | null; issuedQty?: number | null }>;
+  startDate: string;
+  endDate: string;
+  customerName: string | null;
+  eventName?: string | null;
+  blocks: Array<{
+    title: string;
+    lines: string[];
+  }>;
   comment?: string | null;
 }): Promise<void> {
   if (!params.ownerTelegramId) return;
 
-  const lineText = params.lines
-    .map((line) => {
-      const approved = line.approvedQty !== undefined ? `, подтверждено: ${line.approvedQty ?? 0}` : "";
-      const issued = line.issuedQty !== undefined ? `, выдано: ${line.issuedQty ?? 0}` : "";
-      return `- ${line.itemName}: запрошено ${line.requestedQty}${approved}${issued}`;
-    })
-    .join("\n");
+  const blockText = params.blocks
+    .filter((block) => block.lines.length > 0)
+    .map((block) => `${block.title}\n${block.lines.map((line) => `- ${line}`).join("\n")}`)
+    .join("\n\n");
 
-  const text = [params.title, `Заявка: ${params.orderId}`, lineText, params.comment ? `Комментарий: ${params.comment}` : ""]
+  const text = [
+    params.title,
+    `Период аренды: ${params.startDate} - ${params.endDate}`,
+    `Заказчик: ${params.customerName ?? "-"}`,
+    params.eventName ? `Мероприятие: ${params.eventName}` : "",
+    blockText,
+    params.comment ? `Комментарий: ${params.comment}` : "",
+  ]
     .filter((entry) => entry.length > 0)
     .join("\n");
 

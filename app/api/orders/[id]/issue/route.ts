@@ -126,15 +126,34 @@ export async function POST(
   });
 
   await notifyOrderOwner({
-    orderId: order.id,
     ownerTelegramId: order.createdBy.telegramId.toString(),
     title: "Заявка выдана.",
-    lines: order.lines.map((line) => ({
-      itemName: line.item.name,
-      requestedQty: line.requestedQty,
-      approvedQty: line.approvedQty ?? line.requestedQty,
-      issuedQty: inputByLineId.get(line.id) ?? 0,
-    })),
+    startDate: order.startDate.toISOString().slice(0, 10),
+    endDate: order.endDate.toISOString().slice(0, 10),
+    customerName: order.customer?.name ?? null,
+    eventName: order.eventName,
+    blocks: [
+      {
+        title: "Подготовлено и выдано",
+        lines: order.lines
+          .filter((line) => (inputByLineId.get(line.id) ?? 0) > 0)
+          .map((line) => {
+            const issuedQty = inputByLineId.get(line.id) ?? 0;
+            return `${line.item.name}: выдано ${issuedQty} (согласовано ${line.approvedQty ?? line.requestedQty})`;
+          }),
+      },
+      {
+        title: "Не выдано / выдано частично",
+        lines: order.lines
+          .filter((line) => (inputByLineId.get(line.id) ?? 0) < (line.approvedQty ?? line.requestedQty))
+          .map((line) => {
+            const issuedQty = inputByLineId.get(line.id) ?? 0;
+            const approvedQty = line.approvedQty ?? line.requestedQty;
+            return `${line.item.name}: выдано ${issuedQty} из ${approvedQty}`;
+          }),
+      },
+    ],
+    comment: order.notes ?? undefined,
   });
 
   return NextResponse.json({

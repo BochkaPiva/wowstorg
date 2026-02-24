@@ -142,15 +142,34 @@ export async function POST(
   });
 
   await notifyOrderOwner({
-    orderId: order.id,
     ownerTelegramId: order.createdBy.telegramId.toString(),
-    title: "Заявка обработана складом (этап согласования).",
-    lines: order.lines.map((line) => ({
-      itemName: line.item.name,
-      requestedQty: line.requestedQty,
-      approvedQty: updateByLineId.get(line.id) ?? 0,
-    })),
-    comment: parsed.warehouseComment ?? null,
+    title: "Склад обработал заявку (этап согласования).",
+    startDate: order.startDate.toISOString().slice(0, 10),
+    endDate: order.endDate.toISOString().slice(0, 10),
+    customerName: order.customer?.name ?? null,
+    eventName: order.eventName,
+    blocks: [
+      {
+        title: "Согласовано к выдаче",
+        lines: order.lines
+          .filter((line) => (updateByLineId.get(line.id) ?? 0) > 0)
+          .map((line) => {
+            const approvedQty = updateByLineId.get(line.id) ?? 0;
+            return `${line.item.name}: ${approvedQty} из ${line.requestedQty}`;
+          }),
+      },
+      {
+        title: "Не удалось подтвердить полностью",
+        lines: order.lines
+          .filter((line) => (updateByLineId.get(line.id) ?? 0) < line.requestedQty)
+          .map((line) => {
+            const approvedQty = updateByLineId.get(line.id) ?? 0;
+            const comment = commentByLineId.get(line.id);
+            return `${line.item.name}: не хватает ${line.requestedQty - approvedQty}${comment ? ` (${comment})` : ""}`;
+          }),
+      },
+    ],
+    comment: parsed.warehouseComment ?? undefined,
   });
 
   return NextResponse.json({

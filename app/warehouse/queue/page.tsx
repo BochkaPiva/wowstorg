@@ -71,6 +71,14 @@ function statusBadge(status: QueueOrder["status"]): string {
   return "bg-zinc-100 text-zinc-700 border-zinc-200";
 }
 
+function statusDotClass(status: QueueOrder["status"]): string {
+  if (status === "SUBMITTED") return "bg-violet-500";
+  if (status === "APPROVED") return "bg-indigo-500";
+  if (status === "RETURN_DECLARED") return "bg-amber-500";
+  if (status === "ISSUED") return "bg-sky-500";
+  return "bg-zinc-500";
+}
+
 function cardClass(status: QueueOrder["status"]): string {
   if (status === "SUBMITTED") return "bg-violet-50 border-violet-200";
   if (status === "APPROVED") return "bg-indigo-50 border-indigo-200";
@@ -372,7 +380,8 @@ export default function WarehouseQueuePage() {
                 <div className="text-xs text-[var(--muted)]">Состав: {previewLines(order.lines)}</div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusBadge(order.status)}`}>
+                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${statusBadge(order.status)}`}>
+                  <i className={`h-2 w-2 rounded-full ${statusDotClass(order.status)}`} />
                   {statusText(order.status)}
                 </span>
                 <button className="ws-btn" type="button" onClick={() => void openOrder(order)}>

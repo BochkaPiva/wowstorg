@@ -113,6 +113,26 @@ export default function AdminCustomersPage() {
     setBusyId(null);
   }
 
+  async function deleteCustomer(customerId: string) {
+    const confirmed = globalThis.confirm("Удалить заказчика? Заказчик будет убран из справочника.");
+    if (!confirmed) {
+      return;
+    }
+    setBusyId(`delete-${customerId}`);
+    const response = await fetch(`/api/customers/${customerId}`, {
+      method: "DELETE",
+    });
+    const payload = (await response.json()) as { error?: { message?: string } };
+    if (!response.ok) {
+      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось удалить заказчика."}`);
+      setBusyId(null);
+      return;
+    }
+    await loadCustomers(search, includeInactive);
+    setStatus("Заказчик удален.");
+    setBusyId(null);
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
@@ -222,6 +242,14 @@ export default function AdminCustomersPage() {
                   type="button"
                 >
                   {busyId === customer.id ? "..." : "Обновить"}
+                </button>
+                <button
+                  className="rounded border border-red-300 px-2 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  onClick={() => void deleteCustomer(customer.id)}
+                  disabled={busyId !== null}
+                  type="button"
+                >
+                  {busyId === `delete-${customer.id}` ? "..." : "Удалить"}
                 </button>
               </div>
             </div>

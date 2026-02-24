@@ -64,3 +64,25 @@ export async function PATCH(
     },
   });
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: Params,
+): Promise<NextResponse> {
+  const auth = await requireUser(request);
+  if (!auth.ok) {
+    return auth.response;
+  }
+  if (!isAdmin(auth.user.role)) {
+    return fail(403, "Only admin can manage catalog.");
+  }
+
+  const { id } = await params;
+  const current = await prisma.category.findUnique({ where: { id } });
+  if (!current) {
+    return fail(404, "Category not found.");
+  }
+
+  await prisma.category.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
+}

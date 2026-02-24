@@ -8,6 +8,10 @@ type Params = {
   params: Promise<{ id: string }>;
 };
 
+function ensureAdmin(role: Role): boolean {
+  return role === Role.ADMIN;
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: Params,
@@ -16,7 +20,7 @@ export async function PATCH(
   if (!auth.ok) {
     return auth.response;
   }
-  if (auth.user.role !== Role.ADMIN) {
+  if (!ensureAdmin(auth.user.role)) {
     return fail(403, "Only admin can manage users.");
   }
 
@@ -66,4 +70,48 @@ export async function PATCH(
       updatedAt: updated.updatedAt.toISOString(),
     },
   });
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: Params,
+): Promise<NextResponse> {
+  const auth = await requireUser(request);
+  if (!auth.ok) {
+    return auth.response;
+  }
+  if (!ensureAdmin(auth.user.role)) {
+    return fail(403, "Only admin can manage users.");
+  }
+
+  const { id } = await params;
+  if (id === auth.user.id) {
+    return fail(400, "You cannot delete your own admin user.");
+  }
+
+  const current = await prisma.user.findUnique({ where: { id } });
+  if (!current) {
+    return fail(404, "User not found.");
+  }
+
+  try {
+    await prisma.user.delete({ where: { id } });
+  } catch (error) {
+    const code =
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      typeof (error as { code?: unknown }).code === "string"
+        ? (error as { code: string }).code
+        : "";
+    if (code === "P2003") {
+      return fail(
+        409,
+        "Cannot delete user with operational history. Reassign role instead.",
+      );
+    }
+    throw error;
+  }
+
+  return NextResponse.json({ ok: true });
 }

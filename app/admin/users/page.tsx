@@ -97,6 +97,26 @@ export default function AdminUsersPage() {
     setBusy(null);
   }
 
+  async function deleteUser(userId: string) {
+    const confirmed = globalThis.confirm("Удалить пользователя? Это действие необратимо.");
+    if (!confirmed) {
+      return;
+    }
+    setBusy(`delete-${userId}`);
+    const response = await fetch(`/api/admin/users/${userId}`, {
+      method: "DELETE",
+    });
+    const payload = (await response.json()) as { error?: { message?: string } };
+    if (!response.ok) {
+      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось удалить пользователя."}`);
+      setBusy(null);
+      return;
+    }
+    await loadUsers(search);
+    setStatus("Пользователь удален.");
+    setBusy(null);
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
@@ -135,7 +155,7 @@ export default function AdminUsersPage() {
           return (
             <div key={user.id} className="rounded border border-zinc-200 bg-white p-3">
               <div className="text-xs text-zinc-500">id: {user.id} | tg: {user.telegramId}</div>
-              <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_130px_auto]">
+              <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_130px_auto_auto]">
                 <input
                   className="rounded border border-zinc-300 px-2 py-1 text-sm"
                   value={draft?.username ?? ""}
@@ -175,6 +195,14 @@ export default function AdminUsersPage() {
                   type="button"
                 >
                   {busy === user.id ? "..." : "Обновить"}
+                </button>
+                <button
+                  className="rounded border border-red-300 px-2 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  onClick={() => void deleteUser(user.id)}
+                  disabled={busy !== null}
+                  type="button"
+                >
+                  {busy === `delete-${user.id}` ? "..." : "Удалить"}
                 </button>
               </div>
             </div>

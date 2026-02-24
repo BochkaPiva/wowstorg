@@ -67,3 +67,22 @@ export async function PATCH(
     },
   });
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: Params,
+): Promise<NextResponse> {
+  const auth = await requireWarehouseUser(request);
+  if (!auth.ok) {
+    return auth.response;
+  }
+
+  const { id } = await params;
+  const current = await prisma.customer.findUnique({ where: { id } });
+  if (!current) {
+    return fail(404, "Customer not found.");
+  }
+
+  await prisma.customer.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
+}

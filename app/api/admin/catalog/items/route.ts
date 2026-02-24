@@ -1,4 +1,4 @@
-import { ItemType, Prisma, Role } from "@prisma/client";
+import { AvailabilityStatus, ItemType, Prisma, Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
@@ -201,4 +201,70 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       updatedAt: updated.updatedAt.toISOString(),
     },
   });
+}
+
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  const auth = await requireUser(request);
+  if (!auth.ok) {
+    return auth.response;
+  }
+  if (!isAdmin(auth.user.role)) {
+    return fail(403, "Only admin can manage catalog.");
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return fail(400, "Invalid JSON body.");
+  }
+  if (!body || typeof body !== "object") {
+    return fail(400, "Invalid payload.");
+  }
+
+  const payload = body as Record<string, unknown>;
+  const itemId =
+    typeof payload.itemId === "string" && payload.itemId.trim().length > 0
+      ? payload.itemId.trim()
+      : null;
+  if (!itemId) {
+    return fail(400, "itemId is required.");
+  }
+
+  const current = await prisma.item.findUnique({
+    where: { id: itemId },
+    include: {
+      _count: {
+        select: {
+          orderLines: true,
+          incidents: true,
+          kitLines: true,
+        },
+      },
+    },
+  });
+  if (!current) {
+    return fail(404, "Item not found.");
+  }
+
+  const hasHistory =
+    current._count.orderLines > 0 ||
+    current._count.incidents > 0 ||
+    current._count.kitLines > 0;
+
+  if (hasHistory) {
+    await prisma.item.update({
+      where: { id: itemId },
+      data: { availabilityStatus: AvailabilityStatus.RETIRED },
+    });
+    return NextResponse.json({
+      ok: true,
+      mode: "retired",
+      message:
+        "Item has history links and cannot be hard-deleted. It was marked as RETIRED.",
+    });
+  }
+
+  await prisma.item.delete({ where: { id: itemId } });
+  return NextResponse.json({ ok: true, mode: "deleted" });
 }

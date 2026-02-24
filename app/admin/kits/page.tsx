@@ -168,6 +168,30 @@ export default function AdminKitsPage() {
     setBusyId(null);
   }
 
+  async function deleteKit(kitId: string) {
+    const confirmed = globalThis.confirm("Удалить пакет? Он исчезнет из выбора при создании заявки.");
+    if (!confirmed) {
+      return;
+    }
+    setBusyId(`delete-${kitId}`);
+    const response = await fetch(`/api/admin/catalog/kits/${kitId}`, {
+      method: "DELETE",
+    });
+    const payload = (await response.json()) as { error?: { message?: string } };
+    if (!response.ok) {
+      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось удалить пакет."}`);
+      setBusyId(null);
+      return;
+    }
+    if (selectedKitId === kitId) {
+      setSelectedKitId("");
+      setDraft(null);
+    }
+    await loadKits();
+    setStatus("Пакет удален.");
+    setBusyId(null);
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
@@ -259,6 +283,14 @@ export default function AdminKitsPage() {
               disabled={busyId !== null}
             >
               {busyId === selectedKitId ? "..." : "Сохранить пакет"}
+            </button>
+            <button
+              className="rounded border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+              type="button"
+              onClick={() => void deleteKit(selectedKitId)}
+              disabled={busyId !== null}
+            >
+              {busyId === `delete-${selectedKitId}` ? "..." : "Удалить пакет"}
             </button>
           </div>
         ) : (

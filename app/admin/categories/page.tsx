@@ -94,6 +94,26 @@ export default function AdminCategoriesPage() {
     setBusyId(null);
   }
 
+  async function deleteCategory(categoryId: string) {
+    const confirmed = globalThis.confirm("Удалить категорию подборки?");
+    if (!confirmed) {
+      return;
+    }
+    setBusyId(`delete-${categoryId}`);
+    const response = await fetch(`/api/admin/catalog/categories/${categoryId}`, {
+      method: "DELETE",
+    });
+    const payload = (await response.json()) as { error?: { message?: string } };
+    if (!response.ok) {
+      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось удалить категорию."}`);
+      setBusyId(null);
+      return;
+    }
+    await loadCategories();
+    setStatus("Категория удалена.");
+    setBusyId(null);
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
@@ -117,7 +137,7 @@ export default function AdminCategoriesPage() {
           const draft = drafts[category.id];
           return (
             <div key={category.id} className="rounded border border-zinc-200 bg-white p-3">
-              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
                 <input
                   className="rounded border border-zinc-300 px-2 py-1 text-sm"
                   value={draft?.name ?? category.name}
@@ -151,6 +171,14 @@ export default function AdminCategoriesPage() {
                   disabled={busyId !== null}
                 >
                   {busyId === category.id ? "..." : "Обновить"}
+                </button>
+                <button
+                  className="rounded border border-red-300 px-2 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  type="button"
+                  onClick={() => void deleteCategory(category.id)}
+                  disabled={busyId !== null}
+                >
+                  {busyId === `delete-${category.id}` ? "..." : "Удалить"}
                 </button>
               </div>
               <div className="mt-1 text-xs text-zinc-500">Позиций в категории: {category.itemCount}</div>

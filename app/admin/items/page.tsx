@@ -112,6 +112,37 @@ export default function AdminItemsPage() {
     setBusy(false);
   }
 
+  async function deleteItem() {
+    if (!selectedItemId) {
+      return;
+    }
+    const confirmed = globalThis.confirm("Удалить позицию? Если есть история, позиция будет переведена в RETIRED.");
+    if (!confirmed) {
+      return;
+    }
+    setBusy(true);
+    const response = await fetch("/api/admin/catalog/items", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId: selectedItemId }),
+    });
+    const payload = (await response.json()) as { error?: { message?: string }; message?: string; mode?: string };
+    if (!response.ok) {
+      setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось удалить позицию."}`);
+      setBusy(false);
+      return;
+    }
+    setSelectedItemId("");
+    setDraft(null);
+    await loadItems(search);
+    if (payload.mode === "retired") {
+      setStatus(payload.message ?? "Позиция переведена в RETIRED.");
+    } else {
+      setStatus("Позиция удалена.");
+    }
+    setBusy(false);
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
@@ -204,6 +235,14 @@ export default function AdminItemsPage() {
               disabled={busy}
             >
               {busy ? "..." : "Сохранить позицию"}
+            </button>
+            <button
+              className="rounded border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+              type="button"
+              onClick={() => void deleteItem()}
+              disabled={busy}
+            >
+              {busy ? "..." : "Удалить позицию"}
             </button>
           </div>
         ) : (

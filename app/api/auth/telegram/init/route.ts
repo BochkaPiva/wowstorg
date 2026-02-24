@@ -53,10 +53,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const telegramIdString = String(telegramUser.id);
   const telegramId = BigInt(telegramIdString);
 
+  function prismaCode(e: unknown): string {
+    return e && typeof e === "object" && "code" in e ? String((e as { code: string }).code) : "";
+  }
   const isConnectionError = (e: unknown): boolean => {
-    const code = e && typeof e === "object" && "code" in e ? String((e as { code: string }).code) : "";
-    return ["P1017", "P2024", "P1001", "P1002", "P1008", "P1017"].includes(code);
+    const code = prismaCode(e);
+    return ["P1017", "P2024", "P1001", "P1002", "P1008"].includes(code);
   };
+
+  const SERVICE_UNAVAILABLE_MSG = "Сервис временно недоступен. Попробуйте через минуту.";
 
   let user;
   try {
@@ -70,11 +75,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         user = await prisma.user.findUnique({ where: { telegramId } });
       } catch (retryErr) {
         console.error("[auth/telegram/init] DB error on findUnique (after retry):", retryErr);
-        return fail(503, "Сервис временно недоступен. Попробуйте через минуту.");
+        return fail(503, SERVICE_UNAVAILABLE_MSG);
       }
     } else {
-      console.error("[auth/telegram/init] DB error on findUnique:", e);
-      return fail(500, "Ошибка при входе. Попробуйте ещё раз или обратитесь в поддержку.");
+      console.error("[auth/telegram/init] DB error on findUnique:", prismaCode(e), e);
+      return fail(503, SERVICE_UNAVAILABLE_MSG);
     }
   }
 
@@ -97,11 +102,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         },
       });
     } catch (e) {
-      console.error("[auth/telegram/init] DB error on create:", e);
-      if (isConnectionError(e)) {
-        return fail(503, "Сервис временно недоступен. Попробуйте через минуту.");
+      const code = prismaCode(e);
+      if (code === "P2002") {
+        user = await prisma.user.findUnique({ where: { telegramId } }).catch(() => null);
+        if (!user) {
+          console.error("[auth/telegram/init] create P2002 but findUnique failed:", e);
+          return fail(503, SERVICE_UNAVAILABLE_MSG);
+        }
+      } else {
+        console.error("[auth/telegram/init] DB error on create:", code, e);
+        return fail(503, SERVICE_UNAVAILABLE_MSG);
       }
-      return fail(500, "Ошибка при входе. Попробуйте ещё раз или обратитесь в поддержку.");
     }
   } else if (user.username !== (telegramUser.username ?? null)) {
     try {
@@ -112,11 +123,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         },
       });
     } catch (e) {
-      console.error("[auth/telegram/init] DB error on update:", e);
-      if (isConnectionError(e)) {
-        return fail(503, "Сервис временно недоступен. Попробуйте через минуту.");
-      }
-      return fail(500, "Ошибка при входе. Попробуйте ещё раз или обратитесь в поддержку.");
+      console.error("[auth/telegram/init] DB error on update:", prismaCode(e), e);
+      return fail(503, SERVICE_UNAVAILABLE_MSG);
     }
   }
 

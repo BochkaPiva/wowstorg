@@ -2,6 +2,7 @@ import { ItemType } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireWarehouseUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
+import { checkinConditionLabel } from "@/lib/checkin-labels";
 import {
   parseCheckinInput,
   requiresCheckin,
@@ -69,8 +70,10 @@ export async function POST(
     return NextResponse.json({ order: serializeOrder(closed) });
   }
 
-  if (order.status !== "RETURN_DECLARED") {
-    return fail(409, "Check-in is allowed only in RETURN_DECLARED status.");
+  const isExternalQuickReturn =
+    order.status === "ISSUED" && order.orderSource === "WOWSTORG_EXTERNAL";
+  if (order.status !== "RETURN_DECLARED" && !isExternalQuickReturn) {
+    return fail(409, "Check-in is allowed only in RETURN_DECLARED or for быстрая выдача (ISSUED).");
   }
 
   const requiredLines = order.lines.filter((line) => requiresCheckin(line.item.itemType));
@@ -147,7 +150,8 @@ export async function POST(
         itemDeltaById.set(line.itemId, entry);
       }
 
-      if (missingAmount > 0) {
+      const lostQty = missingAmount + (provided.condition === "MISSING" ? provided.returnedQty : 0);
+      if (lostQty > 0) {
         await tx.lostItem.create({
           data: {
             itemId: line.itemId,
@@ -159,7 +163,7 @@ export async function POST(
             customerNameSnapshot:
               order.customer?.name ?? order.createdBy.username ?? order.createdBy.telegramId.toString(),
             eventNameSnapshot: order.eventName ?? null,
-            lostQty: missingAmount,
+            lostQty,
             note: provided.comment ?? null,
           },
         });
@@ -245,7 +249,8 @@ export async function POST(
           .filter((entry) => entry.checked && entry.checked.condition !== "OK")
           .map((entry) => {
             const issuedQty = entry.line.issuedQty ?? entry.line.approvedQty ?? entry.line.requestedQty;
-            return `${entry.line.item.name}: ${entry.checked?.returnedQty ?? 0} из ${issuedQty}, статус ${entry.checked?.condition}${
+            const condLabel = checkinConditionLabel(entry.checked!.condition);
+            return `${entry.line.item.name}: ${entry.checked?.returnedQty ?? 0} из ${issuedQty}, ${condLabel}${
               entry.checked?.comment ? ` (${entry.checked.comment})` : ""
             }`;
           }),

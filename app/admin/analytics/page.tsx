@@ -62,12 +62,12 @@ export default function AdminAnalyticsPage() {
       error?: { message?: string };
     };
 
-    if (!itemsResponse.ok || !itemsPayload.topItems) {
+    if (!itemsResponse.ok) {
       setStatus(`Ошибка топ-позиций: ${itemsPayload.error?.message ?? "не удалось загрузить данные."}`);
       setLoading(false);
       return;
     }
-    if (!customersResponse.ok || !customersPayload.topCustomers) {
+    if (!customersResponse.ok) {
       setStatus(
         `Ошибка топ-заказчиков: ${customersPayload.error?.message ?? "не удалось загрузить данные."}`,
       );
@@ -75,10 +75,14 @@ export default function AdminAnalyticsPage() {
       return;
     }
 
-    setTopItems(itemsPayload.topItems);
-    setTopCustomers(customersPayload.topCustomers);
+    const items = Array.isArray(itemsPayload.topItems) ? itemsPayload.topItems : [];
+    const customers = Array.isArray(customersPayload.topCustomers) ? customersPayload.topCustomers : [];
+    setTopItems(items);
+    setTopCustomers(customers);
     setStatus(
-      `Период ${startDate} - ${endDate}. Позиций: ${itemsPayload.topItems.length}, заказчиков: ${customersPayload.topCustomers.length}.`,
+      items.length === 0 && customers.length === 0
+        ? `За период ${startDate} – ${endDate} нет заказов со статусом «Выдано» / «Ожидает приемки» / «Закрыт». Выберите другой период и нажмите «Обновить».`
+        : `Период ${startDate} – ${endDate}. Позиций: ${items.length}, заказчиков: ${customers.length}.`,
     );
     setLoading(false);
   }
@@ -141,6 +145,9 @@ export default function AdminAnalyticsPage() {
         <article className="ws-card border p-3">
           <h2 className="mb-2 text-sm font-semibold">Топ реквизита по выручке</h2>
           <div className="space-y-2">
+            {topItems.length === 0 ? (
+              <p className="text-sm text-[var(--muted)]">Нет данных за выбранный период.</p>
+            ) : null}
             {topItems.slice(0, 20).map((item, index) => (
               <div key={item.itemId} className="flex items-center justify-between rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
                 <div className="min-w-0">
@@ -158,6 +165,9 @@ export default function AdminAnalyticsPage() {
         <article className="ws-card border p-3">
           <h2 className="mb-2 text-sm font-semibold">Топ заказчиков по выручке</h2>
           <div className="space-y-2">
+            {topCustomers.length === 0 ? (
+              <p className="text-sm text-[var(--muted)]">Нет данных за выбранный период.</p>
+            ) : null}
             {topCustomers.slice(0, 20).map((customer, index) => (
               <div
                 key={customer.customerId}

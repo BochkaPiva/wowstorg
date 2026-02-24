@@ -39,13 +39,14 @@ export default function AdminCustomersPage() {
     const query = params.toString().length > 0 ? `?${params.toString()}` : "";
     const response = await fetch(`/api/customers${query}`);
     const payload = (await response.json()) as { customers?: Customer[]; error?: { message?: string } };
-    if (!response.ok || !payload.customers) {
+    if (!response.ok) {
       setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось загрузить заказчиков."}`);
       return;
     }
-    setCustomers(payload.customers);
+    const list = Array.isArray(payload.customers) ? payload.customers : [];
+    setCustomers(list);
     setDrafts(
-      payload.customers.reduce<Record<string, { name: string; contact: string; notes: string; isActive: boolean }>>(
+      list.reduce<Record<string, { name: string; contact: string; notes: string; isActive: boolean }>>(
         (acc, customer) => {
           acc[customer.id] = {
             name: customer.name,
@@ -58,7 +59,7 @@ export default function AdminCustomersPage() {
         {},
       ),
     );
-    setStatus(`Заказчиков: ${payload.customers.length}`);
+    setStatus(`Заказчиков: ${list.length}`);
   }
 
   async function createCustomer(event: FormEvent) {
@@ -139,6 +140,9 @@ export default function AdminCustomersPage() {
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Заказчики</h1>
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          Это та же база, что и выпадающий список «Заказчик» при создании заявки. При указании нового имени в заявке заказчик добавляется сюда автоматически.
+        </p>
         <Link href="/admin" className="ws-btn">
           Назад
         </Link>

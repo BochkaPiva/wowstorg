@@ -61,8 +61,11 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   }
 
   const action = payload.action;
-  if (action !== "REPAIR" && action !== "WRITE_OFF") {
-    return NextResponse.json({ error: { message: "action must be REPAIR or WRITE_OFF." } }, { status: 400 });
+  if (action !== "REPAIR" && action !== "WRITE_OFF" && action !== "WRITE_OFF_MISSING") {
+    return NextResponse.json(
+      { error: { message: "action must be REPAIR, WRITE_OFF or WRITE_OFF_MISSING." } },
+      { status: 400 },
+    );
   }
   const quantity =
     typeof payload.quantity === "number" && Number.isInteger(payload.quantity) && payload.quantity > 0
@@ -76,6 +79,48 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   if (!current) {
     return NextResponse.json({ error: { message: "Item not found." } }, { status: 404 });
   }
+
+  if (action === "WRITE_OFF_MISSING") {
+    if (current.stockMissing < quantity) {
+      return NextResponse.json(
+        { error: { message: "Недостаточно утерянных единиц для списания." } },
+        { status: 400 },
+      );
+    }
+    const nextMissing = current.stockMissing - quantity;
+    const nextTotal = Math.max(0, current.stockTotal - quantity);
+    const nextStatus =
+      current.availabilityStatus === AvailabilityStatus.RETIRED
+        ? AvailabilityStatus.RETIRED
+        : nextMissing > 0
+          ? AvailabilityStatus.MISSING
+          : current.stockInRepair > 0
+            ? AvailabilityStatus.NEEDS_REPAIR
+            : current.stockBroken > 0
+              ? AvailabilityStatus.BROKEN
+              : AvailabilityStatus.ACTIVE;
+
+    const updated = await prisma.item.update({
+      where: { id: itemId },
+      data: {
+        stockMissing: nextMissing,
+        stockTotal: nextTotal,
+        availabilityStatus: nextStatus,
+      },
+    });
+    return NextResponse.json({
+      item: {
+        id: updated.id,
+        availabilityStatus: updated.availabilityStatus,
+        stockTotal: updated.stockTotal,
+        stockInRepair: updated.stockInRepair,
+        stockBroken: updated.stockBroken,
+        stockMissing: updated.stockMissing,
+        updatedAt: updated.updatedAt.toISOString(),
+      },
+    });
+  }
+
   if (current.stockInRepair + current.stockBroken < quantity) {
     return NextResponse.json(
       { error: { message: "Not enough broken/repair stock for this action." } },

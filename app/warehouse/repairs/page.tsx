@@ -14,6 +14,21 @@ type ProblemItem = {
   locationText: string | null;
 };
 
+function availabilityStatusLabel(s: ProblemItem["availabilityStatus"]): string {
+  switch (s) {
+    case "NEEDS_REPAIR":
+      return "Требуется ремонт";
+    case "BROKEN":
+      return "Сломано";
+    case "MISSING":
+      return "Утеряно";
+    case "RETIRED":
+      return "Списано";
+    default:
+      return String(s);
+  }
+}
+
 export default function WarehouseRepairsPage() {
   const [items, setItems] = useState<ProblemItem[]>([]);
   const [status, setStatus] = useState("Загружаем проблемный реквизит...");
@@ -60,7 +75,10 @@ export default function WarehouseRepairsPage() {
     void loadItems();
   }, []);
 
-  async function runAction(itemId: string, action: "REPAIR" | "WRITE_OFF") {
+  async function runAction(
+    itemId: string,
+    action: "REPAIR" | "WRITE_OFF" | "WRITE_OFF_MISSING",
+  ) {
     const quantity = Math.max(1, Number(qtyByItem[itemId] ?? 1));
     setBusyId(itemId);
     try {
@@ -102,43 +120,57 @@ export default function WarehouseRepairsPage() {
               <div className="space-y-1">
                 <div className="text-sm font-semibold">{item.name}</div>
                 <div className="text-xs text-[var(--muted)]">
-                  Статус: {item.availabilityStatus} • Всего: {item.stockTotal} • Ремонт: {item.stockInRepair} •
-                  Сломано: {item.stockBroken} • Утеряно: {item.stockMissing}
+                  Статус: {availabilityStatusLabel(item.availabilityStatus)} • Всего: {item.stockTotal} • Ремонт:{" "}
+                  {item.stockInRepair} • Сломано: {item.stockBroken} • Утеряно: {item.stockMissing}
                 </div>
-                {item.locationText ? (
-                  <div className="text-xs text-[var(--muted)]">Локация: {item.locationText}</div>
-                ) : null}
               </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  className="w-20 rounded-xl border border-[var(--border)] px-2 py-1 text-sm"
-                  type="number"
-                  min={1}
-                  value={qtyByItem[item.id] ?? 1}
-                  onChange={(event) =>
-                    setQtyByItem((prev) => ({
-                      ...prev,
-                      [item.id]: Math.max(1, Number(event.target.value)),
-                    }))
-                  }
-                />
-                <button
-                  className="ws-btn disabled:opacity-50"
-                  type="button"
-                  onClick={() => void runAction(item.id, "REPAIR")}
-                  disabled={busyId !== null}
-                >
-                  Починить
-                </button>
-                <button
-                  className="ws-btn disabled:opacity-50"
-                  type="button"
-                  onClick={() => void runAction(item.id, "WRITE_OFF")}
-                  disabled={busyId !== null}
-                >
-                  Утилизировать
-                </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-xs text-[var(--muted)]">
+                  Кол-во:
+                  <input
+                    className="ml-1 w-14 rounded-xl border border-[var(--border)] px-2 py-1 text-sm"
+                    type="number"
+                    min={1}
+                    value={qtyByItem[item.id] ?? 1}
+                    onChange={(event) =>
+                      setQtyByItem((prev) => ({
+                        ...prev,
+                        [item.id]: Math.max(1, Number(event.target.value)),
+                      }))
+                    }
+                  />
+                </label>
+                {item.stockInRepair + item.stockBroken > 0 ? (
+                  <>
+                    <button
+                      className="ws-btn disabled:opacity-50"
+                      type="button"
+                      onClick={() => void runAction(item.id, "REPAIR")}
+                      disabled={busyId !== null}
+                    >
+                      Починить
+                    </button>
+                    <button
+                      className="ws-btn disabled:opacity-50"
+                      type="button"
+                      onClick={() => void runAction(item.id, "WRITE_OFF")}
+                      disabled={busyId !== null}
+                    >
+                      Утилизировать
+                    </button>
+                  </>
+                ) : null}
+                {item.stockMissing > 0 ? (
+                  <button
+                    className="ws-btn disabled:opacity-50"
+                    type="button"
+                    onClick={() => void runAction(item.id, "WRITE_OFF_MISSING")}
+                    disabled={busyId !== null}
+                  >
+                    Списать утерю
+                  </button>
+                ) : null}
               </div>
             </div>
           </article>

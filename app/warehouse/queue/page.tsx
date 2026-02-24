@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { checkinConditionLabel } from "@/lib/checkin-labels";
 
 type QueueLine = {
   id: string;
@@ -303,8 +304,11 @@ export default function WarehouseQueuePage() {
     }
   }
 
+  const canCheckinWithoutReturnDeclared = (o: QueueOrder) =>
+    o.status === "ISSUED" && o.orderSource === "WOWSTORG_EXTERNAL";
+
   async function checkinFastAllOk(order: QueueOrder) {
-    if (order.status !== "RETURN_DECLARED") {
+    if (order.status !== "RETURN_DECLARED" && !canCheckinWithoutReturnDeclared(order)) {
       setStatus("Приемка доступна только после того, как клиент отправит возврат на приемку.");
       return;
     }
@@ -342,7 +346,7 @@ export default function WarehouseQueuePage() {
   }
 
   async function checkinDetailed(order: QueueOrder) {
-    if (order.status !== "RETURN_DECLARED") {
+    if (order.status !== "RETURN_DECLARED" && !canCheckinWithoutReturnDeclared(order)) {
       setStatus("Приемка доступна только после того, как клиент отправит возврат на приемку.");
       return;
     }
@@ -450,7 +454,7 @@ export default function WarehouseQueuePage() {
                       className="ws-btn disabled:opacity-50"
                       type="button"
                       onClick={() => void checkinFastAllOk(order)}
-                      disabled={busyOrderId !== null || order.status !== "RETURN_DECLARED"}
+                      disabled={busyOrderId !== null || (order.status !== "RETURN_DECLARED" && !canCheckinWithoutReturnDeclared(order))}
                     >
                       Принять все (ОК)
                     </button>
@@ -461,7 +465,7 @@ export default function WarehouseQueuePage() {
                         ensureDrafts(order);
                         setExpandedCheckinOrderId((prev) => (prev === order.id ? null : order.id));
                       }}
-                      disabled={busyOrderId !== null || order.status !== "RETURN_DECLARED"}
+                      disabled={busyOrderId !== null || (order.status !== "RETURN_DECLARED" && !canCheckinWithoutReturnDeclared(order))}
                     >
                       {expandedCheckinOrderId === order.id ? "Скрыть приемку" : "Приемка по позициям"}
                     </button>
@@ -707,18 +711,18 @@ export default function WarehouseQueuePage() {
             {expandedCheckinOrderId === order.id ? (
               <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white p-3">
                 <div className="mb-2 text-sm font-semibold">Приемка по позициям</div>
-                {order.status !== "RETURN_DECLARED" ? (
+                {order.status !== "RETURN_DECLARED" && !canCheckinWithoutReturnDeclared(order) ? (
                   <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
                     Клиент еще не отправил возврат на приемку. Дождитесь статуса «Ожидает приемки».
                   </div>
                 ) : null}
                 {order.clientDeclaration ? (
                   <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
-                    <div className="font-semibold">Что отметил клиент при возврате:</div>
+                    <div className="font-semibold">Что отметил клиент при возврате (со слов клиента):</div>
                     <ul className="mt-1 space-y-1">
                       {order.clientDeclaration.lines.map((line) => (
                         <li key={line.orderLineId}>
-                          {order.lines.find((entry) => entry.id === line.orderLineId)?.itemName ?? line.itemId}: {line.returnedQty} из {line.issuedQty}, статус {line.condition}
+                          {order.lines.find((entry) => entry.id === line.orderLineId)?.itemName ?? line.itemId}: {line.returnedQty} из {line.issuedQty}, {checkinConditionLabel(line.condition)}
                           {line.comment ? ` (${line.comment})` : ""}
                         </li>
                       ))}
@@ -739,7 +743,7 @@ export default function WarehouseQueuePage() {
                           <div className="mb-1 text-sm">{line.itemName}</div>
                           {clientLine ? (
                             <div className="mb-1 text-xs text-amber-800">
-                              Клиент указал: {clientLine.returnedQty} из {clientLine.issuedQty}, {clientLine.condition}
+                              Со слов клиента: {clientLine.returnedQty} из {clientLine.issuedQty}, {checkinConditionLabel(clientLine.condition)}
                               {clientLine.comment ? ` (${clientLine.comment})` : ""}
                             </div>
                           ) : null}

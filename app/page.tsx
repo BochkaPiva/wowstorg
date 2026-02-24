@@ -174,7 +174,8 @@ export default function Home() {
       <p className="text-zinc-600">{status}</p>
       {user ? (
         <p className="text-sm text-zinc-700">
-          Вы вошли как <span className="font-medium">{user.username ?? user.id}</span> ({user.role})
+          Вы вошли как <span className="font-medium">{user.username ?? user.id}</span>
+          {user.role === "ADMIN" ? " (ADMIN)" : null}
         </p>
       ) : null}
 

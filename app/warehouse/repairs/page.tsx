@@ -14,7 +14,10 @@ type ProblemItem = {
   locationText: string | null;
 };
 
-function availabilityStatusLabel(s: ProblemItem["availabilityStatus"]): string {
+function availabilityStatusLabel(
+  s: ProblemItem["availabilityStatus"],
+  item?: { stockInRepair: number; stockBroken: number; stockMissing: number },
+): string {
   switch (s) {
     case "NEEDS_REPAIR":
       return "Требуется ремонт";
@@ -24,6 +27,11 @@ function availabilityStatusLabel(s: ProblemItem["availabilityStatus"]): string {
       return "Утеряно";
     case "RETIRED":
       return "Списано";
+    case "ACTIVE":
+      if (item && (item.stockInRepair + item.stockBroken > 0)) {
+        return "Доступна (есть единицы в ремонте/сломано)";
+      }
+      return "Доступна";
     default:
       return String(s);
   }
@@ -120,7 +128,7 @@ export default function WarehouseRepairsPage() {
               <div className="space-y-1">
                 <div className="text-sm font-semibold">{item.name}</div>
                 <div className="text-xs text-[var(--muted)]">
-                  Статус: {availabilityStatusLabel(item.availabilityStatus)} • Всего: {item.stockTotal} • Ремонт:{" "}
+                  Статус: {availabilityStatusLabel(item.availabilityStatus, item)} • Всего: {item.stockTotal} • Ремонт:{" "}
                   {item.stockInRepair} • Сломано: {item.stockBroken} • Утеряно: {item.stockMissing}
                 </div>
               </div>

@@ -277,10 +277,19 @@ export default function CatalogPage() {
     });
   }
 
+  const isError = status.startsWith("Ошибка");
+  const isValidation =
+    status.length > 0 &&
+    (status.includes("Укажите") ||
+      status.includes("Корзина пуста") ||
+      status.includes("недоступн") ||
+      status.includes("максимум") ||
+      status.includes("Этот раздел") ||
+      status.includes("Обновите корзину"));
+
   return (
     <section className="space-y-4">
       <h1 className="text-2xl font-semibold text-[var(--brand)]">Каталог и оформление заявки</h1>
-      <p className="text-sm text-[var(--muted)]">{status}</p>
       <div className="flex justify-end">
         <button className="ws-btn" type="button" onClick={() => { globalThis.location.href = "/"; }}>
           Назад
@@ -491,6 +500,20 @@ export default function CatalogPage() {
           <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Мероприятие (опционально)" value={eventName} onChange={(e) => setEventName(e.target.value)} />
           <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Комментарий (опционально)" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
+        {status ? (
+          <div
+            className={`rounded-xl border p-3 text-sm font-medium ${
+              isError
+                ? "border-red-300 bg-red-50 text-red-800"
+                : isValidation
+                  ? "border-amber-300 bg-amber-50 text-amber-900"
+                  : "border-[var(--border)] bg-violet-50 text-[var(--brand)]"
+            }`}
+            role="alert"
+          >
+            {status}
+          </div>
+        ) : null}
         <div className="rounded-xl border border-[var(--border)] bg-violet-50 p-3 text-sm">
           <div>Суток аренды: {rentalDays}</div>
           <div>Итого за сутки: {formatMoney(cartSubtotalPerDay)} ₽</div>

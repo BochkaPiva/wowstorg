@@ -9,16 +9,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return auth.response;
   }
 
+  // Только ремонт и сломанные; утерянные — в отдельном реестре «Утерянный реквизит».
   const items = await prisma.item.findMany({
     where: {
-      availabilityStatus: {
-        in: [
-          AvailabilityStatus.NEEDS_REPAIR,
-          AvailabilityStatus.BROKEN,
-          AvailabilityStatus.MISSING,
-          AvailabilityStatus.RETIRED,
-        ],
-      },
+      OR: [
+        { availabilityStatus: AvailabilityStatus.RETIRED },
+        { stockInRepair: { gt: 0 } },
+        { stockBroken: { gt: 0 } },
+      ],
     },
     orderBy: [{ updatedAt: "desc" }],
   });

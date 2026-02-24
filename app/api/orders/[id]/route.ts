@@ -9,6 +9,7 @@ import {
   serializeOrder,
   validateDateRange,
 } from "@/lib/orders";
+import { computeAvailableQty } from "@/lib/items";
 import { prisma } from "@/lib/prisma";
 
 type Params = {
@@ -148,8 +149,16 @@ export async function PATCH(
     const normalizedLines = normalizeLines(parsed.lines);
     const itemIds = Array.from(new Set(normalizedLines.map((line) => line.itemId)));
     const items = await prisma.item.findMany({
-      where: { id: { in: itemIds }, availabilityStatus: "ACTIVE" },
-      select: { id: true, stockTotal: true, pricePerDay: true },
+      where: { id: { in: itemIds }, availabilityStatus: { not: "RETIRED" } },
+      select: {
+        id: true,
+        availabilityStatus: true,
+        stockTotal: true,
+        stockInRepair: true,
+        stockBroken: true,
+        stockMissing: true,
+        pricePerDay: true,
+      },
     });
     if (items.length !== itemIds.length) {
       return fail(400, "Some items are missing or not available.");
@@ -165,7 +174,7 @@ export async function PATCH(
     for (const line of normalizedLines) {
       const item = itemById.get(line.itemId)!;
       const reservedQty = reservedMap.get(item.id) ?? 0;
-      const availableQty = Math.max(0, item.stockTotal - reservedQty);
+      const availableQty = computeAvailableQty(item, reservedQty);
       if (line.requestedQty > availableQty) {
         return fail(400, "Requested quantity exceeds availability.", {
           itemId: item.id,
@@ -195,6 +204,7 @@ export async function PATCH(
       await tx.orderLine.createMany({
         data: normalizedLines.map((line) => {
           const item = itemById.get(line.itemId)!;
+          const discountRate = Number(existing.discountRate);
           return {
             orderId: existing.id,
             itemId: line.itemId,
@@ -202,7 +212,7 @@ export async function PATCH(
             approvedQty: null,
             issuedQty: null,
             sourceKitId: line.sourceKitId,
-            pricePerDaySnapshot: Number(item.pricePerDay) * 0.7,
+            pricePerDaySnapshot: Number(item.pricePerDay) * (1 - discountRate),
           };
         }),
       });

@@ -77,6 +77,8 @@ function roleTiles(role: AppRole | null): Tile[] {
       { href: "/orders/new", title: "Быстрая выдача", description: "Внешний заказ сразу в выдачу" },
       { href: "/warehouse/queue", title: "Очередь склада", description: "Approve, issue, check-in" },
       { href: "/warehouse/archive", title: "Архив склада", description: "Закрытые и отмененные заказы" },
+      { href: "/warehouse/lost-items", title: "Утерянный реквизит", description: "Найдено / списано / открытые потери" },
+      { href: "/warehouse/repairs", title: "Ремонт и списание", description: "Починить или утилизировать проблемные позиции" },
       { href: "/catalog", title: "Инвентарь", description: "Проверка доступности и остатков" },
     ];
   }
@@ -85,6 +87,8 @@ function roleTiles(role: AppRole | null): Tile[] {
       { href: "/orders/new", title: "Быстрая выдача", description: "Оформление внешних заказов" },
       { href: "/warehouse/queue", title: "Очередь склада", description: "Полный операционный контроль" },
       { href: "/warehouse/archive", title: "Архив склада", description: "История закрытых и отмененных заказов" },
+      { href: "/warehouse/lost-items", title: "Утерянный реквизит", description: "Реестр потерянных позиций" },
+      { href: "/warehouse/repairs", title: "Ремонт и списание", description: "Операции по проблемным остаткам" },
       { href: "/catalog", title: "Инвентарь", description: "Позиции, доступность, цены" },
       { href: "/admin", title: "Админ панель", description: "Роли пользователей и база заказчиков" },
       { href: "/dev-login", title: "Сервисный вход", description: "Тестовые сессии для отладки" },

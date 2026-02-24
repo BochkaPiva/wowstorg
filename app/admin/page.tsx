@@ -38,6 +38,11 @@ const SCENARIOS = [
     title: "Пакеты",
     description: "Готовые наборы и составы позиций для быстрой заявки",
   },
+  {
+    href: "/admin/analytics",
+    title: "Аналитика",
+    description: "Топ реквизита и топ заказчиков за период",
+  },
 ];
 
 export default function AdminPage() {

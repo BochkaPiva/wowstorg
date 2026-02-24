@@ -15,6 +15,10 @@ function parseDate(input: string | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function toDateOnly(input: Date): Date {
+  return new Date(Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate()));
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const auth = await requireWarehouseUser(request);
   if (!auth.ok) {
@@ -23,11 +27,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const startDateRaw = request.nextUrl.searchParams.get("startDate");
   const endDateRaw = request.nextUrl.searchParams.get("endDate");
-  const startDate = parseDate(startDateRaw);
-  const endDate = parseDate(endDateRaw);
+  const now = new Date();
+  const defaultStartDate = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+  const defaultEndDate = toDateOnly(now);
+  const startDate = startDateRaw ? parseDate(startDateRaw) : defaultStartDate;
+  const endDate = endDateRaw ? parseDate(endDateRaw) : defaultEndDate;
 
   if ((startDateRaw && !startDate) || (endDateRaw && !endDate)) {
     return fail(400, "Invalid date format. Use YYYY-MM-DD.");
+  }
+  if (startDate && endDate && startDate > endDate) {
+    return fail(400, "startDate must be less than or equal to endDate.");
   }
 
   const lines = await prisma.orderLine.findMany({
@@ -39,9 +49,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         startDate: {
           gte: startDate ?? undefined,
         },
-        endDate: {
-          lte: endDate ?? undefined,
-        },
+        endDate: { lte: endDate ?? undefined },
       },
     },
     include: {

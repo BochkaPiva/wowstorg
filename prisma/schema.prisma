@@ -56,6 +56,12 @@ enum IncidentType {
   MISSING
 }
 
+enum LostItemStatus {
+  OPEN
+  FOUND
+  WRITTEN_OFF
+}
+
 model User {
   id               String     @id @default(cuid())
   telegramId       BigInt     @unique @map("telegram_id")
@@ -68,6 +74,8 @@ model User {
   ordersIssued     Order[]    @relation("OrdersIssued")
   checkinsCreated  CheckinLine[] @relation("CheckinsCreated")
   incidentsCreated Incident[] @relation("IncidentsCreated")
+  lostItemsDetected LostItem[] @relation("LostItemsDetected")
+  lostItemsResolved LostItem[] @relation("LostItemsResolved")
 
   @@index([role])
   @@map("users")
@@ -80,6 +88,9 @@ model Item {
   itemType           ItemType           @map("item_type")
   availabilityStatus AvailabilityStatus @default(ACTIVE) @map("availability_status")
   stockTotal         Int                @default(0) @map("stock_total")
+  stockInRepair      Int                @default(0) @map("stock_in_repair")
+  stockMissing       Int                @default(0) @map("stock_missing")
+  stockBroken        Int                @default(0) @map("stock_broken")
   pricePerDay        Decimal            @db.Decimal(12, 2) @map("price_per_day")
   locationText       String?            @map("location_text")
   createdAt          DateTime           @default(now()) @map("created_at")
@@ -90,6 +101,7 @@ model Item {
   orderLines OrderLine[]
   incidents  Incident[]
   images     ItemImage[]
+  lostItems  LostItem[]
 
   @@index([availabilityStatus])
   @@index([itemType])
@@ -197,6 +209,7 @@ model Order {
   issuedBy   User?      @relation("OrdersIssued", fields: [issuedById], references: [id], onDelete: SetNull)
   lines      OrderLine[]
   incidents  Incident[]
+  lostItems  LostItem[]
 
   @@index([status])
   @@index([startDate, endDate])
@@ -227,6 +240,7 @@ model OrderLine {
   sourceKit   Kit?        @relation(fields: [sourceKitId], references: [id], onDelete: SetNull)
   checkinLine CheckinLine?
   incidents   Incident[]
+  lostItems   LostItem[]
 
   @@index([orderId])
   @@index([itemId])
@@ -247,6 +261,7 @@ model CheckinLine {
 
   orderLine OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
   createdBy User      @relation("CheckinsCreated", fields: [createdById], references: [id], onDelete: Restrict)
+  lostItems LostItem[]
 
   @@index([condition])
   @@index([createdById])
@@ -275,6 +290,39 @@ model Incident {
   @@index([orderLineId])
   @@index([type, createdAt])
   @@map("incidents")
+}
+
+model LostItem {
+  id                  String         @id @default(cuid())
+  itemId              String         @map("item_id")
+  orderId             String         @map("order_id")
+  orderLineId         String         @map("order_line_id")
+  checkinLineId       String?        @map("checkin_line_id")
+  detectedById        String         @map("detected_by")
+  customerTelegramId  String         @map("customer_telegram_id")
+  customerNameSnapshot String?       @map("customer_name_snapshot")
+  eventNameSnapshot   String?        @map("event_name_snapshot")
+  detectedAt          DateTime       @default(now()) @map("detected_at")
+  lostQty             Int            @map("lost_qty")
+  status              LostItemStatus @default(OPEN)
+  note                String?
+  resolvedAt          DateTime?      @map("resolved_at")
+  resolvedById        String?        @map("resolved_by")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  item        Item        @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderLine   OrderLine   @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  checkinLine CheckinLine? @relation(fields: [checkinLineId], references: [id], onDelete: SetNull)
+  detectedBy  User        @relation("LostItemsDetected", fields: [detectedById], references: [id], onDelete: Restrict)
+  resolvedBy  User?       @relation("LostItemsResolved", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([status, detectedAt])
+  @@index([itemId, status])
+  @@index([orderId])
+  @@index([customerTelegramId])
+  @@map("lost_items")
 }
 
 model ItemImage {

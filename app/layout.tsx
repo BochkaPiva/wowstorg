@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import SwipeBack from "@/app/components/SwipeBack";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <SwipeBack />
         <div className="min-h-screen text-zinc-900">
           <header className="border-b border-[var(--border)] bg-white/90 backdrop-blur">
             <nav className="mx-auto flex w-full max-w-6xl flex-wrap gap-4 px-4 py-3 text-sm">

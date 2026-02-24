@@ -6,28 +6,15 @@ import {
   parseCheckinInput,
   requiresCheckin,
   serializeOrder,
-  toAvailabilityStatus,
   toIncidentType,
 } from "@/lib/orders";
 import { notifyOrderOwner } from "@/lib/notifications";
+import { resolveAvailabilityStatusFromBuckets } from "@/lib/item-status";
 import { prisma } from "@/lib/prisma";
 
 type Params = {
   params: Promise<{ id: string }>;
 };
-
-type Severity = "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING";
-
-const severityRank: Record<Severity, number> = {
-  ACTIVE: 0,
-  NEEDS_REPAIR: 1,
-  BROKEN: 2,
-  MISSING: 3,
-};
-
-function maxSeverity(current: Severity, next: Severity): Severity {
-  return severityRank[next] > severityRank[current] ? next : current;
-}
 
 export async function POST(
   request: NextRequest,
@@ -59,6 +46,7 @@ export async function POST(
       createdBy: {
         select: {
           telegramId: true,
+          username: true,
         },
       },
       lines: {
@@ -117,14 +105,17 @@ export async function POST(
   }
 
   const updated = await prisma.$transaction(async (tx) => {
-    const nextItemSeverity = new Map<string, Severity>();
+    const itemDeltaById = new Map<
+      string,
+      { inRepair: number; broken: number; missing: number }
+    >();
 
     for (const provided of parsed.lines) {
       const line = order.lines.find((entry) => entry.id === provided.orderLineId)!;
       const issuedQty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
       const missingAmount = Math.max(0, issuedQty - provided.returnedQty);
 
-      await tx.checkinLine.upsert({
+      const checkinLine = await tx.checkinLine.upsert({
         where: { orderLineId: line.id },
         update: {
           returnedQty: provided.returnedQty,
@@ -141,11 +132,35 @@ export async function POST(
         },
       });
 
-      if (line.item.itemType === ItemType.BULK && missingAmount > 0) {
-        await tx.item.update({
-          where: { id: line.itemId },
+      if (line.item.itemType !== ItemType.CONSUMABLE) {
+        const entry = itemDeltaById.get(line.itemId) ?? { inRepair: 0, broken: 0, missing: 0 };
+        if (provided.condition === "NEEDS_REPAIR") {
+          entry.inRepair += provided.returnedQty;
+        } else if (provided.condition === "BROKEN") {
+          entry.broken += provided.returnedQty;
+        } else if (provided.condition === "MISSING") {
+          entry.missing += provided.returnedQty;
+        }
+        if (missingAmount > 0) {
+          entry.missing += missingAmount;
+        }
+        itemDeltaById.set(line.itemId, entry);
+      }
+
+      if (missingAmount > 0) {
+        await tx.lostItem.create({
           data: {
-            stockTotal: { decrement: missingAmount },
+            itemId: line.itemId,
+            orderId: order.id,
+            orderLineId: line.id,
+            checkinLineId: checkinLine.id,
+            detectedById: auth.user.id,
+            customerTelegramId: order.createdBy.telegramId.toString(),
+            customerNameSnapshot:
+              order.customer?.name ?? order.createdBy.username ?? order.createdBy.telegramId.toString(),
+            eventNameSnapshot: order.eventName ?? null,
+            lostQty: missingAmount,
+            note: provided.comment ?? null,
           },
         });
       }
@@ -163,21 +178,30 @@ export async function POST(
           },
         });
 
-        const status = toAvailabilityStatus(provided.condition);
-        if (status) {
-          const severity = status as Severity;
-          nextItemSeverity.set(
-            line.itemId,
-            maxSeverity(nextItemSeverity.get(line.itemId) ?? "ACTIVE", severity),
-          );
-        }
       }
     }
 
-    for (const [itemId, severity] of nextItemSeverity) {
+    for (const [itemId, delta] of itemDeltaById) {
+      const item = order.lines.find((line) => line.itemId === itemId)?.item;
+      if (!item) {
+        continue;
+      }
+      const nextStockInRepair = Math.max(0, item.stockInRepair + delta.inRepair);
+      const nextStockBroken = Math.max(0, item.stockBroken + delta.broken);
+      const nextStockMissing = Math.max(0, item.stockMissing + delta.missing);
       await tx.item.update({
         where: { id: itemId },
-        data: { availabilityStatus: severity },
+        data: {
+          stockInRepair: nextStockInRepair,
+          stockBroken: nextStockBroken,
+          stockMissing: nextStockMissing,
+          availabilityStatus: resolveAvailabilityStatusFromBuckets({
+            currentStatus: item.availabilityStatus,
+            stockInRepair: nextStockInRepair,
+            stockBroken: nextStockBroken,
+            stockMissing: nextStockMissing,
+          }),
+        },
       });
     }
 

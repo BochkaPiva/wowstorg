@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getReservedQtyMap } from "@/lib/availability";
 import { requireUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
+import { computeAvailableQty } from "@/lib/items";
 import { serializeOrder } from "@/lib/orders";
 import { prisma } from "@/lib/prisma";
 
@@ -68,8 +69,16 @@ export async function PATCH(
 
   const itemIds = Array.from(new Set(lines.map((line) => line.itemId)));
   const items = await prisma.item.findMany({
-    where: { id: { in: itemIds }, availabilityStatus: "ACTIVE" },
-    select: { id: true, stockTotal: true, pricePerDay: true },
+    where: { id: { in: itemIds }, availabilityStatus: { not: "RETIRED" } },
+    select: {
+      id: true,
+      availabilityStatus: true,
+      stockTotal: true,
+      stockInRepair: true,
+      stockBroken: true,
+      stockMissing: true,
+      pricePerDay: true,
+    },
   });
   if (items.length !== itemIds.length) {
     return fail(400, "Некоторые позиции отсутствуют или недоступны.");
@@ -79,7 +88,7 @@ export async function PATCH(
   const reserved = await getReservedQtyMap(itemIds, order.startDate, order.endDate);
   for (const line of lines) {
     const item = itemById.get(line.itemId)!;
-    const availableQty = Math.max(0, item.stockTotal - (reserved.get(line.itemId) ?? 0));
+    const availableQty = computeAvailableQty(item, reserved.get(line.itemId) ?? 0);
     if (line.requestedQty > availableQty) {
       return fail(400, "Недостаточно доступного количества для позиции.", {
         itemId: line.itemId,

@@ -7,7 +7,11 @@ type Item = {
   id: string;
   name: string;
   itemType: "ASSET" | "BULK" | "CONSUMABLE";
+  availabilityStatus: "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | "RETIRED";
   stockTotal: number;
+  stockInRepair: number;
+  stockBroken: number;
+  stockMissing: number;
   pricePerDay: number;
   categoryIds: string[];
   imageUrls: string[];
@@ -28,7 +32,11 @@ export default function AdminItemsPage() {
   const [draft, setDraft] = useState<{
     name: string;
     itemType: "ASSET" | "BULK" | "CONSUMABLE";
+    availabilityStatus: "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | "RETIRED";
     stockTotal: number;
+    stockInRepair: number;
+    stockBroken: number;
+    stockMissing: number;
     pricePerDay: number;
     categoryIds: string[];
     imageUrlsText: string;
@@ -73,7 +81,11 @@ export default function AdminItemsPage() {
     setDraft({
       name: item.name,
       itemType: item.itemType,
+      availabilityStatus: item.availabilityStatus,
       stockTotal: item.stockTotal,
+      stockInRepair: item.stockInRepair,
+      stockBroken: item.stockBroken,
+      stockMissing: item.stockMissing,
       pricePerDay: item.pricePerDay,
       categoryIds: item.categoryIds,
       imageUrlsText: item.imageUrls.join("\n"),
@@ -92,7 +104,11 @@ export default function AdminItemsPage() {
         itemId: selectedItemId,
         name: draft.name.trim(),
         itemType: draft.itemType,
+        availabilityStatus: draft.availabilityStatus,
         stockTotal: draft.stockTotal,
+        stockInRepair: draft.stockInRepair,
+        stockBroken: draft.stockBroken,
+        stockMissing: draft.stockMissing,
         pricePerDay: draft.pricePerDay,
         categoryIds: draft.categoryIds,
         imageUrls: draft.imageUrlsText
@@ -186,9 +202,37 @@ export default function AdminItemsPage() {
                 <option value="BULK">BULK</option>
                 <option value="CONSUMABLE">CONSUMABLE</option>
               </select>
+              <select
+                className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                value={draft.availabilityStatus}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    availabilityStatus: event.target.value as "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | "RETIRED",
+                  })
+                }
+              >
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="NEEDS_REPAIR">NEEDS_REPAIR</option>
+                <option value="BROKEN">BROKEN</option>
+                <option value="MISSING">MISSING</option>
+                <option value="RETIRED">RETIRED</option>
+              </select>
               <label className="text-sm">
                 <span className="mb-1 block text-xs text-zinc-600">Stock</span>
                 <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={draft.stockTotal} onChange={(event) => setDraft({ ...draft, stockTotal: Number(event.target.value) })} />
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-xs text-zinc-600">На ремонте</span>
+                <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={draft.stockInRepair} onChange={(event) => setDraft({ ...draft, stockInRepair: Number(event.target.value) })} />
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-xs text-zinc-600">Сломано</span>
+                <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={draft.stockBroken} onChange={(event) => setDraft({ ...draft, stockBroken: Number(event.target.value) })} />
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-xs text-zinc-600">Утеряно</span>
+                <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={draft.stockMissing} onChange={(event) => setDraft({ ...draft, stockMissing: Number(event.target.value) })} />
               </label>
               <label className="text-sm">
                 <span className="mb-1 block text-xs text-zinc-600">Price/day</span>

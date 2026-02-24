@@ -1,7 +1,7 @@
-import { AvailabilityStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireWarehouseUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
+import { resolveAvailabilityStatusFromBuckets } from "@/lib/item-status";
 import { prisma } from "@/lib/prisma";
 
 type Params = {
@@ -23,18 +23,25 @@ export async function POST(
     return fail(404, "Item not found.");
   }
 
-  if (item.availabilityStatus === AvailabilityStatus.ACTIVE) {
+  const targetStatus = resolveAvailabilityStatusFromBuckets({
+    currentStatus: item.availabilityStatus,
+    stockInRepair: item.stockInRepair,
+    stockBroken: item.stockBroken,
+    stockMissing: item.stockMissing,
+  });
+
+  if (item.availabilityStatus === targetStatus) {
     return NextResponse.json({
       item: {
         id: item.id,
-        availabilityStatus: item.availabilityStatus,
+        availabilityStatus: targetStatus,
       },
     });
   }
 
   const updated = await prisma.item.update({
     where: { id: item.id },
-    data: { availabilityStatus: AvailabilityStatus.ACTIVE },
+    data: { availabilityStatus: targetStatus },
   });
 
   return NextResponse.json({

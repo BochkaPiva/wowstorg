@@ -14,6 +14,16 @@ function parseItemType(raw: unknown): ItemType | null {
     : null;
 }
 
+function parseAvailabilityStatus(raw: unknown): AvailabilityStatus | null {
+  return raw === AvailabilityStatus.ACTIVE ||
+    raw === AvailabilityStatus.NEEDS_REPAIR ||
+    raw === AvailabilityStatus.BROKEN ||
+    raw === AvailabilityStatus.MISSING ||
+    raw === AvailabilityStatus.RETIRED
+    ? raw
+    : null;
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(request);
   if (!auth.ok) {
@@ -49,6 +59,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       itemType: item.itemType,
       availabilityStatus: item.availabilityStatus,
       stockTotal: item.stockTotal,
+      stockInRepair: item.stockInRepair,
+      stockBroken: item.stockBroken,
+      stockMissing: item.stockMissing,
       pricePerDay: Number(item.pricePerDay),
       categoryIds: item.categories.map((entry) => entry.categoryId),
       imageUrls: item.images.map((image) => image.url),
@@ -114,6 +127,44 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     return fail(400, "pricePerDay must be a non-negative number.");
   }
 
+  const stockInRepair =
+    typeof payload.stockInRepair === "number" &&
+    Number.isInteger(payload.stockInRepair) &&
+    payload.stockInRepair >= 0
+      ? payload.stockInRepair
+      : undefined;
+  if (payload.stockInRepair !== undefined && stockInRepair === undefined) {
+    return fail(400, "stockInRepair must be a non-negative integer.");
+  }
+
+  const stockBroken =
+    typeof payload.stockBroken === "number" &&
+    Number.isInteger(payload.stockBroken) &&
+    payload.stockBroken >= 0
+      ? payload.stockBroken
+      : undefined;
+  if (payload.stockBroken !== undefined && stockBroken === undefined) {
+    return fail(400, "stockBroken must be a non-negative integer.");
+  }
+
+  const stockMissing =
+    typeof payload.stockMissing === "number" &&
+    Number.isInteger(payload.stockMissing) &&
+    payload.stockMissing >= 0
+      ? payload.stockMissing
+      : undefined;
+  if (payload.stockMissing !== undefined && stockMissing === undefined) {
+    return fail(400, "stockMissing must be a non-negative integer.");
+  }
+
+  const availabilityStatus =
+    payload.availabilityStatus !== undefined
+      ? parseAvailabilityStatus(payload.availabilityStatus)
+      : undefined;
+  if (payload.availabilityStatus !== undefined && !availabilityStatus) {
+    return fail(400, "Invalid availabilityStatus.");
+  }
+
   const categoryIds =
     Array.isArray(payload.categoryIds) &&
     payload.categoryIds.every((entry) => typeof entry === "string" && entry.trim().length > 0)
@@ -154,6 +205,10 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
               : current.locationText,
         itemType: itemType ?? current.itemType,
         stockTotal: stockTotal ?? current.stockTotal,
+        stockInRepair: stockInRepair ?? current.stockInRepair,
+        stockBroken: stockBroken ?? current.stockBroken,
+        stockMissing: stockMissing ?? current.stockMissing,
+        availabilityStatus: availabilityStatus ?? current.availabilityStatus,
         pricePerDay: pricePerDay ?? current.pricePerDay,
       },
     });
@@ -194,7 +249,11 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       id: updated.id,
       name: updated.name,
       itemType: updated.itemType,
+      availabilityStatus: updated.availabilityStatus,
       stockTotal: updated.stockTotal,
+      stockInRepair: updated.stockInRepair,
+      stockBroken: updated.stockBroken,
+      stockMissing: updated.stockMissing,
       pricePerDay: Number(updated.pricePerDay),
       categoryIds: updated.categories.map((entry) => entry.categoryId),
       imageUrls: updated.images.map((image) => image.url),

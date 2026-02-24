@@ -10,6 +10,7 @@ import {
   validateDateRange,
 } from "@/lib/orders";
 import { notifyWarehouseAboutNewOrder } from "@/lib/notifications";
+import { computeAvailableQty } from "@/lib/items";
 import { prisma } from "@/lib/prisma";
 
 function normalizeLines(
@@ -79,12 +80,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const items = await prisma.item.findMany({
     where: {
       id: { in: itemIds },
-      availabilityStatus: "ACTIVE",
+      availabilityStatus: { not: "RETIRED" },
     },
     select: {
       id: true,
       itemType: true,
+      availabilityStatus: true,
       stockTotal: true,
+      stockInRepair: true,
+      stockBroken: true,
+      stockMissing: true,
       pricePerDay: true,
     },
   });
@@ -106,7 +111,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return fail(400, "Some items are missing.");
     }
     const reservedQty = reservedMap.get(item.id) ?? 0;
-    const availableQty = Math.max(0, item.stockTotal - reservedQty);
+    const availableQty = computeAvailableQty(item, reservedQty);
     if (line.requestedQty > availableQty) {
       return fail(400, "Requested quantity exceeds availability.", {
         itemId: item.id,
@@ -135,6 +140,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const order = await prisma.$transaction(async (tx) => {
     const status = issueImmediately ? "ISSUED" : "SUBMITTED";
+    const discountRateValue =
+      orderSource === OrderSource.GREENWICH_INTERNAL ? 0.3 : 0;
     const created = await tx.order.create({
       data: {
         createdById: auth.user.id,
@@ -146,7 +153,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         eventName: parsed.eventName ?? null,
         pickupTime: parsed.pickupTime ?? null,
         notes: parsed.notes ?? null,
-        discountRate: new Prisma.Decimal(0.3),
+        discountRate: new Prisma.Decimal(discountRateValue),
         isEmergency: parsed.isEmergency === true,
         approvedById: issueImmediately ? auth.user.id : null,
         issuedById: issueImmediately ? auth.user.id : null,
@@ -157,7 +164,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     await tx.orderLine.createMany({
       data: normalizedLines.map((line) => {
         const item = itemById.get(line.itemId)!;
-        const discountedPrice = Number(item.pricePerDay) * 0.7;
+        const discountedPrice = Number(item.pricePerDay) * (1 - discountRateValue);
         return {
           orderId: created.id,
           itemId: line.itemId,

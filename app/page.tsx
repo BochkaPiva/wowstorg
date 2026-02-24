@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -170,20 +171,31 @@ export default function Home() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-[var(--brand)]">WowStorg Hub</h1>
-      <p className="text-zinc-600">{status}</p>
-      {user ? (
-        <p className="text-sm text-zinc-700">
-          Вы вошли как <span className="font-medium">{user.username ?? user.id}</span>
-          {user.role === "ADMIN" ? " (ADMIN)" : null}
-        </p>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="relative h-24 w-24 shrink-0">
+          <Image src="/dino.png" alt="" fill className="object-contain" priority />
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold text-[var(--brand)]">WowStorg Hub</h1>
+          <p className="text-[var(--muted)]">{status}</p>
+          {user ? (
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Вы вошли как <span className="font-medium text-[var(--foreground)]">{user.username ?? user.id}</span>
+              {user.role === "ADMIN" ? " (ADMIN)" : null}
+            </p>
+          ) : null}
+        </div>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {tiles.map((tile) => (
-          <Link key={tile.href} className="rounded border border-zinc-200 bg-white p-4 hover:bg-zinc-50" href={tile.href}>
-            <div className="font-medium">{tile.title}</div>
-            <div className="text-sm text-zinc-600">{tile.description}</div>
+          <Link
+            key={tile.href}
+            className="ws-card block p-4 transition-shadow hover:shadow-[0_4px_20px_var(--glow)]"
+            href={tile.href}
+          >
+            <div className="mb-1 font-medium text-[var(--foreground)]">{tile.title}</div>
+            <div className="text-sm text-[var(--muted)]">{tile.description}</div>
           </Link>
         ))}
       </div>

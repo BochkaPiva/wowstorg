@@ -370,14 +370,17 @@ export default function WarehouseQueuePage() {
       return;
     }
     const draft = checkinDrafts[order.id] ?? {};
+    const issuedByLine = (l: QueueLine) => l.issuedQty ?? l.approvedQty ?? l.requestedQty;
     const lines = order.lines
       .filter((line) => line.itemType !== "CONSUMABLE")
       .map((line) => {
         const value = draft[line.id];
-        const fallbackQty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+        const issued = issuedByLine(line);
+        let returnedQty = Number.isInteger(value?.returnedQty) ? value.returnedQty : issued;
+        returnedQty = Math.max(0, Math.min(issued, returnedQty));
         return {
           orderLineId: line.id,
-          returnedQty: Number.isInteger(value?.returnedQty) ? value.returnedQty : fallbackQty,
+          returnedQty,
           condition: value?.condition ?? "OK",
           comment: value?.comment?.trim() || undefined,
         };
@@ -393,9 +396,15 @@ export default function WarehouseQueuePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lines }),
       });
-      const payload = (await response.json()) as { error?: { message?: string } };
+      const raw = await response.text();
+      let payload: { error?: { message?: string } };
+      try {
+        payload = JSON.parse(raw) as { error?: { message?: string } };
+      } catch {
+        payload = {};
+      }
       if (!response.ok) {
-        setStatus(`Ошибка приемки: ${payload.error?.message ?? "операция не выполнена"}`);
+        setStatus(`Ошибка приемки: ${payload.error?.message ?? raw || "операция не выполнена"}`);
         return;
       }
       setExpandedCheckinOrderId(null);
@@ -742,9 +751,14 @@ export default function WarehouseQueuePage() {
                     .map((line) => {
                       const draft = checkinDrafts[order.id]?.[line.id];
                       const clientLine = order.clientDeclaration?.lines.find((entry) => entry.orderLineId === line.id);
+                      const issued = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+                      const returnedQty = draft?.returnedQty ?? issued;
+                      const lostQty = Math.max(0, issued - returnedQty);
+                      const condition = draft?.condition ?? "OK";
+                      const isMissing = condition === "MISSING";
                       return (
                         <div key={line.id} className="rounded-xl border border-[var(--border)] p-2">
-                          <div className="mb-1 text-sm">{line.itemName}</div>
+                          <div className="mb-1 text-sm font-medium">{line.itemName}</div>
                           {clientLine ? (
                             <div className="mb-1 text-xs text-amber-800">
                               Со слов клиента: {clientLine.returnedQty} из {clientLine.issuedQty}, {checkinConditionLabel(clientLine.condition)}
@@ -752,64 +766,104 @@ export default function WarehouseQueuePage() {
                             </div>
                           ) : null}
                           <div className="grid gap-2 sm:grid-cols-3">
-                            <input
-                              className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                              type="number"
-                              min={0}
-                              max={line.issuedQty ?? line.approvedQty ?? line.requestedQty}
-                              value={draft?.returnedQty ?? (line.issuedQty ?? line.approvedQty ?? line.requestedQty)}
-                              onChange={(event) =>
-                                setCheckinDrafts((prev) => ({
-                                  ...prev,
-                                  [order.id]: {
-                                    ...(prev[order.id] ?? {}),
-                                    [line.id]: {
-                                      ...(prev[order.id]?.[line.id] ?? draft),
-                                      returnedQty: Number(event.target.value),
-                                    } as CheckinDraftByLine[string],
-                                  },
-                                }))
-                              }
-                            />
-                            <select
-                              className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                              value={draft?.condition ?? "OK"}
-                              onChange={(event) =>
-                                setCheckinDrafts((prev) => ({
-                                  ...prev,
-                                  [order.id]: {
-                                    ...(prev[order.id] ?? {}),
-                                    [line.id]: {
-                                      ...(prev[order.id]?.[line.id] ?? draft),
-                                      condition: event.target.value as CheckinCondition,
-                                    } as CheckinDraftByLine[string],
-                                  },
-                                }))
-                              }
-                            >
-                              <option value="OK">Нормальное</option>
-                              <option value="NEEDS_REPAIR">Требуется ремонт</option>
-                              <option value="BROKEN">Сломано</option>
-                              <option value="MISSING">Не возвращено</option>
-                            </select>
-                            <input
-                              className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                              value={draft?.comment ?? ""}
-                              onChange={(event) =>
-                                setCheckinDrafts((prev) => ({
-                                  ...prev,
-                                  [order.id]: {
-                                    ...(prev[order.id] ?? {}),
-                                    [line.id]: {
-                                      ...(prev[order.id]?.[line.id] ?? draft),
-                                      comment: event.target.value,
-                                    } as CheckinDraftByLine[string],
-                                  },
-                                }))
-                              }
-                              placeholder="Комментарий"
-                            />
+                            <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
+                              Принято, шт
+                              <input
+                                className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                                type="number"
+                                min={0}
+                                max={issued}
+                                value={returnedQty}
+                                onChange={(event) => {
+                                  const v = Math.max(0, Math.min(issued, Number(event.target.value) || 0));
+                                  setCheckinDrafts((prev) => ({
+                                    ...prev,
+                                    [order.id]: {
+                                      ...(prev[order.id] ?? {}),
+                                      [line.id]: {
+                                        ...(prev[order.id]?.[line.id] ?? draft),
+                                        returnedQty: v,
+                                      } as CheckinDraftByLine[string],
+                                    },
+                                  }));
+                                }}
+                              />
+                            </label>
+                            <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
+                              Состояние
+                              <select
+                                className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                                value={condition}
+                                onChange={(event) =>
+                                  setCheckinDrafts((prev) => ({
+                                    ...prev,
+                                    [order.id]: {
+                                      ...(prev[order.id] ?? {}),
+                                      [line.id]: {
+                                        ...(prev[order.id]?.[line.id] ?? draft),
+                                        condition: event.target.value as CheckinCondition,
+                                      } as CheckinDraftByLine[string],
+                                    },
+                                  }))
+                                }
+                              >
+                                <option value="OK">Нормальное</option>
+                                <option value="NEEDS_REPAIR">Требуется ремонт</option>
+                                <option value="BROKEN">Сломано</option>
+                                <option value="MISSING">Не возвращено</option>
+                              </select>
+                            </label>
+                            <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
+                              Комментарий
+                              <input
+                                className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                                value={draft?.comment ?? ""}
+                                onChange={(event) =>
+                                  setCheckinDrafts((prev) => ({
+                                    ...prev,
+                                    [order.id]: {
+                                      ...(prev[order.id] ?? {}),
+                                      [line.id]: {
+                                        ...(prev[order.id]?.[line.id] ?? draft),
+                                        comment: event.target.value,
+                                      } as CheckinDraftByLine[string],
+                                    },
+                                  }))
+                                }
+                                placeholder="—"
+                              />
+                            </label>
                           </div>
+                          {isMissing ? (
+                            <div className="mt-2 flex items-center gap-2">
+                              <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
+                                Утеряно, шт (пойдёт в список потерь)
+                                <input
+                                  className="w-20 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                                  type="number"
+                                  min={0}
+                                  max={issued}
+                                  value={lostQty}
+                                  onChange={(event) => {
+                                    const v = Math.max(0, Math.min(issued, Number(event.target.value) || 0));
+                                    setCheckinDrafts((prev) => ({
+                                      ...prev,
+                                      [order.id]: {
+                                        ...(prev[order.id] ?? {}),
+                                        [line.id]: {
+                                          ...(prev[order.id]?.[line.id] ?? draft),
+                                          returnedQty: issued - v,
+                                        } as CheckinDraftByLine[string],
+                                      },
+                                    }));
+                                  }}
+                                />
+                              </label>
+                              <span className="text-xs text-[var(--muted)]">
+                                → в склад вернётся: {returnedQty} шт
+                              </span>
+                            </div>
+                          ) : null}
                         </div>
                       );
                     })}

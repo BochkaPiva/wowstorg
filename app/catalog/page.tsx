@@ -89,6 +89,7 @@ export default function CatalogPage() {
   const [dismountRequested, setDismountRequested] = useState(false);
   const [dismountComment, setDismountComment] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [cartQtyEdit, setCartQtyEdit] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
 
@@ -315,28 +316,28 @@ export default function CatalogPage() {
         </div>
       ) : null}
 
-      <div className="ws-card grid min-w-0 grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="ws-card grid min-w-0 max-w-full grid-cols-1 gap-2 overflow-hidden p-3 sm:grid-cols-2 lg:grid-cols-4">
         {isGreenwich ? (
-          <label className="min-w-0 text-xs font-medium text-amber-800">
+          <label className="min-w-0 max-w-full text-xs font-medium text-amber-800">
             Готовность к дате
-            <input className="mt-1 w-full min-w-0 rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 text-sm" type="date" value={readyByDate} onChange={(e) => setReadyByDate(e.target.value)} max={startDate} />
+            <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 text-sm box-border" type="date" value={readyByDate} onChange={(e) => setReadyByDate(e.target.value)} max={startDate} />
           </label>
         ) : null}
-        <label className="min-w-0 text-xs text-[var(--muted)]">
+        <label className="min-w-0 max-w-full text-xs text-[var(--muted)]">
           Начало аренды
-          <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={startDate} onChange={(e) => {
+          <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border" type="date" value={startDate} onChange={(e) => {
             const v = e.target.value;
             setStartDate(v);
             if (readyByDate > v) setReadyByDate(v);
           }} />
         </label>
-        <label className="min-w-0 text-xs text-[var(--muted)]">
+        <label className="min-w-0 max-w-full text-xs text-[var(--muted)]">
           Окончание аренды
-          <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </label>
-        <label className="min-w-0 text-xs text-[var(--muted)]">
+        <label className="min-w-0 max-w-full text-xs text-[var(--muted)]">
           Поиск
-          <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Поиск по позициям" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border" placeholder="Поиск по позициям" value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
       </div>
 
@@ -491,28 +492,33 @@ export default function CatalogPage() {
       ) : null}
 
       <div className="ws-card space-y-4 p-4">
+        {isGreenwich ? (
+          <p className="rounded-xl bg-violet-50/80 p-2 text-center text-sm text-[var(--brand)]">
+            Заполните шаги по порядку и нажмите внизу «Оформить заявку».
+          </p>
+        ) : null}
         <div className="rounded-xl bg-slate-50/90 p-3">
-          <div className="mb-2 text-sm font-medium text-[var(--muted)]">1. Заказчик и мероприятие</div>
+          <div className="mb-2 text-sm font-medium text-[var(--muted)]">1. Кто заказчик</div>
           <div className="grid gap-2 sm:grid-cols-2">
             <select className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-              <option value="">Заказчик из базы</option>
+              <option value="">Выберите из списка</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.name}
                 </option>
               ))}
             </select>
-            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Новый заказчик (если нет в базе)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm sm:col-span-2" placeholder="Мероприятие (опционально)" value={eventName} onChange={(e) => setEventName(e.target.value)} />
-            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm sm:col-span-2" placeholder="Комментарий (опционально)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Или введите имя нового" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm sm:col-span-2" placeholder="Мероприятие (не обязательно)" value={eventName} onChange={(e) => setEventName(e.target.value)} />
+            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm sm:col-span-2" placeholder="Комментарий (не обязательно)" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
         </div>
 
         <div className="rounded-xl border border-[var(--border)] bg-white p-3">
           <div className="mb-2 flex items-center justify-between">
             <div>
-              <div className="text-sm font-medium text-[var(--muted)]">2. Позиции в корзине</div>
-              <div className="text-xs text-[var(--muted)]">Добавляйте позиции кнопкой «В корзину» в каталоге выше</div>
+              <div className="text-sm font-medium text-[var(--muted)]">2. Что в корзине</div>
+              <div className="text-xs text-[var(--muted)]">Добавляйте кнопкой «В корзину» выше. Меняйте количество кнопками − и +</div>
             </div>
             {cart.length > 0 ? (
               <button
@@ -533,27 +539,78 @@ export default function CatalogPage() {
               {cart.map((line) => {
                 const item = itemById.get(line.itemId);
                 const maxQty = item ? Math.max(1, item.availableQty) : 1;
+                const editStr = cartQtyEdit[line.itemId];
+                const displayQty = line.qty;
+                const inputValue = editStr !== undefined ? editStr : String(displayQty);
+                const commitQty = (raw: string) => {
+                  const n = raw.trim() === "" ? 1 : parseInt(raw, 10);
+                  const qty = Number.isFinite(n) ? Math.max(1, Math.min(maxQty, n)) : displayQty;
+                  setCart((prev) => prev.map((entry) => entry.itemId === line.itemId ? { ...entry, qty } : entry));
+                  setCartQtyEdit((prev) => {
+                    const next = { ...prev };
+                    delete next[line.itemId];
+                    return next;
+                  });
+                };
                 return (
                   <li key={line.itemId} className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] bg-slate-50/50 px-3 py-2">
                     <div className="min-w-0 flex-1 text-sm">
                       <span className="font-medium">{line.name}</span>
                       {item ? (
                         <div className="text-xs text-[var(--muted)]">
-                          {line.qty} × {formatMoney(isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay)} ₽/сут = {formatMoney(line.qty * (isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay))} ₽/сут
+                          {displayQty} × {formatMoney(isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay)} ₽/сут = {formatMoney(displayQty * (isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay))} ₽/сут
                         </div>
                       ) : null}
                     </div>
-                    <label className="flex items-center gap-1 text-xs text-[var(--muted)]">
-                      кол-во
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        className="ws-btn h-9 w-9 shrink-0 rounded-lg text-lg leading-none"
+                        type="button"
+                        onClick={() => {
+                          const q = Math.max(1, displayQty - 1);
+                          setCart((prev) => prev.map((entry) => entry.itemId === line.itemId ? { ...entry, qty: q } : entry));
+                          setCartQtyEdit((prev) => {
+                            const next = { ...prev };
+                            delete next[line.itemId];
+                            return next;
+                          });
+                        }}
+                        aria-label="Уменьшить"
+                      >
+                        −
+                      </button>
                       <input
-                        className="w-14 rounded-lg border border-[var(--border)] bg-white px-2 py-1 text-sm text-center"
-                        type="number"
-                        min={1}
-                        max={maxQty}
-                        value={line.qty}
-                        onChange={(event) => setCart((prev) => prev.map((entry) => entry.itemId === line.itemId ? { ...entry, qty: Math.max(1, Math.min(maxQty, Number(event.target.value))) } : entry))}
+                        className="w-12 rounded-lg border border-[var(--border)] bg-white px-1 py-1.5 text-center text-sm tabular-nums"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={inputValue}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, "");
+                          setCartQtyEdit((prev) => ({ ...prev, [line.itemId]: v }));
+                        }}
+                        onBlur={() => commitQty(inputValue)}
+                        onKeyDown={(e) => e.key === "Enter" && (e.currentTarget.blur(), commitQty(inputValue))}
+                        aria-label="Количество"
                       />
-                    </label>
+                      <button
+                        className="ws-btn h-9 w-9 shrink-0 rounded-lg text-lg leading-none"
+                        type="button"
+                        onClick={() => {
+                          const q = Math.min(maxQty, displayQty + 1);
+                          setCart((prev) => prev.map((entry) => entry.itemId === line.itemId ? { ...entry, qty: q } : entry));
+                          setCartQtyEdit((prev) => {
+                            const next = { ...prev };
+                            delete next[line.itemId];
+                            return next;
+                          });
+                        }}
+                        disabled={displayQty >= maxQty}
+                        aria-label="Увеличить"
+                      >
+                        +
+                      </button>
+                    </div>
                     <button className="ws-btn text-sm" type="button" onClick={() => setCart((prev) => prev.filter((entry) => entry.itemId !== line.itemId))} title="Удалить из корзины">
                       Удалить
                     </button>
@@ -565,7 +622,7 @@ export default function CatalogPage() {
         </div>
 
         <div className="rounded-xl bg-violet-50/90 p-3">
-          <div className="mb-2 text-sm font-medium text-[var(--muted)]">3. Доп. услуги</div>
+          <div className="mb-2 text-sm font-medium text-[var(--muted)]">3. Доп. услуги (включите, если нужны)</div>
           <div className="space-y-3 rounded-lg border border-[var(--border)] bg-white p-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm w-20">Доставка</span>
@@ -631,16 +688,15 @@ export default function CatalogPage() {
         ) : null}
 
         <div className="rounded-xl border border-[var(--border)] bg-violet-50/90 p-3">
-          <div className="mb-1 text-xs font-medium text-[var(--muted)]">4. Итого</div>
+          <div className="mb-1 text-xs font-medium text-[var(--muted)]">4. Итого к оплате</div>
           <div className="text-sm">
-            <div>Суток аренды: {rentalDays}</div>
-            <div>Итого за сутки: {formatMoney(cartSubtotalPerDay)} ₽</div>
-            <div className="mt-1 font-semibold text-[var(--brand)]">Общая сумма: {formatMoney(cartTotal)} ₽</div>
+            <div>Суток: {rentalDays}</div>
+            <div>Сумма: <strong className="text-[var(--brand)]">{formatMoney(cartTotal)} ₽</strong></div>
           </div>
         </div>
 
         <div className="flex justify-end">
-          <button className="ws-btn-primary disabled:opacity-50" type="button" onClick={() => void submitOrder()} disabled={cart.length === 0 || !isGreenwich}>
+          <button className="ws-btn-primary min-h-12 min-w-[200px] text-base disabled:opacity-50" type="button" onClick={() => void submitOrder()} disabled={cart.length === 0 || !isGreenwich}>
             Оформить заявку
           </button>
         </div>

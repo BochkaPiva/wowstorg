@@ -265,14 +265,15 @@ model OrderLine {
 }
 
 model CheckinLine {
-  id          String           @id @default(cuid())
-  orderLineId String           @unique @map("order_line_id")
-  createdById String           @map("created_by")
-  returnedQty Int              @map("returned_qty")
-  condition   CheckinCondition
-  comment     String?
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
+  id              String           @id @default(cuid())
+  orderLineId     String           @unique @map("order_line_id")
+  createdById     String           @map("created_by")
+  returnedQty     Int              @map("returned_qty")
+  condition       CheckinCondition
+  returnSegments  Json?            @map("return_segments")
+  comment         String?
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
 
   orderLine OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
   createdBy User      @relation("CheckinsCreated", fields: [createdById], references: [id], onDelete: Restrict)

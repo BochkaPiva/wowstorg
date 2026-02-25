@@ -76,12 +76,19 @@ export type IssueOrderInput = {
   }>;
 };
 
+export type CheckinSegment = {
+  condition: CheckinCondition;
+  qty: number;
+};
+
 export type CheckinOrderInput = {
   lines: Array<{
     orderLineId: string;
     returnedQty: number;
     condition: CheckinCondition;
     comment?: string | null;
+    /** When set, sum(segments.qty) must equal issued; returnedQty/condition are ignored for processing. */
+    segments?: CheckinSegment[];
   }>;
 };
 
@@ -480,6 +487,33 @@ export function parseCheckinInput(body: unknown): CheckinOrderInput | null {
     if (typeof line.orderLineId !== "string" || line.orderLineId.trim().length === 0) {
       return null;
     }
+    const comment =
+      typeof line.comment === "string" && line.comment.trim().length > 0
+        ? line.comment.trim()
+        : null;
+
+    const segmentsRaw = line.segments;
+    if (Array.isArray(segmentsRaw) && segmentsRaw.length > 0) {
+      const segments: CheckinSegment[] = [];
+      for (const s of segmentsRaw) {
+        if (!s || typeof s !== "object") return null;
+        const seg = s as Record<string, unknown>;
+        const qty = parseNonNegativeInt(seg.qty);
+        if (qty === null || qty === 0 || !isValidCondition(seg.condition)) return null;
+        segments.push({ condition: seg.condition as CheckinCondition, qty });
+      }
+      const sum = segments.reduce((a, s) => a + s.qty, 0);
+      if (sum === 0) return null;
+      const returnedQty = segments.find((s) => s.condition === "OK")?.qty ?? 0;
+      return {
+        orderLineId: line.orderLineId.trim(),
+        returnedQty,
+        condition: segments[0]!.condition,
+        comment,
+        segments,
+      };
+    }
+
     const returnedQty = parseNonNegativeInt(line.returnedQty);
     if (returnedQty === null || !isValidCondition(line.condition)) {
       return null;
@@ -487,11 +521,8 @@ export function parseCheckinInput(body: unknown): CheckinOrderInput | null {
     return {
       orderLineId: line.orderLineId.trim(),
       returnedQty,
-      condition: line.condition,
-      comment:
-        typeof line.comment === "string" && line.comment.trim().length > 0
-          ? line.comment.trim()
-          : null,
+      condition: line.condition as CheckinCondition,
+      comment,
     };
   });
 

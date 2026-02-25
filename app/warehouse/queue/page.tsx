@@ -53,7 +53,14 @@ type QueueOrder = {
 };
 
 type IssueDraftByLine = Record<string, number>;
-type CheckinDraftByLine = Record<string, { checked: boolean; returnedQty: number; condition: CheckinCondition; comment: string }>;
+/** По позиции: кол-во по статусам (ок = issued - остальные). */
+type CheckinSegmentDraft = {
+  needsRepair: number;
+  broken: number;
+  missing: number;
+  comment: string;
+};
+type CheckinDraftByLine = Record<string, CheckinSegmentDraft>;
 type EditDraft = {
   lines: Array<{
     lineId: string | null;
@@ -463,20 +470,38 @@ export default function WarehouseQueuePage() {
     }
     const draft = checkinDrafts[order.id] ?? {};
     const issuedByLine = (l: QueueLine) => l.issuedQty ?? l.approvedQty ?? l.requestedQty;
-    const lines = order.lines
-      .filter((line) => line.itemType !== "CONSUMABLE")
-      .map((line) => {
-        const value = draft[line.id];
-        const issued = issuedByLine(line);
-        let returnedQty = Number.isInteger(value?.returnedQty) ? value.returnedQty : issued;
-        returnedQty = Math.max(0, Math.min(issued, returnedQty));
-        return {
-          orderLineId: line.id,
-          returnedQty,
-          condition: value?.condition ?? "OK",
-          comment: value?.comment?.trim() || undefined,
-        };
-      });
+    const lines = order.lines.map((line) => {
+      const issued = issuedByLine(line);
+      const value = draft[line.id];
+      const clientLine = order.clientDeclaration?.lines.find((e) => e.orderLineId === line.id);
+      let needsRepair = value?.needsRepair ?? (clientLine?.condition === "NEEDS_REPAIR" ? (clientLine?.returnedQty ?? 0) : 0);
+      let broken = value?.broken ?? (clientLine?.condition === "BROKEN" ? (clientLine?.returnedQty ?? 0) : 0);
+      let missing = value?.missing ?? (clientLine?.condition === "MISSING" ? (clientLine?.returnedQty ?? 0) : 0);
+      needsRepair = Math.max(0, Math.min(issued, needsRepair));
+      broken = Math.max(0, Math.min(issued, broken));
+      missing = Math.max(0, Math.min(issued, missing));
+      let totalProblem = needsRepair + broken + missing;
+      if (totalProblem > issued && totalProblem > 0) {
+        const f = issued / totalProblem;
+        needsRepair = Math.round(needsRepair * f);
+        broken = Math.round(broken * f);
+        missing = issued - needsRepair - broken;
+      }
+      const ok = issued - needsRepair - broken - missing;
+      const segments = [
+        ...(ok > 0 ? [{ condition: "OK" as const, qty: ok }] : []),
+        ...(needsRepair > 0 ? [{ condition: "NEEDS_REPAIR" as const, qty: needsRepair }] : []),
+        ...(broken > 0 ? [{ condition: "BROKEN" as const, qty: broken }] : []),
+        ...(missing > 0 ? [{ condition: "MISSING" as const, qty: missing }] : []),
+      ];
+      return {
+        orderLineId: line.id,
+        returnedQty: ok,
+        condition: "OK" as const,
+        comment: value?.comment?.trim() || undefined,
+        segments,
+      };
+    });
     if (lines.length === 0) {
       setStatus("Отметьте минимум одну позицию для приемки.");
       return;
@@ -966,124 +991,103 @@ export default function WarehouseQueuePage() {
                   </div>
                 ) : null}
                 <div className="space-y-2">
-                  {order.lines
-                    .filter((line) => line.itemType !== "CONSUMABLE")
-                    .map((line) => {
+                  {order.lines.map((line) => {
                       const draft = checkinDrafts[order.id]?.[line.id];
                       const clientLine = order.clientDeclaration?.lines.find((entry) => entry.orderLineId === line.id);
                       const issued = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
-                      const returnedQty = draft?.returnedQty ?? issued;
-                      const lostQty = Math.max(0, issued - returnedQty);
-                      const condition = draft?.condition ?? "OK";
-                      const isMissing = condition === "MISSING";
+                      const defaultFromClient = (): CheckinSegmentDraft => {
+                        if (!clientLine) return { needsRepair: 0, broken: 0, missing: 0, comment: "" };
+                        const c = clientLine.condition;
+                        const q = clientLine.returnedQty ?? 0;
+                        return {
+                          needsRepair: c === "NEEDS_REPAIR" ? q : 0,
+                          broken: c === "BROKEN" ? q : 0,
+                          missing: c === "MISSING" ? q : 0,
+                          comment: clientLine.comment ?? "",
+                        };
+                      };
+                      const base = draft ?? defaultFromClient();
+                      const needsRepair = Math.max(0, Math.min(issued, base.needsRepair));
+                      const broken = Math.max(0, Math.min(issued, base.broken));
+                      const missing = Math.max(0, Math.min(issued, base.missing));
+                      const ok = Math.max(0, issued - needsRepair - broken - missing);
+                      const update = (patch: Partial<CheckinSegmentDraft>) =>
+                        setCheckinDrafts((prev) => ({
+                          ...prev,
+                          [order.id]: {
+                            ...(prev[order.id] ?? {}),
+                            [line.id]: {
+                              needsRepair: base.needsRepair,
+                              broken: base.broken,
+                              missing: base.missing,
+                              comment: base.comment,
+                              ...patch,
+                            },
+                          },
+                        }));
                       return (
                         <div key={line.id} className="rounded-xl border border-[var(--border)] p-2">
                           <div className="mb-1 text-sm font-medium">{line.itemName}</div>
+                          <div className="mb-1 text-xs text-[var(--muted)]">Выдано: {issued} шт. Укажите количество по каждому состоянию (сумма = {issued}):</div>
                           {clientLine ? (
-                            <div className="mb-1 text-xs text-amber-800">
+                            <div className="mb-2 text-xs text-amber-800">
                               Со слов клиента: {clientLine.returnedQty} из {clientLine.issuedQty}, {checkinConditionLabel(clientLine.condition)}
                               {clientLine.comment ? ` (${clientLine.comment})` : ""}
                             </div>
                           ) : null}
-                          <div className="grid gap-2 sm:grid-cols-3">
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
+                              В порядке (ОК)
+                              <div className="rounded-xl border border-[var(--border)] bg-green-50/80 px-2 py-1.5 text-sm font-medium text-green-800">
+                                {ok} шт
+                              </div>
+                            </div>
                             <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
-                              Принято, шт
+                              Требует ремонта, шт
                               <input
                                 className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
                                 type="number"
                                 min={0}
                                 max={issued}
-                                value={returnedQty}
-                                onChange={(event) => {
-                                  const v = Math.max(0, Math.min(issued, Number(event.target.value) || 0));
-                                  setCheckinDrafts((prev) => ({
-                                    ...prev,
-                                    [order.id]: {
-                                      ...(prev[order.id] ?? {}),
-                                      [line.id]: {
-                                        ...(prev[order.id]?.[line.id] ?? draft),
-                                        returnedQty: v,
-                                      } as CheckinDraftByLine[string],
-                                    },
-                                  }));
-                                }}
+                                value={needsRepair}
+                                onChange={(e) => update({ needsRepair: Math.max(0, Math.min(issued, Number(e.target.value) || 0)) })}
                               />
                             </label>
                             <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
-                              Состояние
-                              <select
-                                className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                                value={condition}
-                                onChange={(event) =>
-                                  setCheckinDrafts((prev) => ({
-                                    ...prev,
-                                    [order.id]: {
-                                      ...(prev[order.id] ?? {}),
-                                      [line.id]: {
-                                        ...(prev[order.id]?.[line.id] ?? draft),
-                                        condition: event.target.value as CheckinCondition,
-                                      } as CheckinDraftByLine[string],
-                                    },
-                                  }))
-                                }
-                              >
-                                <option value="OK">Нормальное</option>
-                                <option value="NEEDS_REPAIR">Требуется ремонт</option>
-                                <option value="BROKEN">Сломано</option>
-                                <option value="MISSING">Не возвращено</option>
-                              </select>
-                            </label>
-                            <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
-                              Комментарий
+                              Сломано, шт
                               <input
                                 className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                                value={draft?.comment ?? ""}
-                                onChange={(event) =>
-                                  setCheckinDrafts((prev) => ({
-                                    ...prev,
-                                    [order.id]: {
-                                      ...(prev[order.id] ?? {}),
-                                      [line.id]: {
-                                        ...(prev[order.id]?.[line.id] ?? draft),
-                                        comment: event.target.value,
-                                      } as CheckinDraftByLine[string],
-                                    },
-                                  }))
-                                }
-                                placeholder="—"
+                                type="number"
+                                min={0}
+                                max={issued}
+                                value={broken}
+                                onChange={(e) => update({ broken: Math.max(0, Math.min(issued, Number(e.target.value) || 0)) })}
+                              />
+                            </label>
+                            <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
+                              Не возвращено, шт
+                              <input
+                                className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                                type="number"
+                                min={0}
+                                max={issued}
+                                value={missing}
+                                onChange={(e) => update({ missing: Math.max(0, Math.min(issued, Number(e.target.value) || 0)) })}
                               />
                             </label>
                           </div>
-                          {isMissing ? (
-                            <div className="mt-2 flex items-center gap-2">
-                              <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
-                                Утеряно, шт (пойдёт в список потерь)
-                                <input
-                                  className="w-20 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                                  type="number"
-                                  min={0}
-                                  max={issued}
-                                  value={lostQty}
-                                  onChange={(event) => {
-                                    const v = Math.max(0, Math.min(issued, Number(event.target.value) || 0));
-                                    setCheckinDrafts((prev) => ({
-                                      ...prev,
-                                      [order.id]: {
-                                        ...(prev[order.id] ?? {}),
-                                        [line.id]: {
-                                          ...(prev[order.id]?.[line.id] ?? draft),
-                                          returnedQty: issued - v,
-                                        } as CheckinDraftByLine[string],
-                                      },
-                                    }));
-                                  }}
-                                />
-                              </label>
-                              <span className="text-xs text-[var(--muted)]">
-                                → в склад вернётся: {returnedQty} шт
-                              </span>
-                            </div>
+                          {needsRepair + broken + missing > issued ? (
+                            <p className="mt-1 text-xs text-red-600">Сумма проблемных не может быть больше выданного ({issued}). Скорректируйте.</p>
                           ) : null}
+                          <label className="mt-2 flex flex-col gap-0.5 text-xs text-[var(--muted)]">
+                            Комментарий
+                            <input
+                              className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                              value={base.comment}
+                              onChange={(e) => update({ comment: e.target.value })}
+                              placeholder="—"
+                            />
+                          </label>
                         </div>
                       );
                     })}

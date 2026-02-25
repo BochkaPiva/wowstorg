@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
 import { serializeOrder } from "@/lib/orders";
-import { notifyOrderOwner } from "@/lib/notifications";
+import { notifyOrderOwner, notifyWarehouseAboutOrderCancelledByClient } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 type Params = {
@@ -80,6 +80,16 @@ export async function POST(
       },
     ],
   });
+
+  if (!cancelledByWarehouse) {
+    await notifyWarehouseAboutOrderCancelledByClient({
+      orderId: order.id,
+      customerName: order.customer?.name ?? null,
+      startDate: order.startDate.toISOString().slice(0, 10),
+      endDate: order.endDate.toISOString().slice(0, 10),
+      eventName: order.eventName ?? null,
+    });
+  }
 
   return NextResponse.json({
     order: serializeOrder(updated),

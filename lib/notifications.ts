@@ -139,6 +139,30 @@ export async function notifyAdminsAboutOrderEdit(params: {
   });
 }
 
+/** Клиент отменил заявку — уведомление в рабочий чат. */
+export async function notifyWarehouseAboutOrderCancelledByClient(params: {
+  orderId: string;
+  customerName: string | null;
+  startDate: string;
+  endDate: string;
+  eventName?: string | null;
+}): Promise<void> {
+  const text = [
+    "Клиент отменил заявку.",
+    `Заявка: ${params.orderId}`,
+    `Заказчик: ${params.customerName ?? "—"}`,
+    `Период: ${params.startDate} — ${params.endDate}`,
+    params.eventName ? `Мероприятие: ${params.eventName}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  await sendToNotificationChat({
+    text,
+    inlineKeyboard: [[{ text: "Открыть очередь", url: buildOrderLink(params.orderId) }]],
+  });
+}
+
 /** Клиент отправил возврат на приёмку — уведомление в рабочий чат. */
 export async function notifyWarehouseAboutReturnDeclared(params: {
   orderId: string;

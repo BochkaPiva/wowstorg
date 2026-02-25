@@ -51,9 +51,10 @@ export async function sendTelegramDocument(options: {
   const base = getBotApiBase();
   const formData = new FormData();
   formData.append("chat_id", String(options.chatId));
+  const blobPart = new Uint8Array(options.buffer);
   formData.append(
     "document",
-    new Blob([options.buffer], {
+    new Blob([blobPart], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }),
     options.filename,

@@ -2,6 +2,7 @@ import { Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
+import { notifyWarehouseAboutReturnDeclared } from "@/lib/notifications";
 import { serializeOrder } from "@/lib/orders";
 import { prisma } from "@/lib/prisma";
 
@@ -212,6 +213,14 @@ export async function POST(
       where: { id: order.id },
       include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
     });
+  });
+
+  await notifyWarehouseAboutReturnDeclared({
+    orderId: updated.id,
+    customerName: updated.customer?.name ?? null,
+    startDate: updated.startDate.toISOString().slice(0, 10),
+    endDate: updated.endDate.toISOString().slice(0, 10),
+    eventName: updated.eventName ?? null,
   });
 
   return NextResponse.json({

@@ -10,6 +10,8 @@ type SendMessageOptions = {
   chatId: number | string;
   text: string;
   inlineKeyboard?: TelegramInlineKeyboardButton[][];
+  /** Topic (thread) id in a supergroup with topics enabled (forum). */
+  messageThreadId?: number;
 };
 
 function getBotApiBase(): string {
@@ -23,7 +25,9 @@ export async function sendTelegramMessage(options: SendMessageOptions): Promise<
     chat_id: options.chatId,
     text: options.text,
   };
-
+  if (options.messageThreadId !== undefined) {
+    payload.message_thread_id = options.messageThreadId;
+  }
   if (options.inlineKeyboard) {
     payload.reply_markup = {
       inline_keyboard: options.inlineKeyboard,
@@ -47,10 +51,15 @@ export async function sendTelegramDocument(options: {
   buffer: Buffer;
   filename: string;
   caption?: string;
+  /** Topic (thread) id in a supergroup with topics enabled (forum). */
+  messageThreadId?: number;
 }): Promise<void> {
   const base = getBotApiBase();
   const formData = new FormData();
   formData.append("chat_id", String(options.chatId));
+  if (options.messageThreadId !== undefined) {
+    formData.append("message_thread_id", String(options.messageThreadId));
+  }
   const blobPart = new Uint8Array(options.buffer);
   formData.append(
     "document",

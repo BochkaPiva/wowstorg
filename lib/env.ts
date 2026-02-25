@@ -7,3 +7,8 @@ export function getRequiredEnv(name: string): string {
 
   return value;
 }
+
+export function getOptionalEnv(name: string): string | undefined {
+  const value = process.env[name];
+  return value?.trim().length ? value.trim() : undefined;
+}

@@ -1,6 +1,5 @@
-import { Role } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { getWebAppUrl, sendTelegramMessage } from "@/lib/telegram-bot";
+import { getOptionalEnv } from "@/lib/env";
+import { getWebAppUrl, sendTelegramDocument, sendTelegramMessage } from "@/lib/telegram-bot";
 
 function buildOrderLink(orderId: string): string {
   const base = getWebAppUrl().replace(/\/+$/, "");
@@ -20,6 +19,54 @@ async function safeSend(task: Promise<void>, timeoutMs = 5000): Promise<void> {
   }
 }
 
+async function sendToNotificationChat(params: {
+  text: string;
+  inlineKeyboard?: Array<Array<{ text: string; web_app: { url: string } }>>;
+}): Promise<void> {
+  const config = getNotificationChatConfigInternal();
+  if (!config) return;
+  await safeSend(
+    sendTelegramMessage({
+      chatId: config.chatId,
+      text: params.text,
+      messageThreadId: config.messageThreadId,
+      inlineKeyboard: params.inlineKeyboard,
+    }),
+  );
+}
+
+/** Чат и топик для уведомлений (рабочий чат). Если не заданы — уведомления в чат не отправляются. */
+export function getNotificationChatConfig(): { chatId: string; messageThreadId?: number } | null {
+  return getNotificationChatConfigInternal();
+}
+
+function getNotificationChatConfigInternal(): { chatId: string; messageThreadId?: number } | null {
+  const chatId = getOptionalEnv("TELEGRAM_NOTIFICATION_CHAT_ID");
+  if (!chatId) return null;
+  const topicRaw = getOptionalEnv("TELEGRAM_NOTIFICATION_TOPIC_ID");
+  const messageThreadId = topicRaw != null && /^\d+$/.test(topicRaw) ? Number.parseInt(topicRaw, 10) : undefined;
+  return { chatId, messageThreadId };
+}
+
+/** Отправить документ (смету) в рабочий чат/топик. Вызывается при согласовании заявки. */
+export async function sendDocumentToNotificationChat(params: {
+  buffer: Buffer;
+  filename: string;
+  caption: string;
+}): Promise<void> {
+  const config = getNotificationChatConfigInternal();
+  if (!config) return;
+  await safeSend(
+    sendTelegramDocument({
+      chatId: config.chatId,
+      messageThreadId: config.messageThreadId,
+      buffer: params.buffer,
+      filename: params.filename,
+      caption: params.caption,
+    }),
+  );
+}
+
 export async function notifyWarehouseAboutNewOrder(params: {
   orderId: string;
   customerName: string | null;
@@ -32,13 +79,6 @@ export async function notifyWarehouseAboutNewOrder(params: {
   dismountRequested?: boolean;
   dismountComment?: string | null;
 }): Promise<void> {
-  const users = await prisma.user.findMany({
-    where: {
-      role: { in: [Role.WAREHOUSE, Role.ADMIN] },
-    },
-    select: { telegramId: true },
-  });
-
   const serviceLines: string[] = [];
   if (params.deliveryRequested) {
     serviceLines.push(`Доставка: ${params.deliveryComment?.trim() || "—"}`);
@@ -62,17 +102,10 @@ export async function notifyWarehouseAboutNewOrder(params: {
     .filter(Boolean)
     .join("\n\n");
 
-  await Promise.allSettled(
-    users.map((user) =>
-      safeSend(
-        sendTelegramMessage({
-          chatId: user.telegramId.toString(),
-          text,
-          inlineKeyboard: [[{ text: "Открыть очередь", web_app: { url: buildOrderLink(params.orderId) } }]],
-        }),
-      ),
-    ),
-  );
+  await sendToNotificationChat({
+    text,
+    inlineKeyboard: [[{ text: "Открыть очередь", web_app: { url: buildOrderLink(params.orderId) } }]],
+  });
 }
 
 export async function notifyAdminsAboutOrderEdit(params: {
@@ -82,12 +115,6 @@ export async function notifyAdminsAboutOrderEdit(params: {
   endDate: string;
   compositionSummary: string;
 }): Promise<void> {
-  const users = await prisma.user.findMany({
-    where: { role: Role.ADMIN },
-    select: { telegramId: true },
-  });
-  if (users.length === 0) return;
-
   const text = [
     "Заявка изменена клиентом.",
     `Заявка: ${params.orderId}`,
@@ -96,19 +123,39 @@ export async function notifyAdminsAboutOrderEdit(params: {
     `Состав: ${params.compositionSummary}`,
   ].join("\n");
 
-  await Promise.allSettled(
-    users.map((user) =>
-      safeSend(
-        sendTelegramMessage({
-          chatId: user.telegramId.toString(),
-          text,
-          inlineKeyboard: [[{ text: "Открыть очередь", web_app: { url: buildOrderLink(params.orderId) } }]],
-        }),
-      ),
-    ),
-  );
+  await sendToNotificationChat({
+    text,
+    inlineKeyboard: [[{ text: "Открыть очередь", web_app: { url: buildOrderLink(params.orderId) } }]],
+  });
 }
 
+/** Клиент отправил возврат на приёмку — уведомление в рабочий чат. */
+export async function notifyWarehouseAboutReturnDeclared(params: {
+  orderId: string;
+  customerName: string | null;
+  startDate: string;
+  endDate: string;
+  eventName?: string | null;
+}): Promise<void> {
+  const text = [
+    "Клиент отправил возврат на приёмку.",
+    `Заявка: ${params.orderId}`,
+    `Заказчик: ${params.customerName ?? "—"}`,
+    `Период: ${params.startDate} — ${params.endDate}`,
+    params.eventName ? `Мероприятие: ${params.eventName}` : "",
+    "",
+    "Ожидает приёмки в очереди склада.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  await sendToNotificationChat({
+    text,
+    inlineKeyboard: [[{ text: "Открыть очередь", web_app: { url: buildOrderLink(params.orderId) } }]],
+  });
+}
+
+/** Уведомление владельцу заявки (клиенту) — в личку; не переадресуется в рабочий чат. */
 export async function notifyOrderOwner(params: {
   ownerTelegramId: string | null;
   title: string;

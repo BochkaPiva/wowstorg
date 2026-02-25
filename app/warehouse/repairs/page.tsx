@@ -42,6 +42,8 @@ export default function WarehouseRepairsPage() {
   const [status, setStatus] = useState("Загружаем проблемный реквизит...");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [qtyByItem, setQtyByItem] = useState<Record<string, number>>({});
+  const [qtyFromRepairByItem, setQtyFromRepairByItem] = useState<Record<string, number>>({});
+  const [qtyFromBrokenByItem, setQtyFromBrokenByItem] = useState<Record<string, number>>({});
   const hasLoadedRef = useRef(false);
 
   async function loadItems() {
@@ -69,9 +71,21 @@ export default function WarehouseRepairsPage() {
     setQtyByItem((prev) => {
       const next = { ...prev };
       for (const item of rows) {
-        if (!next[item.id]) {
-          next[item.id] = 1;
-        }
+        if (!next[item.id]) next[item.id] = 1;
+      }
+      return next;
+    });
+    setQtyFromRepairByItem((prev) => {
+      const next = { ...prev };
+      for (const item of rows) {
+        if (next[item.id] === undefined) next[item.id] = 0;
+      }
+      return next;
+    });
+    setQtyFromBrokenByItem((prev) => {
+      const next = { ...prev };
+      for (const item of rows) {
+        if (next[item.id] === undefined) next[item.id] = 0;
       }
       return next;
     });
@@ -87,13 +101,32 @@ export default function WarehouseRepairsPage() {
     itemId: string,
     action: "REPAIR" | "WRITE_OFF" | "WRITE_OFF_MISSING",
   ) {
+    const item = items.find((i) => i.id === itemId);
+    const hasBoth = item && item.stockInRepair > 0 && item.stockBroken > 0;
+    const fromRepair = Math.max(0, Number(qtyFromRepairByItem[itemId] ?? 0));
+    const fromBroken = Math.max(0, Number(qtyFromBrokenByItem[itemId] ?? 0));
     const quantity = Math.max(1, Number(qtyByItem[itemId] ?? 1));
+
+    const body: Record<string, unknown> = { itemId, action };
+    if (action !== "WRITE_OFF_MISSING" && hasBoth) {
+      body.quantityFromRepair = fromRepair;
+      body.quantityFromBroken = fromBroken;
+      if (fromRepair + fromBroken < 1) {
+        setStatus("Укажите количество: хотя бы одно поле «Из ремонта» или «Из сломано» должно быть больше 0.");
+        return;
+      }
+    } else if (action !== "WRITE_OFF_MISSING") {
+      body.quantity = quantity;
+    } else {
+      body.quantity = quantity;
+    }
+
     setBusyId(itemId);
     try {
       const response = await fetch("/api/problem-items", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId, action, quantity }),
+        body: JSON.stringify(body),
       });
       const payload = (await response.json()) as { error?: { message?: string } };
       if (!response.ok) {
@@ -134,21 +167,58 @@ export default function WarehouseRepairsPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <label className="text-xs text-[var(--muted)]">
-                  Кол-во:
-                  <input
-                    className="ml-1 w-14 rounded-xl border border-[var(--border)] px-2 py-1 text-sm"
-                    type="number"
-                    min={1}
-                    value={qtyByItem[item.id] ?? 1}
-                    onChange={(event) =>
-                      setQtyByItem((prev) => ({
-                        ...prev,
-                        [item.id]: Math.max(1, Number(event.target.value)),
-                      }))
-                    }
-                  />
-                </label>
+                {item.stockInRepair > 0 && item.stockBroken > 0 ? (
+                  <>
+                    <label className="text-xs text-[var(--muted)]">
+                      Из «Требует ремонта», шт:
+                      <input
+                        className="ml-1 w-12 rounded-xl border border-[var(--border)] px-2 py-1 text-sm"
+                        type="number"
+                        min={0}
+                        max={item.stockInRepair}
+                        value={qtyFromRepairByItem[item.id] ?? 0}
+                        onChange={(e) =>
+                          setQtyFromRepairByItem((prev) => ({
+                            ...prev,
+                            [item.id]: Math.max(0, Math.min(item.stockInRepair, Number(e.target.value) || 0)),
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="text-xs text-[var(--muted)]">
+                      Из «Сломано», шт:
+                      <input
+                        className="ml-1 w-12 rounded-xl border border-[var(--border)] px-2 py-1 text-sm"
+                        type="number"
+                        min={0}
+                        max={item.stockBroken}
+                        value={qtyFromBrokenByItem[item.id] ?? 0}
+                        onChange={(e) =>
+                          setQtyFromBrokenByItem((prev) => ({
+                            ...prev,
+                            [item.id]: Math.max(0, Math.min(item.stockBroken, Number(e.target.value) || 0)),
+                          }))
+                        }
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <label className="text-xs text-[var(--muted)]">
+                    Кол-во:
+                    <input
+                      className="ml-1 w-14 rounded-xl border border-[var(--border)] px-2 py-1 text-sm"
+                      type="number"
+                      min={1}
+                      value={qtyByItem[item.id] ?? 1}
+                      onChange={(event) =>
+                        setQtyByItem((prev) => ({
+                          ...prev,
+                          [item.id]: Math.max(1, Number(event.target.value)),
+                        }))
+                      }
+                    />
+                  </label>
+                )}
                 {item.stockInRepair + item.stockBroken > 0 ? (
                   <>
                     <button

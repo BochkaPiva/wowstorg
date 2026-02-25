@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWarehouseUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
-import { parseApproveInput, serializeOrder } from "@/lib/orders";
-import { notifyOrderOwner } from "@/lib/notifications";
 import { buildEstimateXlsx } from "@/lib/estimate-xlsx";
+import { notifyOrderOwner, getNotificationChatConfig, sendDocumentToNotificationChat } from "@/lib/notifications";
+import { parseApproveInput, serializeOrder } from "@/lib/orders";
 import { prisma } from "@/lib/prisma";
 import { sendTelegramDocument } from "@/lib/telegram-bot";
 import { Prisma, Role } from "@prisma/client";
@@ -236,23 +236,41 @@ export async function POST(
       mountPrice: updated.mountPrice != null ? Number(updated.mountPrice) : null,
       dismountPrice: updated.dismountPrice != null ? Number(updated.dismountPrice) : null,
     });
-    const filename = `smeta-${updated.id}.xlsx`;
+    const approvedAt = updated.updatedAt;
+    const dateStr = approvedAt.toISOString().slice(0, 10);
+    const customerPart = (updated.customer?.name ?? "bez_zakazchika")
+      .replace(/[\s\\/:*?"<>|]/g, "_")
+      .slice(0, 40)
+      .trim() || "zakazchik";
+    const userPart = (auth.user.username ?? `user_${auth.user.id}`)
+      .replace(/[\s\\/:*?"<>|]/g, "_")
+      .slice(0, 30)
+      .trim() || "sotr";
+    const filename = `smeta_${dateStr}_${customerPart}_${userPart}.xlsx`;
     const caption = `Смета по заявке ${updated.id}. Период: ${updated.startDate.toISOString().slice(0, 10)} — ${updated.endDate.toISOString().slice(0, 10)}.`;
-    const recipients: string[] = [updated.createdBy.telegramId.toString()];
-    const admins = await prisma.user.findMany({
-      where: { role: Role.ADMIN },
-      select: { telegramId: true },
+    await sendTelegramDocument({
+      chatId: updated.createdBy.telegramId.toString(),
+      buffer,
+      filename,
+      caption,
     });
-    for (const admin of admins) {
-      if (!recipients.includes(admin.telegramId.toString())) {
-        recipients.push(admin.telegramId.toString());
-      }
+    const notificationChat = getNotificationChatConfig();
+    if (notificationChat) {
+      await sendDocumentToNotificationChat({ buffer, filename, caption });
+    } else {
+      const admins = await prisma.user.findMany({
+        where: { role: Role.ADMIN },
+        select: { telegramId: true },
+      });
+      const ownerId = updated.createdBy.telegramId.toString();
+      await Promise.allSettled(
+        admins
+          .filter((a) => a.telegramId.toString() !== ownerId)
+          .map((chatId) =>
+            sendTelegramDocument({ chatId: chatId.telegramId.toString(), buffer, filename, caption }),
+          ),
+      );
     }
-    await Promise.allSettled(
-      recipients.map((chatId) =>
-        sendTelegramDocument({ chatId, buffer, filename, caption }),
-      ),
-    );
   }
 
   return NextResponse.json({

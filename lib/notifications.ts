@@ -148,3 +148,81 @@ export async function notifyOrderOwner(params: {
     }),
   );
 }
+
+const MOSCOW_DATE_FORMATTER = new Intl.DateTimeFormat("fr-CA", {
+  timeZone: "Europe/Moscow",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** Возвращает сегодняшнюю дату в Москве в формате YYYY-MM-DD */
+export function getTodayMoscow(): string {
+  return MOSCOW_DATE_FORMATTER.format(new Date());
+}
+
+/** Напоминание владельцу заявки: сегодня последний день аренды */
+export async function notifyOwnerLastDayOfRental(params: {
+  ownerTelegramId: string;
+  orderId: string;
+  endDate: string;
+  customerName: string | null;
+  eventName?: string | null;
+}): Promise<void> {
+  const text = [
+    "Напоминание: сегодня последний день аренды по заявке.",
+    `Заявка: ${params.orderId}`,
+    `Период аренды до: ${params.endDate}`,
+    params.customerName ? `Заказчик: ${params.customerName}` : "",
+    params.eventName ? `Мероприятие: ${params.eventName}` : "",
+    "",
+    "Подайте возврат реквизита в разделе «Мои заявки», когда будете сдавать позиции.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  await safeSend(
+    sendTelegramMessage({
+      chatId: params.ownerTelegramId,
+      text,
+      inlineKeyboard: [[{ text: "Мои заявки", web_app: { url: getWebAppUrl() } }]],
+    }),
+  );
+}
+
+/** Уведомление владельцу заявки: просрочка сдачи на приемку */
+export async function notifyOwnerOverdueReturn(params: {
+  ownerTelegramId: string;
+  orderId: string;
+  endDate: string;
+  customerName: string | null;
+  eventName?: string | null;
+  daysOverdue: number;
+}): Promise<void> {
+  const daysWord =
+    params.daysOverdue === 1
+      ? "1 день"
+      : params.daysOverdue >= 2 && params.daysOverdue <= 4
+        ? `${params.daysOverdue} дня`
+        : `${params.daysOverdue} дней`;
+
+  const text = [
+    "Просрочка сдачи на приемку.",
+    `Заявка: ${params.orderId}`,
+    `Период аренды закончился: ${params.endDate} (просрочка ${daysWord}).`,
+    params.customerName ? `Заказчик: ${params.customerName}` : "",
+    params.eventName ? `Мероприятие: ${params.eventName}` : "",
+    "",
+    "Пожалуйста, подайте возврат реквизита в разделе «Мои заявки» и сдайте позиции складу.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  await safeSend(
+    sendTelegramMessage({
+      chatId: params.ownerTelegramId,
+      text,
+      inlineKeyboard: [[{ text: "Мои заявки", web_app: { url: getWebAppUrl() } }]],
+    }),
+  );
+}

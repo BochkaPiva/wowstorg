@@ -215,7 +215,9 @@ export default function WarehouseQueuePage() {
     try {
       const draft = editDrafts[order.id];
       const linesPayload = order.lines.map((line) => {
-        const edited = draft?.lines.find((entry) => entry.lineId === line.id);
+        const edited =
+          draft?.lines.find((entry) => entry.lineId === line.id) ??
+          draft?.lines.find((entry) => entry.itemId === line.itemId);
         const approvedQty = edited != null
           ? Math.max(0, Math.min(line.requestedQty, edited.approvedQty))
           : (line.approvedQty ?? line.requestedQty);

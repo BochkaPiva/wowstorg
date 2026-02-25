@@ -316,16 +316,16 @@ export default function CatalogPage() {
         </div>
       ) : null}
 
-      <div className="ws-card grid min-w-0 max-w-full grid-cols-1 gap-2 overflow-hidden p-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="ws-card grid min-w-0 max-w-full grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
         {isGreenwich ? (
           <label className="min-w-0 max-w-full text-xs font-medium text-amber-800">
             Готовность к дате
-            <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 text-sm box-border" type="date" value={readyByDate} onChange={(e) => setReadyByDate(e.target.value)} max={startDate} />
+            <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 pr-8 text-sm box-border" type="date" value={readyByDate} onChange={(e) => setReadyByDate(e.target.value)} max={startDate} />
           </label>
         ) : null}
         <label className="min-w-0 max-w-full text-xs text-[var(--muted)]">
           Начало аренды
-          <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border" type="date" value={startDate} onChange={(e) => {
+          <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 pr-8 text-sm box-border" type="date" value={startDate} onChange={(e) => {
             const v = e.target.value;
             setStartDate(v);
             if (readyByDate > v) setReadyByDate(v);
@@ -333,7 +333,7 @@ export default function CatalogPage() {
         </label>
         <label className="min-w-0 max-w-full text-xs text-[var(--muted)]">
           Окончание аренды
-          <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 pr-8 text-sm box-border" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </label>
         <label className="min-w-0 max-w-full text-xs text-[var(--muted)]">
           Поиск
@@ -553,7 +553,7 @@ export default function CatalogPage() {
                   });
                 };
                 return (
-                  <li key={line.itemId} className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] bg-slate-50/50 px-3 py-2">
+                  <li key={line.itemId} className="flex items-start gap-3 rounded-lg border border-[var(--border)] bg-slate-50/50 px-3 py-2">
                     <div className="min-w-0 flex-1 text-sm">
                       <span className="font-medium">{line.name}</span>
                       {item ? (
@@ -562,58 +562,60 @@ export default function CatalogPage() {
                         </div>
                       ) : null}
                     </div>
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        className="ws-btn h-9 w-9 shrink-0 rounded-lg text-lg leading-none"
-                        type="button"
-                        onClick={() => {
-                          const q = Math.max(1, displayQty - 1);
-                          setCart((prev) => prev.map((entry) => entry.itemId === line.itemId ? { ...entry, qty: q } : entry));
-                          setCartQtyEdit((prev) => {
-                            const next = { ...prev };
-                            delete next[line.itemId];
-                            return next;
-                          });
-                        }}
-                        aria-label="Уменьшить"
-                      >
-                        −
-                      </button>
-                      <input
-                        className="w-12 rounded-lg border border-[var(--border)] bg-white px-1 py-1.5 text-center text-sm tabular-nums"
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={inputValue}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/\D/g, "");
-                          setCartQtyEdit((prev) => ({ ...prev, [line.itemId]: v }));
-                        }}
-                        onBlur={() => commitQty(inputValue)}
-                        onKeyDown={(e) => e.key === "Enter" && (e.currentTarget.blur(), commitQty(inputValue))}
-                        aria-label="Количество"
-                      />
-                      <button
-                        className="ws-btn h-9 w-9 shrink-0 rounded-lg text-lg leading-none"
-                        type="button"
-                        onClick={() => {
-                          const q = Math.min(maxQty, displayQty + 1);
-                          setCart((prev) => prev.map((entry) => entry.itemId === line.itemId ? { ...entry, qty: q } : entry));
-                          setCartQtyEdit((prev) => {
-                            const next = { ...prev };
-                            delete next[line.itemId];
-                            return next;
-                          });
-                        }}
-                        disabled={displayQty >= maxQty}
-                        aria-label="Увеличить"
-                      >
-                        +
+                    <div className="flex shrink-0 flex-col items-center justify-center gap-1.5">
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          className="ws-btn h-9 w-9 shrink-0 rounded-lg text-lg leading-none"
+                          type="button"
+                          onClick={() => {
+                            const q = Math.max(1, displayQty - 1);
+                            setCart((prev) => prev.map((entry) => entry.itemId === line.itemId ? { ...entry, qty: q } : entry));
+                            setCartQtyEdit((prev) => {
+                              const next = { ...prev };
+                              delete next[line.itemId];
+                              return next;
+                            });
+                          }}
+                          aria-label="Уменьшить"
+                        >
+                          −
+                        </button>
+                        <input
+                          className="w-12 rounded-lg border border-[var(--border)] bg-white px-1 py-1.5 text-center text-sm tabular-nums"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={inputValue}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, "");
+                            setCartQtyEdit((prev) => ({ ...prev, [line.itemId]: v }));
+                          }}
+                          onBlur={() => commitQty(inputValue)}
+                          onKeyDown={(e) => e.key === "Enter" && (e.currentTarget.blur(), commitQty(inputValue))}
+                          aria-label="Количество"
+                        />
+                        <button
+                          className="ws-btn h-9 w-9 shrink-0 rounded-lg text-lg leading-none"
+                          type="button"
+                          onClick={() => {
+                            const q = Math.min(maxQty, displayQty + 1);
+                            setCart((prev) => prev.map((entry) => entry.itemId === line.itemId ? { ...entry, qty: q } : entry));
+                            setCartQtyEdit((prev) => {
+                              const next = { ...prev };
+                              delete next[line.itemId];
+                              return next;
+                            });
+                          }}
+                          disabled={displayQty >= maxQty}
+                          aria-label="Увеличить"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <button className="ws-btn w-full min-w-[80px] text-sm" type="button" onClick={() => setCart((prev) => prev.filter((entry) => entry.itemId !== line.itemId))} title="Удалить из корзины">
+                        Удалить
                       </button>
                     </div>
-                    <button className="ws-btn text-sm" type="button" onClick={() => setCart((prev) => prev.filter((entry) => entry.itemId !== line.itemId))} title="Удалить из корзины">
-                      Удалить
-                    </button>
                   </li>
                 );
               })}

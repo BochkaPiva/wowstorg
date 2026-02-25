@@ -49,7 +49,8 @@ type EditableOrderDetails = {
 };
 
 type ReturnCondition = "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING";
-type ReturnDraft = Record<string, { returnedQty: number; condition: ReturnCondition; comment: string }>;
+/** По позиции: состояние и кол-во с проблемой (если не OK). Выданное кол-во не редактируется. */
+type ReturnDraft = Record<string, { condition: ReturnCondition; problemQty: number; comment: string }>;
 
 function statusText(status: Order["status"]): string {
   switch (status) {
@@ -152,7 +153,7 @@ export default function MyOrdersPage() {
       const draft: ReturnDraft = {};
       for (const line of order.lines) {
         const issuedQty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
-        draft[line.id] = { returnedQty: issuedQty, condition: "OK", comment: "" };
+        draft[line.id] = { condition: "OK", problemQty: 0, comment: "" };
       }
       return { ...prev, [order.id]: draft };
     });
@@ -193,12 +194,18 @@ export default function MyOrdersPage() {
       setStatus("Сначала откройте форму возврата.");
       return;
     }
-    const lines = Object.entries(draft).map(([orderLineId, value]) => ({
-        orderLineId,
-        returnedQty: value.returnedQty,
+    const lines = order.lines.map((line) => {
+      const value = draft[line.id];
+      if (!value) return null;
+      const issuedQty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+      const returnedQty = value.condition === "OK" ? issuedQty : Math.min(issuedQty, Math.max(0, value.problemQty));
+      return {
+        orderLineId: line.id,
+        returnedQty,
         condition: value.condition,
         comment: value.comment.trim() || undefined,
-      }));
+      };
+    }).filter(Boolean) as Array<{ orderLineId: string; returnedQty: number; condition: ReturnCondition; comment?: string }>;
 
     setBusyOrderId(order.id);
     try {
@@ -719,55 +726,73 @@ export default function MyOrdersPage() {
 
             {expandedReturnOrderId === order.id ? (
               <div className="mt-3 space-y-2 rounded-xl border border-[var(--border)] bg-white p-3">
+                <p className="mb-2 text-xs text-[var(--muted)]">Выданное количество менять нельзя. Укажите состояние по каждой позиции и, если есть сломанные/потерянные — их количество.</p>
                 {order.lines.map((line) => {
                   const issuedQty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
                   const draft = returnDrafts[order.id]?.[line.id];
+                  const condition = draft?.condition ?? "OK";
+                  const problemQty = draft?.problemQty ?? 0;
                   return (
                     <div key={line.id} className="rounded-xl border border-[var(--border)] p-2">
-                      <div className="mb-1 text-sm">{line.itemName}</div>
-                      <div className="grid gap-2 sm:grid-cols-3">
+                      <div className="mb-2 text-sm font-medium">{line.itemName}</div>
+                      <div className="mb-2 flex items-center gap-2 text-xs text-[var(--muted)]">
+                        <span>Выдано: <strong className="text-[var(--fg)]">{issuedQty} шт</strong></span>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
+                          Состояние
+                          <select
+                            className="rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                            value={condition}
+                            onChange={(event) =>
+                              setReturnDrafts((prev) => ({
+                                ...prev,
+                                [order.id]: {
+                                  ...(prev[order.id] ?? {}),
+                                  [line.id]: {
+                                    ...(prev[order.id]?.[line.id] ?? draft),
+                                    condition: event.target.value as ReturnCondition,
+                                    problemQty: event.target.value === "OK" ? 0 : (prev[order.id]?.[line.id]?.problemQty ?? 0),
+                                  } as ReturnDraft[string],
+                                },
+                              }))
+                            }
+                          >
+                            <option value="OK">Нормальное</option>
+                            <option value="NEEDS_REPAIR">Требуется ремонт</option>
+                            <option value="BROKEN">Сломано</option>
+                            <option value="MISSING">Не возвращено</option>
+                          </select>
+                        </label>
+                        {condition !== "OK" ? (
+                          <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
+                            Количество (сломанных/потерянных и т.д.)
+                            <input
+                              className="rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                              type="number"
+                              min={0}
+                              max={issuedQty}
+                              value={problemQty}
+                              onChange={(event) =>
+                                setReturnDrafts((prev) => ({
+                                  ...prev,
+                                  [order.id]: {
+                                    ...(prev[order.id] ?? {}),
+                                    [line.id]: {
+                                      ...(prev[order.id]?.[line.id] ?? draft),
+                                      problemQty: Math.max(0, Math.min(issuedQty, Number(event.target.value) || 0)),
+                                    } as ReturnDraft[string],
+                                  },
+                                }))
+                              }
+                            />
+                          </label>
+                        ) : null}
+                      </div>
+                      <label className="mt-2 flex flex-col gap-0.5 text-xs text-[var(--muted)]">
+                        Комментарий
                         <input
-                          className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                          type="number"
-                          min={0}
-                          max={issuedQty}
-                          value={draft?.returnedQty ?? issuedQty}
-                          onChange={(event) =>
-                            setReturnDrafts((prev) => ({
-                              ...prev,
-                              [order.id]: {
-                                ...(prev[order.id] ?? {}),
-                                [line.id]: {
-                                  ...(prev[order.id]?.[line.id] ?? draft),
-                                  returnedQty: Math.max(0, Math.min(issuedQty, Number(event.target.value))),
-                                } as ReturnDraft[string],
-                              },
-                            }))
-                          }
-                        />
-                        <select
-                          className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                          value={draft?.condition ?? "OK"}
-                          onChange={(event) =>
-                            setReturnDrafts((prev) => ({
-                              ...prev,
-                              [order.id]: {
-                                ...(prev[order.id] ?? {}),
-                                [line.id]: {
-                                  ...(prev[order.id]?.[line.id] ?? draft),
-                                  condition: event.target.value as ReturnCondition,
-                                } as ReturnDraft[string],
-                              },
-                            }))
-                          }
-                        >
-                          <option value="OK">Нормальное</option>
-                          <option value="NEEDS_REPAIR">Требуется ремонт</option>
-                          <option value="BROKEN">Сломано</option>
-                          <option value="MISSING">Не возвращено</option>
-                        </select>
-                        <input
-                          className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                          className="rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
                           value={draft?.comment ?? ""}
                           onChange={(event) =>
                             setReturnDrafts((prev) => ({
@@ -781,9 +806,9 @@ export default function MyOrdersPage() {
                               },
                             }))
                           }
-                          placeholder="Комментарий"
+                          placeholder="По желанию"
                         />
-                      </div>
+                      </label>
                     </div>
                   );
                 })}

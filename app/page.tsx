@@ -81,6 +81,7 @@ function roleTiles(role: AppRole | null): Tile[] {
       { href: "/warehouse/lost-items", title: "Утерянный реквизит", description: "Найдено / списано / открытые потери" },
       { href: "/warehouse/repairs", title: "Ремонт и списание", description: "Починить или утилизировать проблемные позиции" },
       { href: "/warehouse/inventory", title: "Инвентарь", description: "CRUD реквизита, подборок и пакетов" },
+      { href: "/admin/internal-consumables", title: "Внутренние расходники", description: "Учёт расходников склада" },
     ];
   }
   if (role === "ADMIN") {
@@ -91,6 +92,7 @@ function roleTiles(role: AppRole | null): Tile[] {
       { href: "/warehouse/lost-items", title: "Утерянный реквизит", description: "Реестр потерянных позиций" },
       { href: "/warehouse/repairs", title: "Ремонт и списание", description: "Операции по проблемным остаткам" },
       { href: "/warehouse/inventory", title: "Инвентарь", description: "CRUD реквизита, подборок и пакетов" },
+      { href: "/admin/internal-consumables", title: "Внутренние расходники", description: "Учёт расходников склада" },
       { href: "/admin", title: "Админ панель", description: "Доступы, заказчики и аналитика" },
       { href: "/dev-login", title: "Сервисный вход", description: "Тестовые сессии для отладки" },
     ];

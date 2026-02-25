@@ -7,8 +7,8 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(request);
   if (!auth.ok) return auth.response;
-  if (auth.user.role !== Role.ADMIN) {
-    return fail(403, "Only ADMIN can manage internal consumables.");
+  if (auth.user.role !== Role.ADMIN && auth.user.role !== Role.WAREHOUSE) {
+    return fail(403, "Only ADMIN or WAREHOUSE can manage internal consumables.");
   }
 
   const rows = await prisma.internalConsumable.findMany({
@@ -28,8 +28,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(request);
   if (!auth.ok) return auth.response;
-  if (auth.user.role !== Role.ADMIN) {
-    return fail(403, "Only ADMIN can manage internal consumables.");
+  if (auth.user.role !== Role.ADMIN && auth.user.role !== Role.WAREHOUSE) {
+    return fail(403, "Only ADMIN or WAREHOUSE can manage internal consumables.");
   }
 
   let body: unknown;

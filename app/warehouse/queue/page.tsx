@@ -918,6 +918,7 @@ export default function WarehouseQueuePage() {
                         type="number"
                         min={1}
                         value={newLineByOrder[order.id]?.qty ?? 1}
+                        onFocus={(e) => e.currentTarget.select()}
                         onChange={(event) =>
                           setNewLineByOrder((prev) => ({
                             ...prev,
@@ -1086,6 +1087,7 @@ export default function WarehouseQueuePage() {
                                 min={0}
                                 max={issued}
                                 value={needsRepair}
+                                onFocus={(e) => e.currentTarget.select()}
                                 onChange={(e) => update({ needsRepair: Math.max(0, Math.min(issued, Number(e.target.value) || 0)) })}
                               />
                             </label>
@@ -1097,6 +1099,7 @@ export default function WarehouseQueuePage() {
                                 min={0}
                                 max={issued}
                                 value={broken}
+                                onFocus={(e) => e.currentTarget.select()}
                                 onChange={(e) => update({ broken: Math.max(0, Math.min(issued, Number(e.target.value) || 0)) })}
                               />
                             </label>
@@ -1108,6 +1111,7 @@ export default function WarehouseQueuePage() {
                                 min={0}
                                 max={issued}
                                 value={missing}
+                                onFocus={(e) => e.currentTarget.select()}
                                 onChange={(e) => update({ missing: Math.max(0, Math.min(issued, Number(e.target.value) || 0)) })}
                               />
                             </label>

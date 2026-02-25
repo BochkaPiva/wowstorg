@@ -10,14 +10,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return auth.response;
   }
 
-  // Только ремонт и сломанные; утерянные — в отдельном реестре «Утерянный реквизит».
+  // Только «Требует ремонта» и «Сломано». Утерянные — в отдельном реестре «Утерянный реквизит».
   const items = await prisma.item.findMany({
     where: {
-      OR: [
-        { availabilityStatus: AvailabilityStatus.RETIRED },
-        { stockInRepair: { gt: 0 } },
-        { stockBroken: { gt: 0 } },
-      ],
+      OR: [{ stockInRepair: { gt: 0 } }, { stockBroken: { gt: 0 } }],
     },
     orderBy: [{ updatedAt: "desc" }],
   });

@@ -162,7 +162,7 @@ export default function WarehouseRepairsPage() {
                 <div className="text-sm font-semibold">{item.name}</div>
                 <div className="text-xs text-[var(--muted)]">
                   Статус: {availabilityStatusLabel(item.availabilityStatus, item)} • Всего: {item.stockTotal} • Ремонт:{" "}
-                  {item.stockInRepair} • Сломано: {item.stockBroken} • Утеряно: {item.stockMissing}
+                  {item.stockInRepair} • Сломано: {item.stockBroken}
                 </div>
               </div>
 
@@ -177,6 +177,7 @@ export default function WarehouseRepairsPage() {
                         min={0}
                         max={item.stockInRepair}
                         value={qtyFromRepairByItem[item.id] ?? 0}
+                        onFocus={(e) => e.currentTarget.select()}
                         onChange={(e) =>
                           setQtyFromRepairByItem((prev) => ({
                             ...prev,
@@ -193,6 +194,7 @@ export default function WarehouseRepairsPage() {
                         min={0}
                         max={item.stockBroken}
                         value={qtyFromBrokenByItem[item.id] ?? 0}
+                        onFocus={(e) => e.currentTarget.select()}
                         onChange={(e) =>
                           setQtyFromBrokenByItem((prev) => ({
                             ...prev,
@@ -210,6 +212,7 @@ export default function WarehouseRepairsPage() {
                       type="number"
                       min={1}
                       value={qtyByItem[item.id] ?? 1}
+                      onFocus={(e) => e.currentTarget.select()}
                       onChange={(event) =>
                         setQtyByItem((prev) => ({
                           ...prev,
@@ -238,16 +241,6 @@ export default function WarehouseRepairsPage() {
                       Утилизировать
                     </button>
                   </>
-                ) : null}
-                {item.stockMissing > 0 ? (
-                  <button
-                    className="ws-btn disabled:opacity-50"
-                    type="button"
-                    onClick={() => void runAction(item.id, "WRITE_OFF_MISSING")}
-                    disabled={busyId !== null}
-                  >
-                    Списать утерю
-                  </button>
                 ) : null}
               </div>
             </div>

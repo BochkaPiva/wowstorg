@@ -82,6 +82,9 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   if (!useSplit && (quantity === null || quantity < 1)) {
     return NextResponse.json({ error: { message: "quantity must be positive integer, or set both quantityFromRepair and quantityFromBroken." } }, { status: 400 });
   }
+  if (action === "WRITE_OFF_MISSING" && (quantity === null || quantity < 1)) {
+    return NextResponse.json({ error: { message: "quantity must be positive integer for WRITE_OFF_MISSING." } }, { status: 400 });
+  }
 
   const current = await prisma.item.findUnique({ where: { id: itemId } });
   if (!current) {
@@ -89,14 +92,15 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   }
 
   if (action === "WRITE_OFF_MISSING") {
-    if (current.stockMissing < quantity) {
+    const qty = quantity!;
+    if (current.stockMissing < qty) {
       return NextResponse.json(
         { error: { message: "Недостаточно утерянных единиц для списания." } },
         { status: 400 },
       );
     }
-    const nextMissing = current.stockMissing - quantity;
-    const nextTotal = Math.max(0, current.stockTotal - quantity);
+    const nextMissing = current.stockMissing - qty;
+    const nextTotal = Math.max(0, current.stockTotal - qty);
     const nextStatus = resolveAvailabilityStatusFromBuckets({
       currentStatus: current.availabilityStatus,
       stockTotal: nextTotal,
@@ -126,8 +130,8 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  const fromRepair: number;
-  const fromBroken: number;
+  let fromRepair: number;
+  let fromBroken: number;
   if (useSplit) {
     fromRepair = quantityFromRepair!;
     fromBroken = quantityFromBroken!;

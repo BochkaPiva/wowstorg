@@ -24,6 +24,11 @@ const SCENARIOS = [
     description: "База клиентов, контакты, активность",
   },
   {
+    href: "/admin/internal-consumables",
+    title: "Внутренние расходники",
+    description: "Учёт расходников склада (не из каталога)",
+  },
+  {
     href: "/admin/analytics",
     title: "Аналитика",
     description: "Топ реквизита и топ заказчиков за период",

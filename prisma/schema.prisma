@@ -368,3 +368,14 @@ model IncidentPhoto {
   @@index([incidentId])
   @@map("incident_photos")
 }
+
+model InternalConsumable {
+  id        String   @id @default(cuid())
+  name      String
+  quantity  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([name])
+  @@map("internal_consumables")
+}

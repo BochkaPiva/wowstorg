@@ -155,7 +155,8 @@ export async function POST(
           .filter((line) => (updateByLineId.get(line.id) ?? 0) > 0)
           .map((line) => {
             const approvedQty = updateByLineId.get(line.id) ?? 0;
-            return `${line.item.name}: ${approvedQty} из ${line.requestedQty}`;
+            const comment = commentByLineId.get(line.id);
+            return `${line.item.name}: ${approvedQty} из ${line.requestedQty}${comment ? ` (${comment})` : ""}`;
           }),
       },
       {

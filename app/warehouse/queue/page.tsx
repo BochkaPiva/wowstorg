@@ -214,18 +214,23 @@ export default function WarehouseQueuePage() {
     setBusyOrderId(order.id);
     try {
       const draft = editDrafts[order.id];
+      const linesPayload = order.lines.map((line) => {
+        const edited = draft?.lines.find((entry) => entry.lineId === line.id);
+        const approvedQty = edited != null
+          ? Math.max(0, Math.min(line.requestedQty, edited.approvedQty))
+          : (line.approvedQty ?? line.requestedQty);
+        const comment = edited?.comment?.trim() || undefined;
+        return {
+          orderLineId: line.id,
+          approvedQty,
+          comment,
+        };
+      });
       const response = await fetch(`/api/orders/${order.id}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lines: order.lines.map((line) => {
-            const edited = draft?.lines.find((entry) => entry.lineId === line.id);
-            return {
-              orderLineId: line.id,
-              approvedQty: edited?.approvedQty ?? edited?.requestedQty ?? line.requestedQty,
-              comment: edited?.comment?.trim() || undefined,
-            };
-          }),
+          lines: linesPayload,
           warehouseComment: warehouseComments[order.id]?.trim() || undefined,
         }),
       });
@@ -546,29 +551,9 @@ export default function WarehouseQueuePage() {
                       {editDrafts[order.id].lines.map((line, idx) => (
                         <div key={`${line.itemId}-${idx}`} className="grid grid-cols-1 gap-2 rounded-xl border border-[var(--border)] p-2 sm:grid-cols-[1fr_90px_90px_1fr_auto]">
                           <div className="text-sm">{line.itemName}</div>
-                          <input
-                            className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                            type="number"
-                            min={1}
-                            value={line.requestedQty}
-                            onChange={(event) =>
-                              setEditDrafts((prev) => ({
-                                ...prev,
-                                [order.id]: {
-                                  ...prev[order.id],
-                                  lines: prev[order.id].lines.map((entry, entryIdx) =>
-                                        entryIdx === idx
-                                          ? {
-                                              ...entry,
-                                              requestedQty: Math.max(1, Number(event.target.value)),
-                                              approvedQty: Math.max(1, Number(event.target.value)),
-                                            }
-                                          : entry,
-                                  ),
-                                },
-                              }))
-                            }
-                          />
+                          <div className="flex items-center rounded-xl border border-transparent bg-[var(--muted)]/30 px-2 py-1 text-sm text-[var(--muted)]">
+                            {line.requestedQty}
+                          </div>
                           <input
                             className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
                             type="number"
@@ -584,13 +569,14 @@ export default function WarehouseQueuePage() {
                                     entryIdx === idx
                                       ? {
                                           ...entry,
-                                          approvedQty: Math.max(0, Math.min(line.requestedQty, Number(event.target.value))),
+                                          approvedQty: Math.max(0, Math.min(line.requestedQty, Number(event.target.value) || 0)),
                                         }
                                       : entry,
                                   ),
                                 },
                               }))
                             }
+                            aria-label="Согласованное количество"
                           />
                           <input
                             className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
@@ -631,9 +617,9 @@ export default function WarehouseQueuePage() {
                         </div>
                       ))}
                     </div>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_80px_auto]">
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_90px_auto] sm:items-stretch">
                       <select
-                        className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                        className="w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
                         value={newLineByOrder[order.id]?.itemId ?? ""}
                         onChange={(event) =>
                           setNewLineByOrder((prev) => ({
@@ -650,7 +636,7 @@ export default function WarehouseQueuePage() {
                         ))}
                       </select>
                       <input
-                        className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                        className="w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm sm:w-[90px]"
                         type="number"
                         min={1}
                         value={newLineByOrder[order.id]?.qty ?? 1}
@@ -660,9 +646,10 @@ export default function WarehouseQueuePage() {
                             [order.id]: { itemId: prev[order.id]?.itemId ?? "", qty: Math.max(1, Number(event.target.value)) },
                           }))
                         }
+                        aria-label="Количество"
                       />
                       <button
-                        className="ws-btn"
+                        className="ws-btn w-full sm:w-auto sm:min-w-[90px]"
                         type="button"
                         onClick={() => {
                           const draft = newLineByOrder[order.id];
@@ -672,17 +659,17 @@ export default function WarehouseQueuePage() {
                             ...prev,
                             [order.id]: {
                               ...prev[order.id],
-                                      lines: [
-                                        ...prev[order.id].lines,
-                                        {
-                                          lineId: null,
-                                          itemId: option.id,
-                                          itemName: option.name,
-                                          requestedQty: draft.qty,
-                                          approvedQty: draft.qty,
-                                          comment: "",
-                                        },
-                                      ],
+                              lines: [
+                                ...prev[order.id].lines,
+                                {
+                                  lineId: null,
+                                  itemId: option.id,
+                                  itemName: option.name,
+                                  requestedQty: draft.qty,
+                                  approvedQty: draft.qty,
+                                  comment: "",
+                                },
+                              ],
                             },
                           }));
                         }}

@@ -194,10 +194,11 @@ model Order {
   status           OrderStatus @default(SUBMITTED)
   startDate        DateTime    @db.Date @map("start_date")
   endDate          DateTime    @db.Date @map("end_date")
+  readyByDate      DateTime    @db.Date @map("ready_by_date")
   eventName        String?     @map("event_name")
   pickupTime       String?     @map("pickup_time")
   notes            String?
-  discountRate     Decimal     @default(0.30) @db.Decimal(4, 2) @map("discount_rate")
+  discountRate     Decimal     @default(0.24) @db.Decimal(4, 2) @map("discount_rate")
   isEmergency      Boolean     @default(false) @map("is_emergency")
   issuedAt         DateTime?   @map("issued_at")
   returnDeclaredAt DateTime?   @map("return_declared_at")
@@ -225,6 +226,7 @@ model Order {
   lostItems  LostItem[]
 
   @@index([status])
+  @@index([readyByDate])
   @@index([startDate, endDate])
   @@index([status, startDate, endDate])
   @@index([createdById, status])

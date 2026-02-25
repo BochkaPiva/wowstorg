@@ -25,6 +25,7 @@ type QueueOrder = {
   updatedMinutesAgo: number;
   startDate: string;
   endDate: string;
+  readyByDate: string;
   notes: string | null;
   deliveryRequested?: boolean;
   deliveryComment?: string | null;
@@ -191,6 +192,9 @@ export default function WarehouseQueuePage() {
   const sortedOrders = useMemo(
     () =>
       [...orders].sort((a, b) => {
+        const dateCmp = a.readyByDate.localeCompare(b.readyByDate);
+        if (dateCmp !== 0) return dateCmp;
+        if (a.isEmergency !== b.isEmergency) return a.isEmergency ? -1 : 1;
         const p = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
         if (p !== 0) return p;
         return a.updatedMinutesAgo - b.updatedMinutesAgo;
@@ -529,17 +533,21 @@ export default function WarehouseQueuePage() {
                 <div className="text-sm font-semibold">
                   {order.customerName ?? "Без заказчика"} {order.eventName ? `• ${order.eventName}` : ""}
                 </div>
+                <div className="mt-1 rounded-lg border-2 border-amber-400 bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-900">
+                  Готовность к: {order.readyByDate.split("-").reverse().join(".")}
+                </div>
                 <div className="text-xs text-[var(--muted)]">
                   Коллега: {order.createdBy.username ?? `ID ${order.createdBy.telegramId}`}
                 </div>
                 <div className="text-xs text-[var(--muted)]">
-                  Даты: {order.startDate} - {order.endDate} • обновлено {order.updatedMinutesAgo} мин назад
+                  Период аренды: {order.startDate} — {order.endDate} • обновлено {order.updatedMinutesAgo} мин назад
                 </div>
                 <div className="text-xs text-[var(--muted)]">Состав: {previewLines(order.lines)}</div>
                 {order.warehouseInternalNote?.trim() ? (
-                  <div className="text-xs text-[var(--muted)] italic">
-                    Заметка: {order.warehouseInternalNote.trim().length > 60
-                      ? `${order.warehouseInternalNote.trim().slice(0, 60)}…`
+                  <div className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+                    <span className="font-medium">Заметка склада:</span>{" "}
+                    {order.warehouseInternalNote.trim().length > 80
+                      ? `${order.warehouseInternalNote.trim().slice(0, 80)}…`
                       : order.warehouseInternalNote.trim()}
                   </div>
                 ) : null}

@@ -19,6 +19,7 @@ type Order = {
   orderSource: "GREENWICH_INTERNAL" | "WOWSTORG_EXTERNAL";
   startDate: string;
   endDate: string;
+  readyByDate?: string;
   notes: string | null;
   totalAmount?: number;
   updatedAt: string;
@@ -34,6 +35,7 @@ type EditableOrderDetails = {
   id: string;
   startDate: string;
   endDate: string;
+  readyByDate?: string;
   customerName: string | null;
   eventName: string | null;
   notes: string | null;
@@ -91,6 +93,7 @@ export default function MyOrdersPage() {
       {
         startDate: string;
         endDate: string;
+        readyByDate: string;
         eventName: string;
         notes: string;
         lines: Array<{ itemId: string; itemName: string; requestedQty: number }>;
@@ -238,6 +241,7 @@ export default function MyOrdersPage() {
         [order.id]: {
           startDate: o.startDate,
           endDate: o.endDate,
+          readyByDate: o.readyByDate ?? o.startDate,
           eventName: o.eventName ?? "",
           notes: o.notes ?? "",
           lines: o.lines.map((line) => ({
@@ -279,6 +283,7 @@ export default function MyOrdersPage() {
         body: JSON.stringify({
           startDate: draft.startDate,
           endDate: draft.endDate,
+          readyByDate: draft.readyByDate ?? order.readyByDate ?? order.startDate,
           eventName: draft.eventName.trim() || null,
           notes: draft.notes.trim() || null,
           lines: draft.lines.map((line) => ({
@@ -335,7 +340,7 @@ export default function MyOrdersPage() {
                 <div className="font-semibold">
                   {order.customerName ?? "Без заказчика"} {order.eventName ? `• ${order.eventName}` : ""}
                 </div>
-                <div className="text-xs text-[var(--muted)]">Даты: {order.startDate} - {order.endDate}</div>
+                <div className="text-xs text-[var(--muted)]">Даты: {order.startDate} — {order.endDate}{order.readyByDate && order.readyByDate !== order.startDate ? ` • Готовность к: ${order.readyByDate}` : ""}</div>
                 <div className="text-xs text-[var(--muted)]">
                   Обновлено: {new Date(order.updatedAt).toLocaleString("ru-RU")}
                 </div>
@@ -389,31 +394,49 @@ export default function MyOrdersPage() {
 
             {expandedEditOrderId === order.id ? (
               <div className="mt-3 space-y-3 rounded-xl border border-[var(--border)] bg-white p-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="block text-xs font-medium text-[var(--muted)]">
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
+                  <label className="block min-w-0 text-xs font-medium text-[var(--muted)]">
                     Дата начала
                     <input
-                      className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                      className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
                       type="date"
                       value={editDrafts[order.id]?.startDate ?? order.startDate}
-                      onChange={(event) =>
-                        setEditDrafts((prev) => ({
-                          ...prev,
-                          [order.id]: { ...prev[order.id], startDate: event.target.value },
-                        }))
-                      }
+                      onChange={(event) => {
+                        const v = event.target.value;
+                        setEditDrafts((prev) => {
+                          const next = { ...prev, [order.id]: { ...prev[order.id], startDate: v } };
+                          if ((next[order.id].readyByDate ?? order.readyByDate ?? order.startDate) > v)
+                            next[order.id].readyByDate = v;
+                          return next;
+                        });
+                      }}
                     />
                   </label>
-                  <label className="block text-xs font-medium text-[var(--muted)]">
+                  <label className="block min-w-0 text-xs font-medium text-[var(--muted)]">
                     Дата окончания
                     <input
-                      className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                      className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
                       type="date"
                       value={editDrafts[order.id]?.endDate ?? order.endDate}
                       onChange={(event) =>
                         setEditDrafts((prev) => ({
                           ...prev,
                           [order.id]: { ...prev[order.id], endDate: event.target.value },
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="block min-w-0 text-xs font-medium text-[var(--muted)]">
+                    Готовность к дате (когда подготовить и когда заберут/отправят)
+                    <input
+                      className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                      type="date"
+                      max={editDrafts[order.id]?.startDate ?? order.startDate}
+                      value={editDrafts[order.id]?.readyByDate ?? order.readyByDate ?? order.startDate}
+                      onChange={(event) =>
+                        setEditDrafts((prev) => ({
+                          ...prev,
+                          [order.id]: { ...prev[order.id], readyByDate: event.target.value },
                         }))
                       }
                     />

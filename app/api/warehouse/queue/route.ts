@@ -89,7 +89,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         },
       },
     },
-    orderBy: [{ isEmergency: "desc" }, { updatedAt: "desc" }],
+    orderBy: [{ readyByDate: "asc" }, { isEmergency: "desc" }, { updatedAt: "desc" }],
   });
 
   const visibleOrders = orders.filter((order) => {
@@ -114,6 +114,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       updatedMinutesAgo: minutesAgo(order.updatedAt),
       startDate: order.startDate.toISOString().slice(0, 10),
       endDate: order.endDate.toISOString().slice(0, 10),
+      readyByDate: order.readyByDate.toISOString().slice(0, 10),
       pickupTime: order.pickupTime,
       notes: order.notes,
       deliveryRequested: order.deliveryRequested,

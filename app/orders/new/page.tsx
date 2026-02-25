@@ -175,6 +175,7 @@ export default function CreateOrderPage() {
       body: JSON.stringify({
         startDate,
         endDate,
+        readyByDate: startDate,
         customerId: customerId || undefined,
         customerName: customerName.trim() || undefined,
         eventName: eventName.trim() || null,

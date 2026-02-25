@@ -1,7 +1,7 @@
 import { AvailabilityStatus, type Item } from "@prisma/client";
 
 export function toDiscountedPrice(pricePerDay: number): number {
-  return Number((pricePerDay * 0.7).toFixed(2));
+  return Number((pricePerDay * 0.76).toFixed(2));
 }
 
 export function computeRentableStock(

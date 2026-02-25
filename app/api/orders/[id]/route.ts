@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
 import {
   asPrismaDateInput,
+  parseDateOnlyOrNull,
   parsePatchOrderInput,
   serializeOrder,
   validateDateRange,
@@ -167,6 +168,14 @@ export async function PATCH(
     return fail(400, parsedRange.message);
   }
 
+  const startDateForReadyBy = parsedRange.startDate;
+  const readyByDateRaw =
+    parsed.readyByDate ?? existing.readyByDate.toISOString().slice(0, 10);
+  const readyByDate = parseDateOnlyOrNull(readyByDateRaw);
+  if (!readyByDate || readyByDate > startDateForReadyBy) {
+    return fail(400, "Дата готовности должна быть не позже даты начала аренды.");
+  }
+
   if (parsed.lines) {
     const normalizedLines = normalizeLines(parsed.lines);
     const itemIds = Array.from(new Set(normalizedLines.map((line) => line.itemId)));
@@ -213,6 +222,7 @@ export async function PATCH(
           customerId: customerIdToUse ?? null,
           startDate: asPrismaDateInput(parsedRange.startDate),
           endDate: asPrismaDateInput(parsedRange.endDate),
+          readyByDate: asPrismaDateInput(readyByDate),
           eventName: parsed.eventName !== undefined ? parsed.eventName : existing.eventName,
           pickupTime: parsed.pickupTime !== undefined ? parsed.pickupTime : existing.pickupTime,
           notes: parsed.notes !== undefined ? parsed.notes : existing.notes,
@@ -280,6 +290,7 @@ export async function PATCH(
         customerId: customerIdToUse ?? null,
         startDate: asPrismaDateInput(parsedRange.startDate),
         endDate: asPrismaDateInput(parsedRange.endDate),
+        readyByDate: asPrismaDateInput(readyByDate),
         eventName: parsed.eventName !== undefined ? parsed.eventName : existing.eventName,
         pickupTime: parsed.pickupTime !== undefined ? parsed.pickupTime : existing.pickupTime,
         notes: parsed.notes !== undefined ? parsed.notes : existing.notes,

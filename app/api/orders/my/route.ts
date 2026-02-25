@@ -58,6 +58,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       status: order.status,
       startDate: order.startDate.toISOString().slice(0, 10),
       endDate: order.endDate.toISOString().slice(0, 10),
+      readyByDate: order.readyByDate.toISOString().slice(0, 10),
       customerName: order.customer?.name ?? null,
       eventName: order.eventName,
       orderSource: order.orderSource,

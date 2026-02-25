@@ -69,6 +69,7 @@ export default function CatalogPage() {
     next.setDate(next.getDate() + 1);
     return toDateInputValue(next);
   });
+  const [readyByDate, setReadyByDate] = useState(() => toDateInputValue(new Date()));
   const [search, setSearch] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
 
@@ -225,6 +226,7 @@ export default function CatalogPage() {
       body: JSON.stringify({
         startDate,
         endDate,
+        readyByDate: isGreenwich ? readyByDate : startDate,
         customerId: customerId || undefined,
         customerName: customerName.trim() || undefined,
         eventName: eventName.trim() || null,
@@ -313,18 +315,28 @@ export default function CatalogPage() {
         </div>
       ) : null}
 
-      <div className="ws-card grid gap-2 p-3 sm:grid-cols-3">
-        <label className="text-xs text-[var(--muted)]">
+      <div className="ws-card grid min-w-0 grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="min-w-0 text-xs text-[var(--muted)]">
           Дата начала
-          <input className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={startDate} onChange={(e) => {
+            const v = e.target.value;
+            setStartDate(v);
+            if (readyByDate > v) setReadyByDate(v);
+          }} />
         </label>
-        <label className="text-xs text-[var(--muted)]">
+        <label className="min-w-0 text-xs text-[var(--muted)]">
           Дата окончания
-          <input className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </label>
-        <label className="text-xs text-[var(--muted)]">
+        {isGreenwich ? (
+          <label className="min-w-0 text-xs text-[var(--muted)]">
+            Готовность к дате (когда подготовить и когда заберут/отправим)
+            <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={readyByDate} onChange={(e) => setReadyByDate(e.target.value)} max={startDate} />
+          </label>
+        ) : null}
+        <label className="min-w-0 text-xs text-[var(--muted)]">
           Поиск
-          <input className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Поиск по позициям" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Поиск по позициям" value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
       </div>
 

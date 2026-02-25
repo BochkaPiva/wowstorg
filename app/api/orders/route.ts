@@ -6,6 +6,7 @@ import { fail } from "@/lib/http";
 import {
   asPrismaDateInput,
   parseCreateOrderInput,
+  parseDateOnlyOrNull,
   serializeOrder,
   validateDateRange,
 } from "@/lib/orders";
@@ -77,6 +78,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return fail(400, parsedRange.message);
   }
 
+  const readyByDate = parseDateOnlyOrNull(parsed.readyByDate ?? parsed.startDate);
+  if (!readyByDate || readyByDate > parsedRange.startDate) {
+    return fail(400, "Дата готовности должна быть не позже даты начала аренды.");
+  }
+
   const normalizedLines = normalizeLines(parsed.lines);
   const itemIds = Array.from(new Set(normalizedLines.map((line) => line.itemId)));
 
@@ -144,7 +150,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const order = await prisma.$transaction(async (tx) => {
     const status = issueImmediately ? "ISSUED" : "SUBMITTED";
     const discountRateValue =
-      orderSource === OrderSource.GREENWICH_INTERNAL ? 0.3 : 0;
+      orderSource === OrderSource.GREENWICH_INTERNAL ? 0.24 : 0;
     const created = await tx.order.create({
       data: {
         createdById: auth.user.id,
@@ -153,6 +159,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         orderSource,
         startDate: asPrismaDateInput(parsedRange.startDate),
         endDate: asPrismaDateInput(parsedRange.endDate),
+        readyByDate: asPrismaDateInput(readyByDate),
         eventName: parsed.eventName ?? null,
         pickupTime: parsed.pickupTime ?? null,
         notes: parsed.notes ?? null,

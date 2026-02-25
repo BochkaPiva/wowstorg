@@ -19,6 +19,7 @@ export type CreateOrderLineInput = {
 export type CreateOrderInput = {
   startDate: string;
   endDate: string;
+  readyByDate?: string;
   customerId?: string;
   customerName?: string;
   eventName?: string | null;
@@ -39,6 +40,7 @@ export type CreateOrderInput = {
 export type PatchOrderInput = {
   startDate?: string;
   endDate?: string;
+  readyByDate?: string;
   customerId?: string;
   customerName?: string;
   eventName?: string | null;
@@ -193,9 +195,12 @@ export function parseCreateOrderInput(body: unknown): CreateOrderInput | null {
   const mountRequested = payload.mountRequested === true;
   const dismountRequested = payload.dismountRequested === true;
 
+  const readyByDate = parseRequiredDate(payload.readyByDate) ?? startDate;
+
   return {
     startDate,
     endDate,
+    readyByDate,
     customerId,
     customerName,
     eventName: parseOptionalString(payload.eventName),
@@ -239,6 +244,14 @@ export function parsePatchOrderInput(body: unknown): PatchOrderInput | null {
       return null;
     }
     output.endDate = endDate;
+  }
+
+  if (payload.readyByDate !== undefined) {
+    const readyByDate = parseRequiredDate(payload.readyByDate);
+    if (!readyByDate) {
+      return null;
+    }
+    output.readyByDate = readyByDate;
   }
 
   if (payload.pickupTime !== undefined) {
@@ -517,6 +530,7 @@ export function serializeOrder(order: {
   status: OrderStatus;
   startDate: Date;
   endDate: Date;
+  readyByDate: Date;
   pickupTime: string | null;
   customerId: string | null;
   eventName: string | null;
@@ -559,6 +573,7 @@ export function serializeOrder(order: {
     status: order.status,
     startDate: order.startDate.toISOString().slice(0, 10),
     endDate: order.endDate.toISOString().slice(0, 10),
+    readyByDate: order.readyByDate.toISOString().slice(0, 10),
     customerId: order.customerId,
     customerName: order.customer?.name ?? null,
     eventName: order.eventName,

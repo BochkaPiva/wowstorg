@@ -16,6 +16,7 @@ const QUEUE_STATUSES: OrderStatus[] = [
 
 const CLIENT_DECLARATION_MARKER = "CLIENT_RETURN_DECLARATION_B64:";
 
+type ClientDeclaredSegment = { condition: "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING"; qty: number };
 type ClientDeclaredLine = {
   orderLineId: string;
   itemId: string;
@@ -23,6 +24,7 @@ type ClientDeclaredLine = {
   issuedQty: number;
   condition: "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING";
   comment: string | null;
+  segments?: ClientDeclaredSegment[];
 };
 
 function parseClientDeclaration(noteText: string | null): {
@@ -40,11 +42,20 @@ function parseClientDeclaration(noteText: string | null): {
 
   try {
     const decoded = JSON.parse(Buffer.from(encoded, "base64").toString("utf8")) as {
-      lines?: ClientDeclaredLine[];
+      lines?: Array<ClientDeclaredLine & { segments?: ClientDeclaredSegment[] }>;
       comment?: string | null;
     };
+    const lines = Array.isArray(decoded.lines) ? decoded.lines : [];
     return {
-      lines: Array.isArray(decoded.lines) ? decoded.lines : [],
+      lines: lines.map((line) => ({
+        orderLineId: line.orderLineId,
+        itemId: line.itemId,
+        returnedQty: line.returnedQty,
+        issuedQty: line.issuedQty,
+        condition: line.condition,
+        comment: line.comment ?? null,
+        segments: line.segments,
+      })),
       comment: decoded.comment ?? null,
     };
   } catch {

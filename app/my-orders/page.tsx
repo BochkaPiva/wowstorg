@@ -49,8 +49,9 @@ type EditableOrderDetails = {
 };
 
 type ReturnCondition = "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING";
-/** По позиции: состояние и кол-во с проблемой (если не OK). Выданное кол-во не редактируется. */
-type ReturnDraft = Record<string, { condition: ReturnCondition; problemQty: number; comment: string }>;
+type ReturnSegment = { condition: ReturnCondition; qty: number };
+/** По позиции: массив сегментов (сумма qty = выданному), комментарий. */
+type ReturnDraft = Record<string, { segments: ReturnSegment[]; comment: string }>;
 
 function statusText(status: Order["status"]): string {
   switch (status) {
@@ -86,6 +87,7 @@ export default function MyOrdersPage() {
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [expandedReturnOrderId, setExpandedReturnOrderId] = useState<string | null>(null);
   const [returnDrafts, setReturnDrafts] = useState<Record<string, ReturnDraft>>({});
+  const [returnQtyEdit, setReturnQtyEdit] = useState<Record<string, string>>({});
   const [returnComments, setReturnComments] = useState<Record<string, string>>({});
   const [expandedEditOrderId, setExpandedEditOrderId] = useState<string | null>(null);
   const [editDrafts, setEditDrafts] = useState<
@@ -153,7 +155,7 @@ export default function MyOrdersPage() {
       const draft: ReturnDraft = {};
       for (const line of order.lines) {
         const issuedQty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
-        draft[line.id] = { condition: "OK", problemQty: 0, comment: "" };
+        draft[line.id] = { segments: [{ condition: "OK", qty: issuedQty }], comment: "" };
       }
       return { ...prev, [order.id]: draft };
     });
@@ -196,16 +198,18 @@ export default function MyOrdersPage() {
     }
     const lines = order.lines.map((line) => {
       const value = draft[line.id];
-      if (!value) return null;
+      if (!value?.segments?.length) return null;
       const issuedQty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
-      const returnedQty = value.condition === "OK" ? issuedQty : Math.min(issuedQty, Math.max(0, value.problemQty));
+      const sum = value.segments.reduce((a, s) => a + s.qty, 0);
+      if (sum !== issuedQty) return null;
       return {
         orderLineId: line.id,
-        returnedQty,
-        condition: value.condition,
+        returnedQty: value.segments[0]!.qty,
+        condition: value.segments[0]!.condition,
         comment: value.comment.trim() || undefined,
+        segments: value.segments,
       };
-    }).filter(Boolean) as Array<{ orderLineId: string; returnedQty: number; condition: ReturnCondition; comment?: string }>;
+    }).filter(Boolean) as Array<{ orderLineId: string; returnedQty: number; condition: ReturnCondition; comment?: string; segments: ReturnSegment[] }>;
 
     setBusyOrderId(order.id);
     try {
@@ -725,84 +729,122 @@ export default function MyOrdersPage() {
             ) : null}
 
             {expandedReturnOrderId === order.id ? (
-              <div className="mt-3 space-y-2 rounded-xl border border-[var(--border)] bg-white p-3">
-                <p className="mb-2 text-xs text-[var(--muted)]">Выданное количество менять нельзя. Укажите состояние по каждой позиции и, если есть сломанные/потерянные — их количество.</p>
+              <div className="mt-3 space-y-3 rounded-xl border border-[var(--border)] bg-white p-3">
+                <details className="rounded-xl border border-[var(--border)] bg-slate-50 p-2">
+                  <summary className="cursor-pointer text-sm font-medium text-[var(--brand)]">Легенда по статусам</summary>
+                  <ul className="mt-2 space-y-1 text-xs text-[var(--muted)]">
+                    <li><strong>Нормально</strong> — все вернули в товарном виде</li>
+                    <li><strong>Требует ремонта</strong> — товар с исправимым дефектом</li>
+                    <li><strong>Сломано</strong> — сильно сломано, трудновосстановимо</li>
+                    <li><strong>Не возвращено</strong> — не вернули</li>
+                  </ul>
+                </details>
+                <p className="text-xs text-[var(--muted)]">Выданное количество менять нельзя. Укажите состояние; если штук несколько — можно разделить по статусам (остаток по умолчанию «Нормально»).</p>
                 {order.lines.map((line) => {
                   const issuedQty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
                   const draft = returnDrafts[order.id]?.[line.id];
-                  const condition = draft?.condition ?? "OK";
-                  const problemQty = draft?.problemQty ?? 0;
+                  const segments = draft?.segments ?? [{ condition: "OK" as ReturnCondition, qty: issuedQty }];
+                  const normalize = (seg: ReturnSegment[]) => {
+                    const out = [...seg];
+                    let sum = 0;
+                    for (let i = 0; i < out.length - 1; i++) {
+                      sum += out[i]!.qty;
+                    }
+                    const last = out[out.length - 1]!;
+                    last.qty = Math.max(0, issuedQty - sum);
+                    if (last.qty === 0 && out.length > 1) out.pop();
+                    return out;
+                  };
+                  const setSegments = (next: ReturnSegment[]) => {
+                    setReturnDrafts((prev) => ({
+                      ...prev,
+                      [order.id]: {
+                        ...(prev[order.id] ?? {}),
+                        [line.id]: { segments: normalize(next), comment: draft?.comment ?? "" },
+                      },
+                    }));
+                  };
+                  const updateSeg = (i: number, patch: Partial<ReturnSegment>) => {
+                    const next = segments.map((s, j) => j === i ? { ...s, ...patch } : s);
+                    if (patch.condition !== undefined && patch.condition !== "OK" && issuedQty > 1 && next.length === 1) {
+                      next[0]!.qty = 1;
+                      next.push({ condition: "OK", qty: issuedQty - 1 });
+                    }
+                    setSegments(next);
+                  };
+                  const updateSegQty = (i: number, raw: string) => {
+                    const v = raw.trim() === "" ? 0 : parseInt(raw, 10);
+                    const qty = Number.isFinite(v) ? Math.max(0, Math.min(issuedQty, v)) : segments[i]!.qty;
+                    const next = segments.map((s, j) => j === i ? { ...s, qty } : s);
+                    setSegments(normalize(next));
+                    setReturnQtyEdit((prev) => {
+                      const key = `${order.id}-${line.id}-${i}`;
+                      const nextEdit = { ...prev };
+                      delete nextEdit[key];
+                      return nextEdit;
+                    });
+                  };
                   return (
                     <div key={line.id} className="rounded-xl border border-[var(--border)] p-2">
                       <div className="mb-2 text-sm font-medium">{line.itemName}</div>
-                      <div className="mb-2 flex items-center gap-2 text-xs text-[var(--muted)]">
-                        <span>Выдано: <strong className="text-[var(--fg)]">{issuedQty} шт</strong></span>
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
-                          Состояние
-                          <select
-                            className="rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
-                            value={condition}
-                            onChange={(event) =>
-                              setReturnDrafts((prev) => ({
-                                ...prev,
-                                [order.id]: {
-                                  ...(prev[order.id] ?? {}),
-                                  [line.id]: {
-                                    ...(prev[order.id]?.[line.id] ?? draft),
-                                    condition: event.target.value as ReturnCondition,
-                                    problemQty: event.target.value === "OK" ? 0 : (prev[order.id]?.[line.id]?.problemQty ?? 0),
-                                  } as ReturnDraft[string],
-                                },
-                              }))
-                            }
-                          >
-                            <option value="OK">Нормальное</option>
-                            <option value="NEEDS_REPAIR">Требуется ремонт</option>
-                            <option value="BROKEN">Сломано</option>
-                            <option value="MISSING">Не возвращено</option>
-                          </select>
-                        </label>
-                        {condition !== "OK" ? (
-                          <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
-                            Количество (сломанных/потерянных и т.д.)
-                            <input
-                              className="rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
-                              type="number"
-                              min={0}
-                              max={issuedQty}
-                              value={problemQty}
-                              onChange={(event) =>
-                                setReturnDrafts((prev) => ({
-                                  ...prev,
-                                  [order.id]: {
-                                    ...(prev[order.id] ?? {}),
-                                    [line.id]: {
-                                      ...(prev[order.id]?.[line.id] ?? draft),
-                                      problemQty: Math.max(0, Math.min(issuedQty, Number(event.target.value) || 0)),
-                                    } as ReturnDraft[string],
-                                  },
-                                }))
-                              }
-                            />
-                          </label>
-                        ) : null}
+                      <div className="mb-2 text-xs text-[var(--muted)]">Выдано: <strong className="text-[var(--fg)]">{issuedQty} шт</strong></div>
+                      <div className="space-y-2">
+                        {segments.map((seg, i) => {
+                          const isLast = i === segments.length - 1;
+                          const sumBefore = segments.slice(0, i).reduce((a, s) => a + s.qty, 0);
+                          const showQty = issuedQty > 1 && (segments.length > 1 || seg.condition !== "OK");
+                          const qtyEditKey = `${order.id}-${line.id}-${i}`;
+                          const inputVal = returnQtyEdit[qtyEditKey] !== undefined ? returnQtyEdit[qtyEditKey] : String(seg.qty);
+                          return (
+                            <div key={i} className="flex flex-wrap items-end gap-2 rounded-lg bg-slate-50/80 p-2">
+                              {i > 0 ? (
+                                <span className="text-xs text-[var(--muted)]">Остальное: {issuedQty - sumBefore} шт →</span>
+                              ) : null}
+                              <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
+                                Статус
+                                <select
+                                  className="rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                                  value={seg.condition}
+                                  onChange={(e) => updateSeg(i, { condition: e.target.value as ReturnCondition })}
+                                >
+                                  <option value="OK">Нормально</option>
+                                  <option value="NEEDS_REPAIR">Требует ремонта</option>
+                                  <option value="BROKEN">Сломано</option>
+                                  <option value="MISSING">Не возвращено</option>
+                                </select>
+                              </label>
+                              {showQty ? (
+                                <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
+                                  Кол-во, шт
+                                  <input
+                                    className="w-16 rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 text-sm text-center tabular-nums"
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={inputVal}
+                                    onChange={(e) => {
+                                      const v = e.target.value.replace(/\D/g, "");
+                                      setReturnQtyEdit((prev) => ({ ...prev, [qtyEditKey]: v }));
+                                    }}
+                                    onBlur={() => updateSegQty(i, inputVal)}
+                                    onKeyDown={(e) => e.key === "Enter" && updateSegQty(i, inputVal)}
+                                  />
+                                </label>
+                              ) : null}
+                            </div>
+                          );
+                        })}
                       </div>
                       <label className="mt-2 flex flex-col gap-0.5 text-xs text-[var(--muted)]">
                         Комментарий
                         <input
                           className="rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
                           value={draft?.comment ?? ""}
-                          onChange={(event) =>
+                          onChange={(e) =>
                             setReturnDrafts((prev) => ({
                               ...prev,
                               [order.id]: {
                                 ...(prev[order.id] ?? {}),
-                                [line.id]: {
-                                  ...(prev[order.id]?.[line.id] ?? draft),
-                                  comment: event.target.value,
-                                } as ReturnDraft[string],
+                                [line.id]: { segments: draft?.segments ?? segments, comment: e.target.value },
                               },
                             }))
                           }

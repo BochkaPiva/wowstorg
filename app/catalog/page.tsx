@@ -303,7 +303,7 @@ export default function CatalogPage() {
       status.includes("Обновите корзину"));
 
   return (
-    <section className="space-y-4">
+    <section className="min-w-0 overflow-x-hidden space-y-4">
       <h1 className="text-2xl font-semibold text-[var(--brand)]">Каталог и оформление заявки</h1>
       <div className="flex justify-end">
         <button className="ws-btn" type="button" onClick={() => { globalThis.location.href = "/"; }}>
@@ -316,28 +316,28 @@ export default function CatalogPage() {
         </div>
       ) : null}
 
-      <div className="ws-card grid min-w-0 max-w-full grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="ws-card grid w-full min-w-0 grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4" style={{ maxWidth: "100%" }}>
         {isGreenwich ? (
-          <label className="min-w-0 max-w-full text-xs font-medium text-amber-800">
+          <label className="min-w-0 text-xs font-medium text-amber-800">
             Готовность к дате
-            <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 pr-8 text-sm box-border" type="date" value={readyByDate} onChange={(e) => setReadyByDate(e.target.value)} max={startDate} />
+            <input className="mt-1 w-full min-w-0 rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 text-sm box-border [max-width:100%]" type="date" value={readyByDate} onChange={(e) => setReadyByDate(e.target.value)} max={startDate} />
           </label>
         ) : null}
-        <label className="min-w-0 max-w-full text-xs text-[var(--muted)]">
+        <label className="min-w-0 text-xs text-[var(--muted)]">
           Начало аренды
-          <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 pr-8 text-sm box-border" type="date" value={startDate} onChange={(e) => {
+          <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border [max-width:100%]" type="date" value={startDate} onChange={(e) => {
             const v = e.target.value;
             setStartDate(v);
             if (readyByDate > v) setReadyByDate(v);
           }} />
         </label>
-        <label className="min-w-0 max-w-full text-xs text-[var(--muted)]">
+        <label className="min-w-0 text-xs text-[var(--muted)]">
           Окончание аренды
-          <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 pr-8 text-sm box-border" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border [max-width:100%]" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </label>
-        <label className="min-w-0 max-w-full text-xs text-[var(--muted)]">
+        <label className="min-w-0 text-xs text-[var(--muted)]">
           Поиск
-          <input className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border" placeholder="Поиск по позициям" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border" placeholder="Поиск по позициям" value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
       </div>
 

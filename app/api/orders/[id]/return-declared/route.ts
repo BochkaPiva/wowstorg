@@ -9,11 +9,14 @@ type Params = {
   params: Promise<{ id: string }>;
 };
 
+type ClientReturnSegment = { condition: "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING"; qty: number };
 type ClientReturnLine = {
   orderLineId: string;
   returnedQty: number;
   condition: "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING";
   comment?: string;
+  /** Когда задано, returnedQty/condition игнорируются при сохранении в chunk; в chunk пишем segments. */
+  segments?: ClientReturnSegment[];
 };
 
 const CLIENT_DECLARATION_MARKER = "CLIENT_RETURN_DECLARATION_B64:";
@@ -34,11 +37,32 @@ function parseClientDeclaration(
     if (!lineRaw || typeof lineRaw !== "object") return null;
     const line = lineRaw as Record<string, unknown>;
     if (typeof line.orderLineId !== "string" || line.orderLineId.trim().length === 0) return null;
-    if (typeof line.returnedQty !== "number" || !Number.isInteger(line.returnedQty) || line.returnedQty < 0) return null;
-    if (typeof line.condition !== "string" || !allowed.has(line.condition)) return null;
+    const segmentsRaw = line.segments;
+    if (Array.isArray(segmentsRaw) && segmentsRaw.length > 0) {
+      const segments: ClientReturnSegment[] = [];
+      for (const s of segmentsRaw) {
+        if (!s || typeof s !== "object") return null;
+        const seg = s as Record<string, unknown>;
+        const qty = typeof seg.qty === "number" && Number.isInteger(seg.qty) && seg.qty >= 0 ? seg.qty : null;
+        if (qty === null || typeof seg.condition !== "string" || !allowed.has(seg.condition)) return null;
+        segments.push({ condition: seg.condition as ClientReturnSegment["condition"], qty });
+      }
+      const sum = segments.reduce((a, x) => a + x.qty, 0);
+      if (sum === 0) return null;
+      lines.push({
+        orderLineId: line.orderLineId.trim(),
+        returnedQty: segments[0]!.qty,
+        condition: segments[0]!.condition,
+        comment: typeof line.comment === "string" && line.comment.trim().length > 0 ? line.comment.trim() : undefined,
+        segments,
+      });
+      continue;
+    }
+    const returnedQty = typeof line.returnedQty === "number" && Number.isInteger(line.returnedQty) && line.returnedQty >= 0 ? line.returnedQty : null;
+    if (returnedQty === null || typeof line.condition !== "string" || !allowed.has(line.condition)) return null;
     lines.push({
       orderLineId: line.orderLineId.trim(),
-      returnedQty: line.returnedQty,
+      returnedQty,
       condition: line.condition as ClientReturnLine["condition"],
       comment: typeof line.comment === "string" && line.comment.trim().length > 0 ? line.comment.trim() : undefined,
     });
@@ -105,7 +129,12 @@ export async function POST(
         return fail(400, "Unknown order line in return declaration.", { orderLineId: line.orderLineId });
       }
       const issuedQty = orderLine.issuedQty ?? orderLine.approvedQty ?? orderLine.requestedQty;
-      if (line.returnedQty > issuedQty) {
+      if (line.segments) {
+        const sum = line.segments.reduce((a, s) => a + s.qty, 0);
+        if (sum !== issuedQty) {
+          return fail(400, "Sum of segments must equal issued quantity.", { orderLineId: line.orderLineId });
+        }
+      } else if (line.returnedQty > issuedQty) {
         return fail(400, "returnedQty cannot exceed issued quantity.", { orderLineId: line.orderLineId });
       }
     }
@@ -118,6 +147,9 @@ export async function POST(
           ...declaration.lines.map((line) => {
             const orderLine = lineMap.get(line.orderLineId)!;
             const issuedQty = orderLine.issuedQty ?? orderLine.approvedQty ?? orderLine.requestedQty;
+            if (line.segments && line.segments.length > 0) {
+              return `- ${orderLine.itemId}: ${line.segments.map((s) => `${s.qty} шт — ${s.condition}`).join(", ")} из ${issuedQty}${line.comment ? ` (${line.comment})` : ""}`;
+            }
             return `- ${orderLine.itemId}: сдано ${line.returnedQty} из ${issuedQty}, статус ${line.condition}${line.comment ? ` (${line.comment})` : ""}`;
           }),
           declaration.comment ? `Комментарий клиента: ${declaration.comment}` : "",
@@ -136,13 +168,19 @@ export async function POST(
             lines: declaration.lines.map((line) => {
               const orderLine = lineMap.get(line.orderLineId)!;
               const issuedQty = orderLine.issuedQty ?? orderLine.approvedQty ?? orderLine.requestedQty;
-              return {
+              const base = {
                 orderLineId: line.orderLineId,
                 itemId: orderLine.itemId,
-                returnedQty: line.returnedQty,
                 issuedQty,
-                condition: line.condition,
                 comment: line.comment ?? null,
+              };
+              if (line.segments && line.segments.length > 0) {
+                return { ...base, segments: line.segments };
+              }
+              return {
+                ...base,
+                returnedQty: line.returnedQty,
+                condition: line.condition,
               };
             }),
             comment: declaration.comment ?? null,

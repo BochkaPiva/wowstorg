@@ -45,6 +45,7 @@ type QueueOrder = {
       issuedQty: number;
       condition: "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING";
       comment: string | null;
+      segments?: Array<{ condition: "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING"; qty: number }>;
     }>;
     comment: string | null;
   } | null;
@@ -221,13 +222,20 @@ export default function WarehouseQueuePage() {
       const next: CheckinDraftByLine = {};
       for (const line of order.lines) {
         const clientLine = order.clientDeclaration?.lines.find((entry) => entry.orderLineId === line.id);
-        const q = clientLine?.returnedQty ?? 0;
-        next[line.id] = {
-          needsRepair: clientLine?.condition === "NEEDS_REPAIR" ? q : 0,
-          broken: clientLine?.condition === "BROKEN" ? q : 0,
-          missing: clientLine?.condition === "MISSING" ? q : 0,
-          comment: clientLine?.comment ?? "",
-        };
+        let needsRepair = 0, broken = 0, missing = 0;
+        if (clientLine?.segments?.length) {
+          for (const s of clientLine.segments) {
+            if (s.condition === "NEEDS_REPAIR") needsRepair += s.qty;
+            else if (s.condition === "BROKEN") broken += s.qty;
+            else if (s.condition === "MISSING") missing += s.qty;
+          }
+        } else if (clientLine) {
+          const q = clientLine.returnedQty ?? 0;
+          if (clientLine.condition === "NEEDS_REPAIR") needsRepair = q;
+          else if (clientLine.condition === "BROKEN") broken = q;
+          else if (clientLine.condition === "MISSING") missing = q;
+        }
+        next[line.id] = { needsRepair, broken, missing, comment: clientLine?.comment ?? "" };
       }
       return { ...prev, [order.id]: next };
     });
@@ -473,9 +481,23 @@ export default function WarehouseQueuePage() {
       const issued = issuedByLine(line);
       const value = draft[line.id];
       const clientLine = order.clientDeclaration?.lines.find((e) => e.orderLineId === line.id);
-      let needsRepair = value?.needsRepair ?? (clientLine?.condition === "NEEDS_REPAIR" ? (clientLine?.returnedQty ?? 0) : 0);
-      let broken = value?.broken ?? (clientLine?.condition === "BROKEN" ? (clientLine?.returnedQty ?? 0) : 0);
-      let missing = value?.missing ?? (clientLine?.condition === "MISSING" ? (clientLine?.returnedQty ?? 0) : 0);
+      let needsRepair = value?.needsRepair;
+      let broken = value?.broken;
+      let missing = value?.missing;
+      if (needsRepair === undefined || broken === undefined || missing === undefined) {
+        if (clientLine?.segments?.length) {
+          needsRepair ??= clientLine.segments.filter((s) => s.condition === "NEEDS_REPAIR").reduce((a, s) => a + s.qty, 0);
+          broken ??= clientLine.segments.filter((s) => s.condition === "BROKEN").reduce((a, s) => a + s.qty, 0);
+          missing ??= clientLine.segments.filter((s) => s.condition === "MISSING").reduce((a, s) => a + s.qty, 0);
+        } else {
+          needsRepair ??= clientLine?.condition === "NEEDS_REPAIR" ? (clientLine?.returnedQty ?? 0) : 0;
+          broken ??= clientLine?.condition === "BROKEN" ? (clientLine?.returnedQty ?? 0) : 0;
+          missing ??= clientLine?.condition === "MISSING" ? (clientLine?.returnedQty ?? 0) : 0;
+        }
+      }
+      needsRepair ??= 0;
+      broken ??= 0;
+      missing ??= 0;
       needsRepair = Math.max(0, Math.min(issued, needsRepair));
       broken = Math.max(0, Math.min(issued, broken));
       missing = Math.max(0, Math.min(issued, missing));
@@ -979,7 +1001,10 @@ export default function WarehouseQueuePage() {
                     <ul className="mt-1 space-y-1">
                       {order.clientDeclaration.lines.map((line) => (
                         <li key={line.orderLineId}>
-                          {order.lines.find((entry) => entry.id === line.orderLineId)?.itemName ?? line.itemId}: {line.returnedQty} из {line.issuedQty}, {checkinConditionLabel(line.condition)}
+                          {order.lines.find((entry) => entry.id === line.orderLineId)?.itemName ?? line.itemId}:{" "}
+                          {line.segments?.length
+                            ? line.segments.map((s) => `${s.qty} шт — ${checkinConditionLabel(s.condition)}`).join(", ")
+                            : `${line.returnedQty} из ${line.issuedQty}, ${checkinConditionLabel(line.condition)}`}
                           {line.comment ? ` (${line.comment})` : ""}
                         </li>
                       ))}
@@ -996,6 +1021,15 @@ export default function WarehouseQueuePage() {
                       const issued = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
                       const defaultFromClient = (): CheckinSegmentDraft => {
                         if (!clientLine) return { needsRepair: 0, broken: 0, missing: 0, comment: "" };
+                        if (clientLine.segments?.length) {
+                          let needsRepair = 0, broken = 0, missing = 0;
+                          for (const s of clientLine.segments) {
+                            if (s.condition === "NEEDS_REPAIR") needsRepair += s.qty;
+                            else if (s.condition === "BROKEN") broken += s.qty;
+                            else if (s.condition === "MISSING") missing += s.qty;
+                          }
+                          return { needsRepair, broken, missing, comment: clientLine.comment ?? "" };
+                        }
                         const c = clientLine.condition;
                         const q = clientLine.returnedQty ?? 0;
                         return {
@@ -1030,7 +1064,10 @@ export default function WarehouseQueuePage() {
                           <div className="mb-1 text-xs text-[var(--muted)]">Выдано: {issued} шт. Укажите количество по каждому состоянию (сумма = {issued}):</div>
                           {clientLine ? (
                             <div className="mb-2 text-xs text-amber-800">
-                              Со слов клиента: {clientLine.returnedQty} из {clientLine.issuedQty}, {checkinConditionLabel(clientLine.condition)}
+                              Со слов клиента:{" "}
+                              {clientLine.segments?.length
+                                ? clientLine.segments.map((s) => `${s.qty} шт — ${checkinConditionLabel(s.condition)}`).join(", ")
+                                : `${clientLine.returnedQty} из ${clientLine.issuedQty}, ${checkinConditionLabel(clientLine.condition)}`}
                               {clientLine.comment ? ` (${clientLine.comment})` : ""}
                             </div>
                           ) : null}

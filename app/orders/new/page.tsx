@@ -27,6 +27,7 @@ type Kit = {
 };
 type CartLine = { itemId: string; name: string; qty: number };
 type Customer = { id: string; name: string };
+type GreenwichUser = { id: string; username: string };
 
 function formatMoney(value: number): string {
   return new Intl.NumberFormat("ru-RU").format(Math.round(value));
@@ -73,9 +74,12 @@ export default function CreateOrderPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [kits, setKits] = useState<Kit[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [greenwichUsers, setGreenwichUsers] = useState<GreenwichUser[]>([]);
 
+  const [rentalType, setRentalType] = useState<"external" | "greenwich">("external");
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [greenwichUserId, setGreenwichUserId] = useState("");
   const [eventName, setEventName] = useState("");
   const [notes, setNotes] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -94,18 +98,23 @@ export default function CreateOrderPage() {
   useEffect(() => {
     let ignore = false;
     async function load() {
-      const [iRes, cRes, kRes, custRes] = await Promise.all([
+      const [iRes, cRes, kRes, custRes, gwRes] = await Promise.all([
         fetch(
           `/api/items?startDate=${startDate}&endDate=${endDate}&search=${encodeURIComponent(search)}&limit=300&includeInactive=true`,
         ),
         fetch("/api/categories"),
         fetch(`/api/kits?startDate=${startDate}&endDate=${endDate}&includeInactive=true`),
         fetch("/api/customers"),
+        fetch("/api/warehouse/greenwich-users"),
       ]);
       if (iRes.ok) setItems(((await iRes.json()) as { items: ItemRow[] }).items);
       if (cRes.ok) setCategories(((await cRes.json()) as { categories: Category[] }).categories);
       if (kRes.ok) setKits(((await kRes.json()) as { kits: Kit[] }).kits);
       if (custRes.ok) setCustomers(((await custRes.json()) as { customers: Customer[] }).customers);
+      if (gwRes.ok) {
+        const gw = (await gwRes.json()) as { users?: GreenwichUser[] };
+        setGreenwichUsers(gw.users ?? []);
+      }
       if (!ignore) setStatus("Быстрая выдача обновлена.");
     }
     void load();
@@ -126,6 +135,7 @@ export default function CreateOrderPage() {
     [cart, itemById],
   );
   const cartTotal = cartSubtotalPerDay * rentalDays;
+  const cartTotalDisplay = rentalType === "greenwich" ? Math.round(cartTotal * 0.76) : Math.round(cartTotal);
   const activeCategory = useMemo(
     () => categories.find((category) => category.id === selectedCategoryId) ?? null,
     [categories, selectedCategoryId],
@@ -164,9 +174,16 @@ export default function CreateOrderPage() {
       setStatus("Корзина пуста.");
       return;
     }
-    if (!customerId && customerName.trim().length === 0) {
-      setStatus("Укажите заказчика: выберите из базы или введите нового.");
-      return;
+    if (rentalType === "external") {
+      if (!customerId && customerName.trim().length === 0) {
+        setStatus("Укажите заказчика: выберите из базы или введите нового.");
+        return;
+      }
+    } else {
+      if (!greenwichUserId) {
+        setStatus("Выберите сотрудника Greenwich, на кого оформляем заявку.");
+        return;
+      }
     }
     setStatus("Оформляем быструю выдачу...");
     const response = await fetch("/api/orders", {
@@ -176,12 +193,13 @@ export default function CreateOrderPage() {
         startDate,
         endDate,
         readyByDate: startDate,
+        orderSource: rentalType === "greenwich" ? "GREENWICH_INTERNAL" : "WOWSTORG_EXTERNAL",
+        issueImmediately: true,
+        greenwichUserId: rentalType === "greenwich" ? greenwichUserId : undefined,
         customerId: customerId || undefined,
         customerName: customerName.trim() || undefined,
         eventName: eventName.trim() || null,
         notes: notes.trim() || null,
-        orderSource: "WOWSTORG_EXTERNAL",
-        issueImmediately: true,
         lines: cart.map((line) => ({ itemId: line.itemId, requestedQty: line.qty })),
       }),
     });
@@ -396,14 +414,56 @@ export default function CreateOrderPage() {
           </div>
         ))}
 
-        <div className="grid gap-2 sm:grid-cols-2">
-          <select className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-            <option value="">Заказчик из базы</option>
-            {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
-          </select>
-          <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Новый заказчик (если нет в базе)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-          <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Мероприятие (опционально)" value={eventName} onChange={(e) => setEventName(e.target.value)} />
-          <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Комментарий (опционально)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <div className="space-y-3">
+          <div>
+            <div className="mb-1 text-xs font-medium text-[var(--muted)]">Тип аренды</div>
+            <div className="flex flex-wrap gap-3">
+              <label className="inline-flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="rentalType"
+                  checked={rentalType === "external"}
+                  onChange={() => { setRentalType("external"); setGreenwichUserId(""); }}
+                  className="rounded"
+                />
+                <span className="text-sm">Внешняя аренда</span>
+              </label>
+              <label className="inline-flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="rentalType"
+                  checked={rentalType === "greenwich"}
+                  onChange={() => setRentalType("greenwich")}
+                  className="rounded"
+                />
+                <span className="text-sm">Аренда для Greenwich</span>
+              </label>
+            </div>
+          </div>
+          {rentalType === "greenwich" ? (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Сотрудник Greenwich (на кого оформляем заявку)</label>
+              <select
+                className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+                value={greenwichUserId}
+                onChange={(e) => setGreenwichUserId(e.target.value)}
+              >
+                <option value="">Выберите сотрудника</option>
+                {greenwichUsers.map((u) => (
+                  <option key={u.id} value={u.id}>{u.username}</option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <select className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" value={customerId} onChange={(e) => setCustomerId(e.target.value)} disabled={rentalType === "greenwich"}>
+              <option value="">Заказчик из базы</option>
+              {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+            </select>
+            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Новый заказчик (если нет в базе)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={rentalType === "greenwich"} />
+            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm sm:col-span-2" placeholder="Мероприятие (опционально)" value={eventName} onChange={(e) => setEventName(e.target.value)} />
+            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm sm:col-span-2" placeholder="Комментарий (опционально)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
         </div>
         {status ? (
           <div
@@ -421,8 +481,9 @@ export default function CreateOrderPage() {
         ) : null}
         <div className="rounded-xl border border-[var(--border)] bg-violet-50 p-3 text-sm">
           <div>Суток аренды: {rentalDays}</div>
-          <div>Итого за сутки: {formatMoney(cartSubtotalPerDay)} ₽</div>
-          <div className="font-semibold text-[var(--brand)]">Общая сумма: {formatMoney(cartTotal)} ₽</div>
+          <div>Итого за сутки: {formatMoney(rentalType === "greenwich" ? cartSubtotalPerDay * 0.76 : cartSubtotalPerDay)} ₽</div>
+          <div className="font-semibold text-[var(--brand)]">Общая сумма: {formatMoney(cartTotalDisplay)} ₽</div>
+          {rentalType === "greenwich" ? <div className="text-xs text-[var(--muted)]">Скидка 24% для Greenwich</div> : null}
         </div>
 
         <div className="flex justify-end">

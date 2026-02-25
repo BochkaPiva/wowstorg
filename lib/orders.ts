@@ -22,6 +22,8 @@ export type CreateOrderInput = {
   readyByDate?: string;
   customerId?: string;
   customerName?: string;
+  /** When set (warehouse creating order for Greenwich), order is created on behalf of this user. */
+  greenwichUserId?: string;
   eventName?: string | null;
   orderSource?: OrderSource;
   issueImmediately?: boolean;
@@ -154,13 +156,17 @@ export function parseCreateOrderInput(body: unknown): CreateOrderInput | null {
     typeof payload.customerName === "string" && payload.customerName.trim().length > 0
       ? payload.customerName.trim()
       : undefined;
+  const greenwichUserId =
+    typeof payload.greenwichUserId === "string" && payload.greenwichUserId.trim().length > 0
+      ? payload.greenwichUserId.trim()
+      : undefined;
 
   if (
     !startDate ||
     !endDate ||
     !Array.isArray(linesRaw) ||
     linesRaw.length === 0 ||
-    (!customerId && !customerName)
+    (!customerId && !customerName && !greenwichUserId)
   ) {
     return null;
   }
@@ -203,6 +209,7 @@ export function parseCreateOrderInput(body: unknown): CreateOrderInput | null {
     readyByDate,
     customerId,
     customerName,
+    greenwichUserId,
     eventName: parseOptionalString(payload.eventName),
     orderSource:
       payload.orderSource === OrderSource.WOWSTORG_EXTERNAL

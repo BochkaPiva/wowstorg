@@ -64,14 +64,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const isGreenwich = auth.user.role === Role.GREENWICH;
-  const orderSource = isGreenwich
-    ? OrderSource.GREENWICH_INTERNAL
-    : (parsed.orderSource ?? OrderSource.WOWSTORG_EXTERNAL);
-  const issueImmediately = isGreenwich
-    ? false
-    : parsed.orderSource === OrderSource.WOWSTORG_EXTERNAL
-      ? parsed.issueImmediately === true
-      : false;
+  const isWarehouseOrAdmin = auth.user.role === Role.WAREHOUSE || auth.user.role === Role.ADMIN;
+  const forGreenwichUserId = isWarehouseOrAdmin ? parsed.greenwichUserId : undefined;
+
+  let orderSource: OrderSource;
+  let issueImmediately: boolean;
+  let createdById: string;
+
+  if (isGreenwich) {
+    orderSource = OrderSource.GREENWICH_INTERNAL;
+    issueImmediately = false;
+    createdById = auth.user.id;
+  } else if (forGreenwichUserId) {
+    const greenwichUser = await prisma.user.findUnique({
+      where: { id: forGreenwichUserId },
+      select: { id: true, role: true },
+    });
+    if (!greenwichUser || greenwichUser.role !== Role.GREENWICH) {
+      return fail(400, "Указанный пользователь не найден или не является сотрудником Greenwich.");
+    }
+    orderSource = OrderSource.GREENWICH_INTERNAL;
+    issueImmediately = true;
+    createdById = greenwichUser.id;
+  } else {
+    orderSource = parsed.orderSource ?? OrderSource.WOWSTORG_EXTERNAL;
+    issueImmediately =
+      orderSource === OrderSource.WOWSTORG_EXTERNAL && parsed.issueImmediately === true;
+    createdById = auth.user.id;
+  }
 
   const parsedRange = validateDateRange(parsed.startDate, parsed.endDate);
   if (!parsedRange.ok) {
@@ -130,21 +150,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const customer = parsed.customerId
-    ? await prisma.customer.findUnique({
-        where: { id: parsed.customerId },
-      })
-    : await prisma.customer.upsert({
-        where: { name: parsed.customerName! },
-        update: { isActive: true },
-        create: {
-          name: parsed.customerName!,
-          isActive: true,
-        },
-      });
-
-  if (!customer || !customer.isActive) {
+  let customer: { id: string; isActive: boolean } | null = null;
+  if (forGreenwichUserId && !parsed.customerId && !parsed.customerName) {
+    customer = null;
+  } else if (parsed.customerId || parsed.customerName) {
+    customer = parsed.customerId
+      ? await prisma.customer.findUnique({
+          where: { id: parsed.customerId },
+        })
+      : await prisma.customer.upsert({
+          where: { name: parsed.customerName! },
+          update: { isActive: true },
+          create: {
+            name: parsed.customerName!,
+            isActive: true,
+          },
+        });
+  }
+  if (!customer && !forGreenwichUserId) {
     return fail(400, "Customer is missing or inactive.");
+  }
+  if (customer && !customer.isActive) {
+    return fail(400, "Customer is inactive.");
   }
 
   const order = await prisma.$transaction(async (tx) => {
@@ -153,8 +180,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       orderSource === OrderSource.GREENWICH_INTERNAL ? 0.24 : 0;
     const created = await tx.order.create({
       data: {
-        createdById: auth.user.id,
-        customerId: customer.id,
+        createdById,
+        customerId: customer?.id ?? null,
         status,
         orderSource,
         startDate: asPrismaDateInput(parsedRange.startDate),

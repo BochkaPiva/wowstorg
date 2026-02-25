@@ -316,8 +316,14 @@ export default function CatalogPage() {
       ) : null}
 
       <div className="ws-card grid min-w-0 grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
+        {isGreenwich ? (
+          <label className="min-w-0 text-xs font-medium text-amber-800">
+            Готовность к дате
+            <input className="mt-1 w-full min-w-0 rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 text-sm" type="date" value={readyByDate} onChange={(e) => setReadyByDate(e.target.value)} max={startDate} />
+          </label>
+        ) : null}
         <label className="min-w-0 text-xs text-[var(--muted)]">
-          Дата начала
+          Начало аренды
           <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={startDate} onChange={(e) => {
             const v = e.target.value;
             setStartDate(v);
@@ -325,20 +331,25 @@ export default function CatalogPage() {
           }} />
         </label>
         <label className="min-w-0 text-xs text-[var(--muted)]">
-          Дата окончания
+          Окончание аренды
           <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </label>
-        {isGreenwich ? (
-          <label className="min-w-0 text-xs text-[var(--muted)]">
-            Готовность к дате (когда подготовить и когда заберут/отправим)
-            <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={readyByDate} onChange={(e) => setReadyByDate(e.target.value)} max={startDate} />
-          </label>
-        ) : null}
         <label className="min-w-0 text-xs text-[var(--muted)]">
           Поиск
           <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Поиск по позициям" value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
       </div>
+
+      {isGreenwich ? (
+        <details className="ws-card p-3">
+          <summary className="cursor-pointer text-sm font-medium text-[var(--brand)]">Что означают даты</summary>
+          <div className="mt-2 space-y-2 text-xs text-[var(--muted)]">
+            <p><strong className="text-amber-800">Готовность к дате</strong> — к какому числу нужно подготовить реквизит и когда его заберут или когда мы отправим. Может быть раньше или в день начала аренды.</p>
+            <p><strong>Начало аренды</strong> — первый день периода аренды (с этого дня считается использование).</p>
+            <p><strong>Окончание аренды</strong> — последний день периода аренды (до этой даты включительно).</p>
+          </div>
+        </details>
+      ) : null}
 
       <details className="ws-card p-3">
         <summary className="cursor-pointer text-sm font-medium text-[var(--brand)]">Легенда статусов</summary>
@@ -479,112 +490,131 @@ export default function CatalogPage() {
         </div>
       ) : null}
 
-      <div className="ws-card space-y-3 p-3">
-        <div className="flex items-center justify-between">
-          <div className="font-semibold">Корзина ({cart.length})</div>
-          {cart.length > 0 ? (
-            <button
-              className="ws-btn text-sm"
-              type="button"
-              onClick={() => {
-                if (confirm("Очистить корзину?")) setCart([]);
-              }}
-            >
-              Очистить корзину
-            </button>
-          ) : null}
+      <div className="ws-card space-y-4 p-4">
+        <div className="rounded-xl bg-slate-50/90 p-3">
+          <div className="mb-2 text-sm font-medium text-[var(--muted)]">1. Заказчик и мероприятие</div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <select className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+              <option value="">Заказчик из базы</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name}
+                </option>
+              ))}
+            </select>
+            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Новый заказчик (если нет в базе)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm sm:col-span-2" placeholder="Мероприятие (опционально)" value={eventName} onChange={(e) => setEventName(e.target.value)} />
+            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm sm:col-span-2" placeholder="Комментарий (опционально)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
         </div>
-        {cart.length === 0 ? <div className="text-sm text-[var(--muted)]">Корзина пока пустая.</div> : null}
-        {cart.map((line) => {
-          const item = itemById.get(line.itemId);
-          const maxQty = item ? Math.max(1, item.availableQty) : 1;
-          return (
-            <div key={line.itemId} className="grid grid-cols-[1fr_90px_auto] items-center gap-2">
-              <div className="text-sm">
-                {line.name}
-                {item ? (
-                  <div className="text-xs text-[var(--muted)]">
-                    {line.qty} x {formatMoney(isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay)} ₽/сутки ={" "}
-                    {formatMoney(line.qty * (isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay))} ₽/сутки
-                  </div>
-                ) : null}
-              </div>
-              <input
-                className="rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
-                type="number"
-                min={1}
-                max={maxQty}
-                value={line.qty}
-                onChange={(event) => setCart((prev) => prev.map((entry) => entry.itemId === line.itemId ? { ...entry, qty: Math.max(1, Math.min(maxQty, Number(event.target.value))) } : entry))}
-              />
-              <button className="ws-btn" type="button" onClick={() => setCart((prev) => prev.filter((entry) => entry.itemId !== line.itemId))}>
-                Удалить
-              </button>
-            </div>
-          );
-        })}
 
-        <div className="grid gap-2 sm:grid-cols-2">
-          <select className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-            <option value="">Заказчик из базы</option>
-            {customers.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.name}
-              </option>
-            ))}
-          </select>
-          <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Новый заказчик (если нет в базе)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-          <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Мероприятие (опционально)" value={eventName} onChange={(e) => setEventName(e.target.value)} />
-          <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm col-span-full" placeholder="Комментарий (опционально)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <div className="rounded-xl border border-[var(--border)] bg-white p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-[var(--muted)]">2. Позиции в корзине</div>
+              <div className="text-xs text-[var(--muted)]">Добавляйте позиции кнопкой «В корзину» в каталоге выше</div>
+            </div>
+            {cart.length > 0 ? (
+              <button
+                className="ws-btn text-sm"
+                type="button"
+                onClick={() => {
+                  if (confirm("Очистить корзину?")) setCart([]);
+                }}
+              >
+                Очистить
+              </button>
+            ) : null}
+          </div>
+          {cart.length === 0 ? (
+            <div className="py-4 text-center text-sm text-[var(--muted)]">Корзина пустая</div>
+          ) : (
+            <ul className="space-y-3">
+              {cart.map((line) => {
+                const item = itemById.get(line.itemId);
+                const maxQty = item ? Math.max(1, item.availableQty) : 1;
+                return (
+                  <li key={line.itemId} className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] bg-slate-50/50 px-3 py-2">
+                    <div className="min-w-0 flex-1 text-sm">
+                      <span className="font-medium">{line.name}</span>
+                      {item ? (
+                        <div className="text-xs text-[var(--muted)]">
+                          {line.qty} × {formatMoney(isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay)} ₽/сут = {formatMoney(line.qty * (isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay))} ₽/сут
+                        </div>
+                      ) : null}
+                    </div>
+                    <label className="flex items-center gap-1 text-xs text-[var(--muted)]">
+                      кол-во
+                      <input
+                        className="w-14 rounded-lg border border-[var(--border)] bg-white px-2 py-1 text-sm text-center"
+                        type="number"
+                        min={1}
+                        max={maxQty}
+                        value={line.qty}
+                        onChange={(event) => setCart((prev) => prev.map((entry) => entry.itemId === line.itemId ? { ...entry, qty: Math.max(1, Math.min(maxQty, Number(event.target.value))) } : entry))}
+                      />
+                    </label>
+                    <button className="ws-btn text-sm" type="button" onClick={() => setCart((prev) => prev.filter((entry) => entry.itemId !== line.itemId))} title="Удалить из корзины">
+                      Удалить
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
-        <div className="rounded-xl border border-[var(--border)] bg-white p-3 space-y-3">
-          <div className="text-sm font-medium text-[var(--muted)]">Доп. услуги</div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm w-20">Доставка</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={deliveryRequested}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 ${deliveryRequested ? "bg-[var(--brand)]" : "bg-gray-200"}`}
-              onClick={() => setDeliveryRequested((v) => !v)}
-            >
-              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${deliveryRequested ? "translate-x-5" : "translate-x-0.5"}`} />
-            </button>
-            {deliveryRequested ? (
-              <input className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Куда, когда (комментарий)" value={deliveryComment} onChange={(e) => setDeliveryComment(e.target.value)} />
-            ) : null}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm w-20">Монтаж</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={mountRequested}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 ${mountRequested ? "bg-[var(--brand)]" : "bg-gray-200"}`}
-              onClick={() => setMountRequested((v) => !v)}
-            >
-              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${mountRequested ? "translate-x-5" : "translate-x-0.5"}`} />
-            </button>
-            {mountRequested ? (
-              <input className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Где, когда (комментарий)" value={mountComment} onChange={(e) => setMountComment(e.target.value)} />
-            ) : null}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm w-20">Демонтаж</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={dismountRequested}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 ${dismountRequested ? "bg-[var(--brand)]" : "bg-gray-200"}`}
-              onClick={() => setDismountRequested((v) => !v)}
-            >
-              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${dismountRequested ? "translate-x-5" : "translate-x-0.5"}`} />
-            </button>
-            {dismountRequested ? (
-              <input className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Где, когда (комментарий)" value={dismountComment} onChange={(e) => setDismountComment(e.target.value)} />
-            ) : null}
+
+        <div className="rounded-xl bg-violet-50/90 p-3">
+          <div className="mb-2 text-sm font-medium text-[var(--muted)]">3. Доп. услуги</div>
+          <div className="space-y-3 rounded-lg border border-[var(--border)] bg-white p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm w-20">Доставка</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={deliveryRequested}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 ${deliveryRequested ? "bg-[var(--brand)]" : "bg-gray-200"}`}
+                onClick={() => setDeliveryRequested((v) => !v)}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${deliveryRequested ? "translate-x-5" : "translate-x-0.5"}`} />
+              </button>
+              {deliveryRequested ? (
+                <input className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Куда, когда (комментарий)" value={deliveryComment} onChange={(e) => setDeliveryComment(e.target.value)} />
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm w-20">Монтаж</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={mountRequested}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 ${mountRequested ? "bg-[var(--brand)]" : "bg-gray-200"}`}
+                onClick={() => setMountRequested((v) => !v)}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${mountRequested ? "translate-x-5" : "translate-x-0.5"}`} />
+              </button>
+              {mountRequested ? (
+                <input className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Где, когда (комментарий)" value={mountComment} onChange={(e) => setMountComment(e.target.value)} />
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm w-20">Демонтаж</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={dismountRequested}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 ${dismountRequested ? "bg-[var(--brand)]" : "bg-gray-200"}`}
+                onClick={() => setDismountRequested((v) => !v)}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${dismountRequested ? "translate-x-5" : "translate-x-0.5"}`} />
+              </button>
+              {dismountRequested ? (
+                <input className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Где, когда (комментарий)" value={dismountComment} onChange={(e) => setDismountComment(e.target.value)} />
+              ) : null}
+            </div>
           </div>
         </div>
+
         {status ? (
           <div
             className={`rounded-xl border p-3 text-sm font-medium ${
@@ -599,10 +629,14 @@ export default function CatalogPage() {
             {status}
           </div>
         ) : null}
-        <div className="rounded-xl border border-[var(--border)] bg-violet-50 p-3 text-sm">
-          <div>Суток аренды: {rentalDays}</div>
-          <div>Итого за сутки: {formatMoney(cartSubtotalPerDay)} ₽</div>
-          <div className="font-semibold text-[var(--brand)]">Общая сумма: {formatMoney(cartTotal)} ₽</div>
+
+        <div className="rounded-xl border border-[var(--border)] bg-violet-50/90 p-3">
+          <div className="mb-1 text-xs font-medium text-[var(--muted)]">4. Итого</div>
+          <div className="text-sm">
+            <div>Суток аренды: {rentalDays}</div>
+            <div>Итого за сутки: {formatMoney(cartSubtotalPerDay)} ₽</div>
+            <div className="mt-1 font-semibold text-[var(--brand)]">Общая сумма: {formatMoney(cartTotal)} ₽</div>
+          </div>
         </div>
 
         <div className="flex justify-end">

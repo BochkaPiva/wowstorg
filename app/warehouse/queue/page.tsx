@@ -634,42 +634,7 @@ export default function WarehouseQueuePage() {
 
             {expandedOrderId === order.id ? (
               <div className="mt-4 space-y-3 rounded-2xl border border-[var(--border)] bg-white p-3">
-                {(order.status === "ISSUED" || order.status === "RETURN_DECLARED") ? (
-                  <div className="ws-card p-3">
-                    <div className="mb-2 text-sm font-semibold">Полный состав заявки</div>
-                    <div className="space-y-1 text-sm">
-                      {order.lines.map((line) => (
-                        <div key={line.id} className="rounded-lg border border-[var(--border)] px-2 py-1">
-                          {line.itemName}: запрос {line.requestedQty}, согласовано {line.approvedQty ?? 0}, выдано{" "}
-                          {line.issuedQty ?? 0}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {(order.deliveryRequested || order.mountRequested || order.dismountRequested) ? (
-                  <div className="ws-card p-3">
-                    <div className="mb-2 text-sm font-semibold">Услуги</div>
-                    <ul className="space-y-1 text-sm">
-                      {order.deliveryRequested ? (
-                        <li className="rounded-lg border border-[var(--border)] px-2 py-1">
-                          Доставка: {order.deliveryComment?.trim() || "—"}
-                        </li>
-                      ) : null}
-                      {order.mountRequested ? (
-                        <li className="rounded-lg border border-[var(--border)] px-2 py-1">
-                          Монтаж: {order.mountComment?.trim() || "—"}
-                        </li>
-                      ) : null}
-                      {order.dismountRequested ? (
-                        <li className="rounded-lg border border-[var(--border)] px-2 py-1">
-                          Демонтаж: {order.dismountComment?.trim() || "—"}
-                        </li>
-                      ) : null}
-                    </ul>
-                  </div>
-                ) : null}
-                <div className="ws-card p-3">
+                <div className="rounded-xl border border-[var(--border)] bg-amber-50/90 p-3">
                   <div className="mb-2 text-sm font-semibold text-[var(--muted)]">Заметка склада (только для сотрудников)</div>
                   <p className="mb-2 text-xs text-[var(--muted)]">Видна только складским и админам. Удаляется при закрытии или отмене заявки.</p>
                   <textarea
@@ -689,9 +654,31 @@ export default function WarehouseQueuePage() {
                     {savingInternalNoteOrderId === order.id ? "…" : "Сохранить заметку"}
                   </button>
                 </div>
+                {(order.deliveryRequested || order.mountRequested || order.dismountRequested) ? (
+                  <div className="rounded-xl border border-[var(--border)] bg-violet-50/90 p-3">
+                    <div className="mb-2 text-sm font-semibold">Услуги</div>
+                    <ul className="space-y-1 text-sm">
+                      {order.deliveryRequested ? (
+                        <li className="rounded-lg border border-[var(--border)] bg-white/80 px-2 py-1">
+                          Доставка: {order.deliveryComment?.trim() || "—"}
+                        </li>
+                      ) : null}
+                      {order.mountRequested ? (
+                        <li className="rounded-lg border border-[var(--border)] bg-white/80 px-2 py-1">
+                          Монтаж: {order.mountComment?.trim() || "—"}
+                        </li>
+                      ) : null}
+                      {order.dismountRequested ? (
+                        <li className="rounded-lg border border-[var(--border)] bg-white/80 px-2 py-1">
+                          Демонтаж: {order.dismountComment?.trim() || "—"}
+                        </li>
+                      ) : null}
+                    </ul>
+                  </div>
+                ) : null}
                 {order.status === "SUBMITTED" &&
                 (order.deliveryRequested || order.mountRequested || order.dismountRequested) ? (
-                  <div className="ws-card p-3">
+                  <div className="rounded-xl border border-[var(--border)] bg-violet-50/90 p-3">
                     <div className="mb-2 text-sm font-semibold">Цены на услуги (обязательно перед согласованием)</div>
                     <div className="grid gap-2 sm:grid-cols-3">
                       {order.deliveryRequested ? (
@@ -766,8 +753,21 @@ export default function WarehouseQueuePage() {
                     </div>
                   </div>
                 ) : null}
+                {(order.status === "ISSUED" || order.status === "RETURN_DECLARED") ? (
+                  <div className="rounded-xl border border-[var(--border)] bg-violet-50/90 p-3">
+                    <div className="mb-2 text-sm font-semibold">Полный состав заявки</div>
+                    <div className="space-y-1 text-sm">
+                      {order.lines.map((line) => (
+                        <div key={line.id} className="rounded-lg border border-[var(--border)] bg-white/80 px-2 py-1">
+                          {line.itemName}: запрос {line.requestedQty}, согласовано {line.approvedQty ?? 0}, выдано{" "}
+                          {line.issuedQty ?? 0}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {(order.status === "SUBMITTED" || order.status === "APPROVED") && editDrafts[order.id] ? (
-                  <div className="ws-card p-3">
+                  <div className="rounded-xl border border-[var(--border)] bg-white p-3">
                     <div className="mb-2 text-sm font-semibold">Корректировка корзины клиентской заявки</div>
                     <div className="mb-2 text-xs text-[var(--muted)]">
                       В одной таблице: запрос клиента, согласованное количество и комментарий клиенту.

@@ -218,13 +218,14 @@ export default function WarehouseQueuePage() {
         const edited =
           draft?.lines.find((entry) => entry.lineId === line.id) ??
           draft?.lines.find((entry) => entry.itemId === line.itemId);
-        const approvedQty = edited != null
-          ? Math.max(0, Math.min(line.requestedQty, edited.approvedQty))
-          : (line.approvedQty ?? line.requestedQty);
+        const approvedQty =
+          edited != null
+            ? Math.max(0, Math.min(line.requestedQty, Number(edited.approvedQty) || 0))
+            : (line.approvedQty ?? line.requestedQty);
         const comment = edited?.comment?.trim() || undefined;
         return {
           orderLineId: line.id,
-          approvedQty,
+          approvedQty: Number(approvedQty),
           comment,
         };
       });
@@ -316,10 +317,34 @@ export default function WarehouseQueuePage() {
           reason: draft.reason.trim() || undefined,
         }),
       });
-      const payload = (await response.json()) as { error?: { message?: string } };
+      const payload = (await response.json()) as {
+        error?: { message?: string };
+        order?: { id: string; lines: Array<{ id: string; itemId: string; requestedQty: number }> };
+      };
       if (!response.ok) {
         setStatus(`Ошибка правки: ${payload.error?.message ?? "не удалось обновить"}`);
         return;
+      }
+      if (payload.order?.lines) {
+        setEditDrafts((prev) => {
+          const prevDraft = prev[order.id];
+          if (!prevDraft) return prev;
+          const lines = payload.order!.lines.map((line) => {
+            const oldLine = prevDraft.lines.find((e) => e.itemId === line.itemId);
+            return {
+              lineId: line.id,
+              itemId: line.itemId,
+              itemName: oldLine?.itemName ?? line.itemId,
+              requestedQty: line.requestedQty,
+              approvedQty: oldLine != null ? Math.min(line.requestedQty, oldLine.approvedQty) : line.requestedQty,
+              comment: oldLine?.comment ?? "",
+            };
+          });
+          return {
+            ...prev,
+            [order.id]: { ...prevDraft, lines },
+          };
+        });
       }
       setStatus(`Состав заявки ${order.id} обновлен.`);
       await loadQueue();

@@ -220,15 +220,14 @@ export default function WarehouseQueuePage() {
       if (prev[order.id]) return prev;
       const next: CheckinDraftByLine = {};
       for (const line of order.lines) {
-        if (line.itemType !== "CONSUMABLE") {
-          const clientLine = order.clientDeclaration?.lines.find((entry) => entry.orderLineId === line.id);
-          next[line.id] = {
-            checked: true,
-            returnedQty: clientLine?.returnedQty ?? (line.issuedQty ?? line.approvedQty ?? line.requestedQty),
-            condition: clientLine?.condition ?? "OK",
-            comment: clientLine?.comment ?? "",
-          };
-        }
+        const clientLine = order.clientDeclaration?.lines.find((entry) => entry.orderLineId === line.id);
+        const q = clientLine?.returnedQty ?? 0;
+        next[line.id] = {
+          needsRepair: clientLine?.condition === "NEEDS_REPAIR" ? q : 0,
+          broken: clientLine?.condition === "BROKEN" ? q : 0,
+          missing: clientLine?.condition === "MISSING" ? q : 0,
+          comment: clientLine?.comment ?? "",
+        };
       }
       return { ...prev, [order.id]: next };
     });

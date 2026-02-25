@@ -139,7 +139,7 @@ export async function POST(
         update: {
           returnedQty: okQty,
           condition: displayCondition,
-          returnSegments: provided.segments ? (provided.segments as object) : null,
+          returnSegments: provided.segments ? (provided.segments as object) : undefined,
           comment: provided.comment ?? null,
           createdById: auth.user.id,
         },
@@ -148,7 +148,7 @@ export async function POST(
           createdById: auth.user.id,
           returnedQty: okQty,
           condition: displayCondition,
-          returnSegments: provided.segments ? (provided.segments as object) : null,
+          returnSegments: provided.segments ? (provided.segments as object) : undefined,
           comment: provided.comment ?? null,
         },
       });

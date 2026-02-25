@@ -10,6 +10,7 @@ import {
   validateDateRange,
 } from "@/lib/orders";
 import { computeAvailableQty } from "@/lib/items";
+import { notifyAdminsAboutOrderEdit } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 type Params = {
@@ -142,6 +143,7 @@ export async function PATCH(
   if (!parsed) {
     return fail(400, "Invalid patch payload.");
   }
+  // Greenwich cannot edit доп. услуги (delivery/mount/dismount) — PatchOrderInput has no service fields, so they are never applied.
 
   const startDateRaw = parsed.startDate ?? existing.startDate.toISOString().slice(0, 10);
   const endDateRaw = parsed.endDate ?? existing.endDate.toISOString().slice(0, 10);
@@ -240,8 +242,25 @@ export async function PATCH(
 
       return tx.order.findUniqueOrThrow({
         where: { id: existing.id },
-        include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
+        include: {
+          customer: true,
+          lines: {
+            orderBy: [{ createdAt: "asc" }],
+            include: { item: { select: { name: true } } },
+          },
+        },
       });
+    });
+
+    const compositionSummary = updated.lines
+      .map((l) => `${(l as { item: { name: string } }).item.name} x${l.requestedQty}`)
+      .join(", ");
+    await notifyAdminsAboutOrderEdit({
+      orderId: existing.id,
+      customerName: updated.customer?.name ?? null,
+      startDate: updated.startDate.toISOString().slice(0, 10),
+      endDate: updated.endDate.toISOString().slice(0, 10),
+      compositionSummary,
     });
 
     return NextResponse.json({
@@ -264,8 +283,25 @@ export async function PATCH(
 
     return tx.order.findUniqueOrThrow({
       where: { id: existing.id },
-      include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
+      include: {
+        customer: true,
+        lines: {
+          orderBy: [{ createdAt: "asc" }],
+          include: { item: { select: { name: true } } },
+        },
+      },
     });
+  });
+
+  const compositionSummary = updated.lines
+    .map((l) => `${(l as { item: { name: string } }).item.name} x${l.requestedQty}`)
+    .join(", ");
+  await notifyAdminsAboutOrderEdit({
+    orderId: existing.id,
+    customerName: updated.customer?.name ?? null,
+    startDate: updated.startDate.toISOString().slice(0, 10),
+    endDate: updated.endDate.toISOString().slice(0, 10),
+    compositionSummary,
   });
 
   return NextResponse.json({

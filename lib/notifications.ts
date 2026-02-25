@@ -75,6 +75,40 @@ export async function notifyWarehouseAboutNewOrder(params: {
   );
 }
 
+export async function notifyAdminsAboutOrderEdit(params: {
+  orderId: string;
+  customerName: string | null;
+  startDate: string;
+  endDate: string;
+  compositionSummary: string;
+}): Promise<void> {
+  const users = await prisma.user.findMany({
+    where: { role: Role.ADMIN },
+    select: { telegramId: true },
+  });
+  if (users.length === 0) return;
+
+  const text = [
+    "Заявка изменена клиентом.",
+    `Заявка: ${params.orderId}`,
+    `Заказчик: ${params.customerName ?? "—"}`,
+    `Период: ${params.startDate} — ${params.endDate}`,
+    `Состав: ${params.compositionSummary}`,
+  ].join("\n");
+
+  await Promise.allSettled(
+    users.map((user) =>
+      safeSend(
+        sendTelegramMessage({
+          chatId: user.telegramId.toString(),
+          text,
+          inlineKeyboard: [[{ text: "Открыть очередь", web_app: { url: buildOrderLink(params.orderId) } }]],
+        }),
+      ),
+    ),
+  );
+}
+
 export async function notifyOrderOwner(params: {
   ownerTelegramId: string | null;
   title: string;

@@ -22,7 +22,8 @@ async function safeSend(task: Promise<void>, timeoutMs = 5000): Promise<void> {
 
 async function sendToNotificationChat(params: {
   text: string;
-  inlineKeyboard?: Array<Array<{ text: string; web_app: { url: string } }>>;
+  /** В группах/топиках web_app не поддерживается — используем url. */
+  inlineKeyboard?: Array<Array<{ text: string; url?: string; web_app?: { url: string } }>>;
 }): Promise<void> {
   const config = getNotificationChatConfigInternal();
   if (!config) {
@@ -113,7 +114,7 @@ export async function notifyWarehouseAboutNewOrder(params: {
 
   await sendToNotificationChat({
     text,
-    inlineKeyboard: [[{ text: "Открыть очередь", web_app: { url: buildOrderLink(params.orderId) } }]],
+    inlineKeyboard: [[{ text: "Открыть очередь", url: buildOrderLink(params.orderId) }]],
   });
 }
 
@@ -134,7 +135,7 @@ export async function notifyAdminsAboutOrderEdit(params: {
 
   await sendToNotificationChat({
     text,
-    inlineKeyboard: [[{ text: "Открыть очередь", web_app: { url: buildOrderLink(params.orderId) } }]],
+    inlineKeyboard: [[{ text: "Открыть очередь", url: buildOrderLink(params.orderId) }]],
   });
 }
 
@@ -160,7 +161,7 @@ export async function notifyWarehouseAboutReturnDeclared(params: {
 
   await sendToNotificationChat({
     text,
-    inlineKeyboard: [[{ text: "Открыть очередь", web_app: { url: buildOrderLink(params.orderId) } }]],
+    inlineKeyboard: [[{ text: "Открыть очередь", url: buildOrderLink(params.orderId) }]],
   });
 }
 

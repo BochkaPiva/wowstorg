@@ -14,8 +14,9 @@ async function safeSend(task: Promise<void>, timeoutMs = 5000): Promise<void> {
         globalThis.setTimeout(() => reject(new Error("Telegram notification timeout")), timeoutMs);
       }),
     ]);
-  } catch {
+  } catch (e) {
     // Notifications are best-effort and must not break business endpoints.
+    console.error("[notifications] Telegram send failed:", e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -24,7 +25,10 @@ async function sendToNotificationChat(params: {
   inlineKeyboard?: Array<Array<{ text: string; web_app: { url: string } }>>;
 }): Promise<void> {
   const config = getNotificationChatConfigInternal();
-  if (!config) return;
+  if (!config) {
+    console.warn("[notifications] Skipped: TELEGRAM_NOTIFICATION_CHAT_ID not set.");
+    return;
+  }
   await safeSend(
     sendTelegramMessage({
       chatId: config.chatId,
@@ -41,10 +45,12 @@ export function getNotificationChatConfig(): { chatId: string; messageThreadId?:
 }
 
 function getNotificationChatConfigInternal(): { chatId: string; messageThreadId?: number } | null {
-  const chatId = getOptionalEnv("TELEGRAM_NOTIFICATION_CHAT_ID");
+  const raw = getOptionalEnv("TELEGRAM_NOTIFICATION_CHAT_ID");
+  if (!raw) return null;
+  const chatId = raw.trim();
   if (!chatId) return null;
   const topicRaw = getOptionalEnv("TELEGRAM_NOTIFICATION_TOPIC_ID");
-  const messageThreadId = topicRaw != null && /^\d+$/.test(topicRaw) ? Number.parseInt(topicRaw, 10) : undefined;
+  const messageThreadId = topicRaw != null && /^\d+$/.test(topicRaw.trim()) ? Number.parseInt(topicRaw.trim(), 10) : undefined;
   return { chatId, messageThreadId };
 }
 
@@ -55,7 +61,10 @@ export async function sendDocumentToNotificationChat(params: {
   caption: string;
 }): Promise<void> {
   const config = getNotificationChatConfigInternal();
-  if (!config) return;
+  if (!config) {
+    console.warn("[notifications] Skipped document: TELEGRAM_NOTIFICATION_CHAT_ID not set.");
+    return;
+  }
   await safeSend(
     sendTelegramDocument({
       chatId: config.chatId,

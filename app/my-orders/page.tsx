@@ -53,6 +53,14 @@ type ReturnSegment = { condition: ReturnCondition; qty: number };
 /** По позиции: массив сегментов (сумма qty = выданному), комментарий. */
 type ReturnDraft = Record<string, { segments: ReturnSegment[]; comment: string }>;
 
+const ALL_CONDITIONS: ReturnCondition[] = ["OK", "NEEDS_REPAIR", "BROKEN", "MISSING"];
+function conditionLabel(c: ReturnCondition): string {
+  if (c === "OK") return "Нормально";
+  if (c === "NEEDS_REPAIR") return "Требует ремонта";
+  if (c === "BROKEN") return "Сломано";
+  return "Не возвращено";
+}
+
 function statusText(status: Order["status"]): string {
   switch (status) {
     case "SUBMITTED":
@@ -739,7 +747,9 @@ export default function MyOrdersPage() {
                     <li><strong>Не возвращено</strong> — не вернули</li>
                   </ul>
                 </details>
-                <p className="text-xs text-[var(--muted)]">Выданное количество менять нельзя. Укажите состояние; если штук несколько — можно разделить по статусам (остаток по умолчанию «Нормально»).</p>
+                <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-2 text-xs text-[var(--muted)]">
+                  <strong className="text-[var(--fg)]">Как разделить по статусам:</strong> выберите статус и введите количество. Для оставшихся штук появится следующий блок — в нём будут только ещё не выбранные статусы. Пример: 5 колонок — 2 сломано, 1 потеряна, 2 в порядке: первый статус «Сломано», кол-во 2; во втором блоке «Не возвращено», кол-во 1; в третьем оставшиеся 2 — «Нормально».
+                </div>
                 {order.lines.map((line) => {
                   const issuedQty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
                   const draft = returnDrafts[order.id]?.[line.id];
@@ -753,6 +763,8 @@ export default function MyOrdersPage() {
                     const last = out[out.length - 1]!;
                     last.qty = Math.max(0, issuedQty - sum);
                     if (last.qty === 0 && out.length > 1) out.pop();
+                    const total = out.reduce((a, s) => a + s.qty, 0);
+                    if (total < issuedQty) out.push({ condition: "OK" as ReturnCondition, qty: issuedQty - total });
                     return out;
                   };
                   const setSegments = (next: ReturnSegment[]) => {
@@ -774,8 +786,14 @@ export default function MyOrdersPage() {
                   };
                   const updateSegQty = (i: number, raw: string) => {
                     const v = raw.trim() === "" ? 0 : parseInt(raw, 10);
-                    const qty = Number.isFinite(v) ? Math.max(0, Math.min(issuedQty, v)) : segments[i]!.qty;
-                    const next = segments.map((s, j) => j === i ? { ...s, qty } : s);
+                    const sumBefore = segments.slice(0, i).reduce((a, s) => a + s.qty, 0);
+                    const maxQty = issuedQty - sumBefore;
+                    const qty = Number.isFinite(v) ? Math.max(0, Math.min(maxQty, v)) : segments[i]!.qty;
+                    const next = segments.slice(0, i + 1).map((s, j) => j === i ? { ...s, qty } : s);
+                    const remainder = issuedQty - (sumBefore + qty);
+                    if (remainder > 0) {
+                      next.push({ condition: (segments[i + 1]?.condition ?? "OK") as ReturnCondition, qty: remainder });
+                    }
                     setSegments(normalize(next));
                     setReturnQtyEdit((prev) => {
                       const key = `${order.id}-${line.id}-${i}`;
@@ -790,8 +808,9 @@ export default function MyOrdersPage() {
                       <div className="mb-2 text-xs text-[var(--muted)]">Выдано: <strong className="text-[var(--fg)]">{issuedQty} шт</strong></div>
                       <div className="space-y-2">
                         {segments.map((seg, i) => {
-                          const isLast = i === segments.length - 1;
                           const sumBefore = segments.slice(0, i).reduce((a, s) => a + s.qty, 0);
+                          const usedConditions = segments.slice(0, i).map((s) => s.condition);
+                          const availableConditions = ALL_CONDITIONS.filter((c) => !usedConditions.includes(c));
                           const showQty = issuedQty > 1 && (segments.length > 1 || seg.condition !== "OK");
                           const qtyEditKey = `${order.id}-${line.id}-${i}`;
                           const inputVal = returnQtyEdit[qtyEditKey] !== undefined ? returnQtyEdit[qtyEditKey] : String(seg.qty);
@@ -801,16 +820,15 @@ export default function MyOrdersPage() {
                                 <span className="text-xs text-[var(--muted)]">Остальное: {issuedQty - sumBefore} шт →</span>
                               ) : null}
                               <label className="flex flex-col gap-0.5 text-xs text-[var(--muted)]">
-                                Статус
+                                {i + 1}-й статус
                                 <select
                                   className="rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
                                   value={seg.condition}
                                   onChange={(e) => updateSeg(i, { condition: e.target.value as ReturnCondition })}
                                 >
-                                  <option value="OK">Нормально</option>
-                                  <option value="NEEDS_REPAIR">Требует ремонта</option>
-                                  <option value="BROKEN">Сломано</option>
-                                  <option value="MISSING">Не возвращено</option>
+                                  {availableConditions.map((c) => (
+                                    <option key={c} value={c}>{conditionLabel(c)}</option>
+                                  ))}
                                 </select>
                               </label>
                               {showQty ? (

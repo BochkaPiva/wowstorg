@@ -318,22 +318,22 @@ export default function CatalogPage() {
 
       <div className="ws-card grid w-full min-w-0 grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4" style={{ maxWidth: "100%" }}>
         {isGreenwich ? (
-          <label className="min-w-0 text-xs font-medium text-amber-800">
+          <label className="min-w-[11rem] text-xs font-medium text-amber-800">
             Готовность к дате
-            <input className="mt-1 w-full min-w-0 rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 text-sm box-border [max-width:100%]" type="date" value={readyByDate} onChange={(e) => setReadyByDate(e.target.value)} max={startDate} />
+            <input className="mt-1 w-full min-w-[11rem] rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 text-sm box-border" type="date" value={readyByDate} onChange={(e) => setReadyByDate(e.target.value)} max={startDate} style={{ paddingRight: "2.75rem" }} />
           </label>
         ) : null}
-        <label className="min-w-0 text-xs text-[var(--muted)]">
+        <label className="min-w-[11rem] text-xs text-[var(--muted)]">
           Начало аренды
-          <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border [max-width:100%]" type="date" value={startDate} onChange={(e) => {
+          <input className="mt-1 w-full min-w-[11rem] rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border" type="date" value={startDate} onChange={(e) => {
             const v = e.target.value;
             setStartDate(v);
             if (readyByDate > v) setReadyByDate(v);
-          }} />
+          }} style={{ paddingRight: "2.75rem" }} />
         </label>
-        <label className="min-w-0 text-xs text-[var(--muted)]">
+        <label className="min-w-[11rem] text-xs text-[var(--muted)]">
           Окончание аренды
-          <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border [max-width:100%]" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <input className="mt-1 w-full min-w-[11rem] rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ paddingRight: "2.75rem" }} />
         </label>
         <label className="min-w-0 text-xs text-[var(--muted)]">
           Поиск

@@ -35,6 +35,7 @@ type QueueOrder = {
   deliveryPrice?: number | null;
   mountPrice?: number | null;
   dismountPrice?: number | null;
+  warehouseInternalNote?: string | null;
   clientDeclaration: {
     lines: Array<{
       orderLineId: string;
@@ -139,6 +140,36 @@ export default function WarehouseQueuePage() {
   const [servicePricesByOrder, setServicePricesByOrder] = useState<
     Record<string, { deliveryPrice: number | null; mountPrice: number | null; dismountPrice: number | null }>
   >({});
+  const [internalNoteDrafts, setInternalNoteDrafts] = useState<Record<string, string>>({});
+  const [savingInternalNoteOrderId, setSavingInternalNoteOrderId] = useState<string | null>(null);
+
+  async function saveInternalNote(order: QueueOrder) {
+    const value = (internalNoteDrafts[order.id] ?? order.warehouseInternalNote ?? "").trim();
+    setSavingInternalNoteOrderId(order.id);
+    try {
+      const res = await fetch(`/api/orders/${order.id}/internal-note`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ note: value || null }),
+      });
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: { message?: string } };
+        setStatus(`Ошибка заметки: ${err.error?.message ?? res.statusText}`);
+        return;
+      }
+      setOrders((prev) =>
+        prev.map((o) => (o.id === order.id ? { ...o, warehouseInternalNote: value || null } : o)),
+      );
+      setInternalNoteDrafts((prev) => {
+        const next = { ...prev };
+        delete next[order.id];
+        return next;
+      });
+    } finally {
+      setSavingInternalNoteOrderId(null);
+    }
+  }
 
   async function loadQueue() {
     setStatus("Обновляем очередь...");
@@ -505,6 +536,13 @@ export default function WarehouseQueuePage() {
                   Даты: {order.startDate} - {order.endDate} • обновлено {order.updatedMinutesAgo} мин назад
                 </div>
                 <div className="text-xs text-[var(--muted)]">Состав: {previewLines(order.lines)}</div>
+                {order.warehouseInternalNote?.trim() ? (
+                  <div className="text-xs text-[var(--muted)] italic">
+                    Заметка: {order.warehouseInternalNote.trim().length > 60
+                      ? `${order.warehouseInternalNote.trim().slice(0, 60)}…`
+                      : order.warehouseInternalNote.trim()}
+                  </div>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-2">
                 <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${statusBadge(order.status)}`}>
@@ -623,6 +661,26 @@ export default function WarehouseQueuePage() {
                     </ul>
                   </div>
                 ) : null}
+                <div className="ws-card p-3">
+                  <div className="mb-2 text-sm font-semibold text-[var(--muted)]">Заметка склада (только для сотрудников)</div>
+                  <p className="mb-2 text-xs text-[var(--muted)]">Видна только складским и админам. Удаляется при закрытии или отмене заявки.</p>
+                  <textarea
+                    className="mb-2 w-full min-h-[72px] rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                    placeholder="Напоминание, куда звонить, дата доставки…"
+                    value={internalNoteDrafts[order.id] ?? order.warehouseInternalNote ?? ""}
+                    onChange={(e) =>
+                      setInternalNoteDrafts((prev) => ({ ...prev, [order.id]: e.target.value }))
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="ws-btn"
+                    disabled={savingInternalNoteOrderId === order.id}
+                    onClick={() => void saveInternalNote(order)}
+                  >
+                    {savingInternalNoteOrderId === order.id ? "…" : "Сохранить заметку"}
+                  </button>
+                </div>
                 {order.status === "SUBMITTED" &&
                 (order.deliveryRequested || order.mountRequested || order.dismountRequested) ? (
                   <div className="ws-card p-3">

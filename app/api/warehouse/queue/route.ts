@@ -125,6 +125,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       deliveryPrice: order.deliveryPrice != null ? Number(order.deliveryPrice) : null,
       mountPrice: order.mountPrice != null ? Number(order.mountPrice) : null,
       dismountPrice: order.dismountPrice != null ? Number(order.dismountPrice) : null,
+      warehouseInternalNote: order.warehouseInternalNote ?? null,
       clientDeclaration: parseClientDeclaration(order.notes),
       createdBy: {
         id: order.createdBy.id,

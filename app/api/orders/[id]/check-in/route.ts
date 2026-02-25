@@ -218,6 +218,7 @@ export async function POST(
         status: "CLOSED",
         returnDeclaredAt: order.returnDeclaredAt ?? new Date(),
         closedAt: new Date(),
+        warehouseInternalNote: null,
       },
     });
 

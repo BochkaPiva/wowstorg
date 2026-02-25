@@ -56,7 +56,7 @@ export async function POST(
 
   const updated = await prisma.order.update({
     where: { id: order.id },
-    data: { status: "CANCELLED" },
+    data: { status: "CANCELLED", warehouseInternalNote: null },
     include: {
       customer: true,
       lines: {

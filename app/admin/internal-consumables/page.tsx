@@ -14,8 +14,7 @@ export default function AdminInternalConsumablesPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [status, setStatus] = useState("Загрузка...");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [addQty, setAddQty] = useState(1);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [addQty, setAddQty] = useState("1");
   const [newName, setNewName] = useState("");
   const [newQty, setNewQty] = useState("");
 
@@ -32,6 +31,13 @@ export default function AdminInternalConsumablesPage() {
     }
     setItems(data.items);
     setStatus(`Позиций: ${data.items.length}`);
+  }
+
+  function normalizeQtyString(raw: string): string {
+    const digits = raw.replace(/\D/g, "");
+    if (digits === "") return "";
+    const n = parseInt(digits, 10);
+    return Number.isFinite(n) ? String(n) : "";
   }
 
   async function create(e: FormEvent) {
@@ -56,7 +62,6 @@ export default function AdminInternalConsumablesPage() {
     }
     setNewName("");
     setNewQty("");
-    setShowAddForm(false);
     await load();
     setStatus("Позиция добавлена.");
     setBusyId(null);
@@ -64,10 +69,11 @@ export default function AdminInternalConsumablesPage() {
 
   async function increase(id: string) {
     setBusyId(id);
+    const amount = Math.max(1, parseInt(addQty, 10) || 1);
     const res = await fetch(`/api/admin/internal-consumables/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "increase", amount: addQty }),
+      body: JSON.stringify({ action: "increase", amount }),
     });
     if (!res.ok) {
       setStatus("Ошибка прибавления.");
@@ -118,64 +124,45 @@ export default function AdminInternalConsumablesPage() {
       </div>
       <p className="text-sm text-zinc-600">{status}</p>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
-        <label className="flex items-center gap-2 text-sm">
-          Кол-во для прибавления:
+      <form onSubmit={create} className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+        <label className="flex flex-col gap-1 text-sm">
+          Кол-во для прибавления (кнопка «+»)
           <input
             className="w-20 rounded border border-zinc-300 px-2 py-1 text-sm"
-            type="number"
-            min={1}
+            type="text"
+            inputMode="numeric"
             value={addQty}
             onFocus={(e) => e.currentTarget.select()}
-            onChange={(e) => setAddQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            onChange={(e) => {
+              const s = normalizeQtyString(e.target.value);
+              setAddQty(s === "" ? "1" : String(Math.max(1, parseInt(s, 10))));
+            }}
           />
         </label>
-        <button
-          type="button"
-          className="ws-btn-primary"
-          onClick={() => {
-            setShowAddForm(true);
-            setNewQty(String(addQty));
-          }}
-        >
+        <label className="flex flex-col gap-1 text-sm">
+          Название
+          <input
+            className="min-w-[120px] rounded border border-zinc-300 px-2 py-1"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Например: Скотч"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Кол-во
+          <input
+            className="w-20 rounded border border-zinc-300 px-2 py-1 text-sm"
+            type="text"
+            inputMode="numeric"
+            value={newQty}
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setNewQty(normalizeQtyString(e.target.value))}
+          />
+        </label>
+        <button type="submit" className="ws-btn-primary" disabled={busyId !== null}>
           Добавить позицию
         </button>
-      </div>
-
-      {showAddForm ? (
-        <form onSubmit={create} className="rounded-xl border border-violet-200 bg-violet-50/60 p-4">
-          <div className="mb-2 font-medium">Новая позиция</div>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-sm">
-              Название
-              <input
-                className="rounded border border-zinc-300 px-2 py-1"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Например: Скотч"
-                autoFocus
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              Кол-во
-              <input
-                className="w-24 rounded border border-zinc-300 px-2 py-1"
-                type="number"
-                min={0}
-                value={newQty}
-                onFocus={(e) => e.currentTarget.select()}
-                onChange={(e) => setNewQty(e.target.value.replace(/\D/g, "") || "0")}
-              />
-            </label>
-            <button type="submit" className="ws-btn-primary" disabled={busyId !== null}>
-              Сохранить
-            </button>
-            <button type="button" className="ws-btn" onClick={() => setShowAddForm(false)}>
-              Отмена
-            </button>
-          </div>
-        </form>
-      ) : null}
+      </form>
 
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
         <table className="w-full text-sm">
@@ -218,7 +205,7 @@ export default function AdminInternalConsumablesPage() {
                       className="ws-btn mr-1"
                       onClick={() => void increase(item.id)}
                       disabled={busyId !== null}
-                      title={`Прибавить ${addQty}`}
+                      title={`Прибавить ${Math.max(1, parseInt(addQty, 10) || 1)}`}
                     >
                       +
                     </button>

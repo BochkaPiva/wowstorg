@@ -23,6 +23,12 @@ type Order = {
   totalAmount?: number;
   updatedAt: string;
   lines: OrderLine[];
+  deliveryRequested?: boolean;
+  deliveryComment?: string | null;
+  mountRequested?: boolean;
+  mountComment?: string | null;
+  dismountRequested?: boolean;
+  dismountComment?: string | null;
 };
 type EditableOrderDetails = {
   id: string;
@@ -407,6 +413,24 @@ export default function MyOrdersPage() {
                     placeholder="Комментарий к заявке"
                   />
                 </label>
+                {(order.deliveryRequested || order.mountRequested || order.dismountRequested) ? (
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--muted)]/10 p-3">
+                    <div className="mb-1 text-xs font-medium text-[var(--muted)]">
+                      Доп. услуги (нельзя изменить при редактировании)
+                    </div>
+                    <ul className="space-y-1 text-sm">
+                      {order.deliveryRequested ? (
+                        <li>Доставка: {order.deliveryComment?.trim() || "—"}</li>
+                      ) : null}
+                      {order.mountRequested ? (
+                        <li>Монтаж: {order.mountComment?.trim() || "—"}</li>
+                      ) : null}
+                      {order.dismountRequested ? (
+                        <li>Демонтаж: {order.dismountComment?.trim() || "—"}</li>
+                      ) : null}
+                    </ul>
+                  </div>
+                ) : null}
                 <div>
                   <div className="mb-1 text-xs font-medium text-[var(--muted)]">Состав</div>
                   <div className="space-y-2">

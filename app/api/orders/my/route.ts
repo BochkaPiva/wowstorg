@@ -64,6 +64,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       notes: order.notes,
       totalAmount: orderTotal(order),
       updatedAt: order.updatedAt.toISOString(),
+      deliveryRequested: order.deliveryRequested,
+      deliveryComment: order.deliveryComment ?? null,
+      mountRequested: order.mountRequested,
+      mountComment: order.mountComment ?? null,
+      dismountRequested: order.dismountRequested,
+      dismountComment: order.dismountComment ?? null,
       lines: order.lines.map((line) => ({
         id: line.id,
         itemId: line.itemId,

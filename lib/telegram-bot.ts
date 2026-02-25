@@ -42,6 +42,35 @@ export async function sendTelegramMessage(options: SendMessageOptions): Promise<
   }
 }
 
+export async function sendTelegramDocument(options: {
+  chatId: number | string;
+  buffer: Buffer;
+  filename: string;
+  caption?: string;
+}): Promise<void> {
+  const base = getBotApiBase();
+  const formData = new FormData();
+  formData.append("chat_id", String(options.chatId));
+  formData.append(
+    "document",
+    new Blob([options.buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+    options.filename,
+  );
+  if (options.caption?.trim()) {
+    formData.append("caption", options.caption.trim());
+  }
+  const response = await fetch(`${base}/sendDocument`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Telegram sendDocument failed: ${response.status} ${text}`);
+  }
+}
+
 export function getWebAppUrl(): string {
   return getRequiredEnv("TELEGRAM_WEBAPP_URL");
 }

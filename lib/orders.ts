@@ -28,6 +28,12 @@ export type CreateOrderInput = {
   notes?: string | null;
   isEmergency?: boolean;
   lines: CreateOrderLineInput[];
+  deliveryRequested?: boolean;
+  deliveryComment?: string | null;
+  mountRequested?: boolean;
+  mountComment?: string | null;
+  dismountRequested?: boolean;
+  dismountComment?: string | null;
 };
 
 export type PatchOrderInput = {
@@ -48,6 +54,9 @@ export type ApproveOrderInput = {
     comment?: string | null;
   }>;
   warehouseComment?: string | null;
+  deliveryPrice?: number | null;
+  mountPrice?: number | null;
+  dismountPrice?: number | null;
 };
 
 export type IssueOrderInput = {
@@ -174,6 +183,10 @@ export function parseCreateOrderInput(body: unknown): CreateOrderInput | null {
     });
   }
 
+  const deliveryRequested = payload.deliveryRequested === true;
+  const mountRequested = payload.mountRequested === true;
+  const dismountRequested = payload.dismountRequested === true;
+
   return {
     startDate,
     endDate,
@@ -189,6 +202,12 @@ export function parseCreateOrderInput(body: unknown): CreateOrderInput | null {
     notes: parseOptionalString(payload.notes),
     isEmergency: payload.isEmergency === true,
     lines,
+    deliveryRequested,
+    deliveryComment: parseOptionalString(payload.deliveryComment),
+    mountRequested,
+    mountComment: parseOptionalString(payload.mountComment),
+    dismountRequested,
+    dismountComment: parseOptionalString(payload.dismountComment),
   };
 }
 
@@ -337,6 +356,12 @@ export function parseApproveInput(body: unknown): ApproveOrderInput | null {
     return null;
   }
 
+  function parsePrice(value: unknown): number | null {
+    if (value === undefined || value === null) return null;
+    if (typeof value === "number" && !Number.isNaN(value) && value >= 0) return value;
+    return null;
+  }
+
   return {
     lines: lines as ApproveOrderInput["lines"],
     warehouseComment:
@@ -344,6 +369,9 @@ export function parseApproveInput(body: unknown): ApproveOrderInput | null {
       payload.warehouseComment.trim().length > 0
         ? payload.warehouseComment.trim()
         : null,
+    deliveryPrice: parsePrice(payload.deliveryPrice),
+    mountPrice: parsePrice(payload.mountPrice),
+    dismountPrice: parsePrice(payload.dismountPrice),
   };
 }
 
@@ -479,6 +507,15 @@ export function serializeOrder(order: {
   createdById: string;
   approvedById: string | null;
   issuedById: string | null;
+  deliveryRequested?: boolean;
+  deliveryComment?: string | null;
+  mountRequested?: boolean;
+  mountComment?: string | null;
+  dismountRequested?: boolean;
+  dismountComment?: string | null;
+  deliveryPrice?: Prisma.Decimal | null;
+  mountPrice?: Prisma.Decimal | null;
+  dismountPrice?: Prisma.Decimal | null;
   lines: Array<{
     id: string;
     itemId: string;
@@ -513,6 +550,15 @@ export function serializeOrder(order: {
     closedAt: order.closedAt?.toISOString() ?? null,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
+    deliveryRequested: order.deliveryRequested ?? false,
+    deliveryComment: order.deliveryComment ?? null,
+    mountRequested: order.mountRequested ?? false,
+    mountComment: order.mountComment ?? null,
+    dismountRequested: order.dismountRequested ?? false,
+    dismountComment: order.dismountComment ?? null,
+    deliveryPrice: order.deliveryPrice != null ? Number(order.deliveryPrice) : null,
+    mountPrice: order.mountPrice != null ? Number(order.mountPrice) : null,
+    dismountPrice: order.dismountPrice != null ? Number(order.dismountPrice) : null,
     lines: order.lines.map((line) => ({
       id: line.id,
       itemId: line.itemId,

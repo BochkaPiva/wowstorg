@@ -3,7 +3,10 @@ import { requireWarehouseUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
 import { parseApproveInput, serializeOrder } from "@/lib/orders";
 import { notifyOrderOwner } from "@/lib/notifications";
+import { buildEstimateXlsx } from "@/lib/estimate-xlsx";
 import { prisma } from "@/lib/prisma";
+import { sendTelegramDocument } from "@/lib/telegram-bot";
+import { Prisma, Role } from "@prisma/client";
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -79,6 +82,16 @@ export async function POST(
     }
   }
 
+  if (order.deliveryRequested && (parsed.deliveryPrice == null || parsed.deliveryPrice < 0)) {
+    return fail(400, "Укажите цену на доставку.");
+  }
+  if (order.mountRequested && (parsed.mountPrice == null || parsed.mountPrice < 0)) {
+    return fail(400, "Укажите цену на монтаж.");
+  }
+  if (order.dismountRequested && (parsed.dismountPrice == null || parsed.dismountPrice < 0)) {
+    return fail(400, "Укажите цену на демонтаж.");
+  }
+
   const updated = await prisma.$transaction(async (tx) => {
     await Promise.all(
       order.lines.map((line) =>
@@ -132,25 +145,48 @@ export async function POST(
           composedNote.length > 0
             ? `${order.notes ? `${order.notes}\n` : ""}${composedNote}`
             : order.notes,
+        ...(order.deliveryRequested && parsed.deliveryPrice != null
+          ? { deliveryPrice: new Prisma.Decimal(parsed.deliveryPrice) }
+          : {}),
+        ...(order.mountRequested && parsed.mountPrice != null
+          ? { mountPrice: new Prisma.Decimal(parsed.mountPrice) }
+          : {}),
+        ...(order.dismountRequested && parsed.dismountPrice != null
+          ? { dismountPrice: new Prisma.Decimal(parsed.dismountPrice) }
+          : {}),
       },
     });
 
     return tx.order.findUniqueOrThrow({
       where: { id: order.id },
-      include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
+      include: {
+        customer: true,
+        createdBy: { select: { telegramId: true } },
+        lines: {
+          orderBy: [{ createdAt: "asc" }],
+          include: { item: { select: { name: true } } },
+        },
+      },
     });
   });
 
-  await notifyOrderOwner({
-    ownerTelegramId: order.createdBy.telegramId.toString(),
-    title: "Склад обработал заявку (этап согласования).",
-    startDate: order.startDate.toISOString().slice(0, 10),
-    endDate: order.endDate.toISOString().slice(0, 10),
-    customerName: order.customer?.name ?? null,
-    eventName: order.eventName,
-    blocks: [
-      {
-        title: "Согласовано к выдаче",
+  const notifyBlocks: Array<{ title: string; lines: string[] }> = [];
+  if (order.deliveryRequested || order.mountRequested || order.dismountRequested) {
+    const serviceLines: string[] = [];
+    if (order.deliveryRequested) {
+      serviceLines.push(`Доставка: ${order.deliveryComment?.trim() || "—"}`);
+    }
+    if (order.mountRequested) {
+      serviceLines.push(`Монтаж: ${order.mountComment?.trim() || "—"}`);
+    }
+    if (order.dismountRequested) {
+      serviceLines.push(`Демонтаж: ${order.dismountComment?.trim() || "—"}`);
+    }
+    notifyBlocks.push({ title: "Услуги", lines: serviceLines });
+  }
+  notifyBlocks.push(
+    {
+      title: "Согласовано к выдаче",
         lines: order.lines
           .filter((line) => (updateByLineId.get(line.id) ?? 0) > 0)
           .map((line) => {
@@ -168,10 +204,56 @@ export async function POST(
             const comment = commentByLineId.get(line.id);
             return `${line.item.name}: не хватает ${line.requestedQty - approvedQty}${comment ? ` (${comment})` : ""}`;
           }),
-      },
-    ],
+    },
+  );
+
+  await notifyOrderOwner({
+    ownerTelegramId: order.createdBy.telegramId.toString(),
+    title: "Склад обработал заявку (этап согласования).",
+    startDate: order.startDate.toISOString().slice(0, 10),
+    endDate: order.endDate.toISOString().slice(0, 10),
+    customerName: order.customer?.name ?? null,
+    eventName: order.eventName,
+    blocks: notifyBlocks,
     comment: parsed.warehouseComment ?? undefined,
   });
+
+  const hasServices =
+    updated.deliveryRequested || updated.mountRequested || updated.dismountRequested;
+  if (hasServices) {
+    const buffer = buildEstimateXlsx({
+      orderId: updated.id,
+      startDate: updated.startDate.toISOString().slice(0, 10),
+      endDate: updated.endDate.toISOString().slice(0, 10),
+      customerName: updated.customer?.name ?? null,
+      eventName: updated.eventName ?? null,
+      lines: updated.lines.map((line) => ({
+        itemName: line.item.name,
+        requestedQty: line.approvedQty ?? line.requestedQty,
+        pricePerDay: Number(line.pricePerDaySnapshot),
+      })),
+      deliveryPrice: updated.deliveryPrice != null ? Number(updated.deliveryPrice) : null,
+      mountPrice: updated.mountPrice != null ? Number(updated.mountPrice) : null,
+      dismountPrice: updated.dismountPrice != null ? Number(updated.dismountPrice) : null,
+    });
+    const filename = `smeta-${updated.id}.xlsx`;
+    const caption = `Смета по заявке ${updated.id}. Период: ${updated.startDate.toISOString().slice(0, 10)} — ${updated.endDate.toISOString().slice(0, 10)}.`;
+    const recipients: string[] = [updated.createdBy.telegramId.toString()];
+    const admins = await prisma.user.findMany({
+      where: { role: Role.ADMIN },
+      select: { telegramId: true },
+    });
+    for (const admin of admins) {
+      if (!recipients.includes(admin.telegramId.toString())) {
+        recipients.push(admin.telegramId.toString());
+      }
+    }
+    await Promise.allSettled(
+      recipients.map((chatId) =>
+        sendTelegramDocument({ chatId, buffer, filename, caption }),
+      ),
+    );
+  }
 
   return NextResponse.json({
     order: serializeOrder(updated),

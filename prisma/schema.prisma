@@ -205,6 +205,16 @@ model Order {
   createdAt        DateTime    @default(now()) @map("created_at")
   updatedAt        DateTime    @updatedAt @map("updated_at")
 
+  deliveryRequested Boolean   @default(false) @map("delivery_requested")
+  deliveryComment  String?   @map("delivery_comment")
+  mountRequested   Boolean   @default(false) @map("mount_requested")
+  mountComment    String?   @map("mount_comment")
+  dismountRequested Boolean  @default(false) @map("dismount_requested")
+  dismountComment  String?   @map("dismount_comment")
+  deliveryPrice    Decimal?  @db.Decimal(12, 2) @map("delivery_price")
+  mountPrice       Decimal?  @db.Decimal(12, 2) @map("mount_price")
+  dismountPrice    Decimal?  @db.Decimal(12, 2) @map("dismount_price")
+
   createdBy  User       @relation("OrdersCreated", fields: [createdById], references: [id], onDelete: Restrict)
   customer   Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
   approvedBy User?      @relation("OrdersApproved", fields: [approvedById], references: [id], onDelete: SetNull)

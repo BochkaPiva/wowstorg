@@ -81,6 +81,12 @@ export default function CatalogPage() {
   const [customerName, setCustomerName] = useState("");
   const [eventName, setEventName] = useState("");
   const [notes, setNotes] = useState("");
+  const [deliveryRequested, setDeliveryRequested] = useState(false);
+  const [deliveryComment, setDeliveryComment] = useState("");
+  const [mountRequested, setMountRequested] = useState(false);
+  const [mountComment, setMountComment] = useState("");
+  const [dismountRequested, setDismountRequested] = useState(false);
+  const [dismountComment, setDismountComment] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
@@ -226,6 +232,12 @@ export default function CatalogPage() {
         orderSource: "GREENWICH_INTERNAL",
         issueImmediately: false,
         lines: cart.map((line) => ({ itemId: line.itemId, requestedQty: line.qty })),
+        deliveryRequested,
+        deliveryComment: deliveryComment.trim() || null,
+        mountRequested,
+        mountComment: mountComment.trim() || null,
+        dismountRequested,
+        dismountComment: dismountComment.trim() || null,
       }),
     });
     const payload = (await response.json()) as { order?: { id: string; status: string }; error?: { message?: string } };
@@ -456,7 +468,20 @@ export default function CatalogPage() {
       ) : null}
 
       <div className="ws-card space-y-3 p-3">
-        <div className="font-semibold">Корзина ({cart.length})</div>
+        <div className="flex items-center justify-between">
+          <div className="font-semibold">Корзина ({cart.length})</div>
+          {cart.length > 0 ? (
+            <button
+              className="ws-btn text-sm"
+              type="button"
+              onClick={() => {
+                if (confirm("Очистить корзину?")) setCart([]);
+              }}
+            >
+              Очистить корзину
+            </button>
+          ) : null}
+        </div>
         {cart.length === 0 ? <div className="text-sm text-[var(--muted)]">Корзина пока пустая.</div> : null}
         {cart.map((line) => {
           const item = itemById.get(line.itemId);
@@ -498,7 +523,31 @@ export default function CatalogPage() {
           </select>
           <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Новый заказчик (если нет в базе)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
           <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Мероприятие (опционально)" value={eventName} onChange={(e) => setEventName(e.target.value)} />
-          <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Комментарий (опционально)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm col-span-full" placeholder="Комментарий (опционально)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+        <div className="rounded-xl border border-[var(--border)] bg-white p-3 space-y-3">
+          <div className="text-sm font-medium text-[var(--muted)]">Доп. услуги</div>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={deliveryRequested} onChange={(e) => setDeliveryRequested(e.target.checked)} className="rounded" />
+            <span className="text-sm">Доставка</span>
+          </label>
+          {deliveryRequested ? (
+            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Куда, когда (комментарий)" value={deliveryComment} onChange={(e) => setDeliveryComment(e.target.value)} />
+          ) : null}
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={mountRequested} onChange={(e) => setMountRequested(e.target.checked)} className="rounded" />
+            <span className="text-sm">Монтаж</span>
+          </label>
+          {mountRequested ? (
+            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Где, когда (комментарий)" value={mountComment} onChange={(e) => setMountComment(e.target.value)} />
+          ) : null}
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={dismountRequested} onChange={(e) => setDismountRequested(e.target.checked)} className="rounded" />
+            <span className="text-sm">Демонтаж</span>
+          </label>
+          {dismountRequested ? (
+            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Где, когда (комментарий)" value={dismountComment} onChange={(e) => setDismountComment(e.target.value)} />
+          ) : null}
         </div>
         {status ? (
           <div

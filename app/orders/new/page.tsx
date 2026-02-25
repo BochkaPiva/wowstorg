@@ -353,7 +353,20 @@ export default function CreateOrderPage() {
       ) : null}
 
       <div className="ws-card space-y-3 p-3">
-        <div className="font-semibold">Корзина ({cart.length})</div>
+        <div className="flex items-center justify-between">
+          <div className="font-semibold">Корзина ({cart.length})</div>
+          {cart.length > 0 ? (
+            <button
+              className="ws-btn text-sm"
+              type="button"
+              onClick={() => {
+                if (confirm("Очистить корзину?")) setCart([]);
+              }}
+            >
+              Очистить корзину
+            </button>
+          ) : null}
+        </div>
         {cart.map((line) => (
           <div key={line.itemId} className="grid grid-cols-[1fr_90px_auto] items-center gap-2">
             <div className="text-sm">

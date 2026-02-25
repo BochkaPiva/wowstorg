@@ -161,6 +161,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         approvedById: issueImmediately ? auth.user.id : null,
         issuedById: issueImmediately ? auth.user.id : null,
         issuedAt: issueImmediately ? new Date() : null,
+        deliveryRequested: parsed.deliveryRequested === true,
+        deliveryComment: parsed.deliveryComment ?? null,
+        mountRequested: parsed.mountRequested === true,
+        mountComment: parsed.mountComment ?? null,
+        dismountRequested: parsed.dismountRequested === true,
+        dismountComment: parsed.dismountComment ?? null,
       },
     });
 
@@ -224,6 +230,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       customerName: (serialized.customerName as string | null) ?? null,
       startDate: String(serialized.startDate),
       endDate: String(serialized.endDate),
+      deliveryRequested: order.deliveryRequested,
+      deliveryComment: order.deliveryComment ?? null,
+      mountRequested: order.mountRequested,
+      mountComment: order.mountComment ?? null,
+      dismountRequested: order.dismountRequested,
+      dismountComment: order.dismountComment ?? null,
     });
   }
 

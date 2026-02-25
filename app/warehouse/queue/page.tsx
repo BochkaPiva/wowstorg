@@ -26,6 +26,15 @@ type QueueOrder = {
   startDate: string;
   endDate: string;
   notes: string | null;
+  deliveryRequested?: boolean;
+  deliveryComment?: string | null;
+  mountRequested?: boolean;
+  mountComment?: string | null;
+  dismountRequested?: boolean;
+  dismountComment?: string | null;
+  deliveryPrice?: number | null;
+  mountPrice?: number | null;
+  dismountPrice?: number | null;
   clientDeclaration: {
     lines: Array<{
       orderLineId: string;
@@ -127,6 +136,9 @@ export default function WarehouseQueuePage() {
   const [editDrafts, setEditDrafts] = useState<Record<string, EditDraft>>({});
   const [itemOptionsByOrder, setItemOptionsByOrder] = useState<Record<string, ItemOption[]>>({});
   const [newLineByOrder, setNewLineByOrder] = useState<Record<string, { itemId: string; qty: number }>>({});
+  const [servicePricesByOrder, setServicePricesByOrder] = useState<
+    Record<string, { deliveryPrice: number | null; mountPrice: number | null; dismountPrice: number | null }>
+  >({});
 
   async function loadQueue() {
     setStatus("Обновляем очередь...");
@@ -229,12 +241,25 @@ export default function WarehouseQueuePage() {
           comment,
         };
       });
+      const prices = servicePricesByOrder[order.id];
+      const deliveryPrice = order.deliveryRequested
+        ? (prices?.deliveryPrice ?? order.deliveryPrice ?? null)
+        : null;
+      const mountPrice = order.mountRequested
+        ? (prices?.mountPrice ?? order.mountPrice ?? null)
+        : null;
+      const dismountPrice = order.dismountRequested
+        ? (prices?.dismountPrice ?? order.dismountPrice ?? null)
+        : null;
       const response = await fetch(`/api/orders/${order.id}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lines: linesPayload,
           warehouseComment: warehouseComments[order.id]?.trim() || undefined,
+          deliveryPrice: deliveryPrice ?? undefined,
+          mountPrice: mountPrice ?? undefined,
+          dismountPrice: dismountPrice ?? undefined,
         }),
       });
       const payload = (await response.json()) as { error?: { message?: string } };
@@ -490,14 +515,29 @@ export default function WarehouseQueuePage() {
                   {expandedOrderId === order.id ? "Скрыть детали" : "Открыть детали"}
                 </button>
                 {order.status === "SUBMITTED" ? (
-                  <button
-                    className="ws-btn-primary disabled:opacity-50"
-                    type="button"
-                    onClick={() => void approveOrder(order)}
-                    disabled={busyOrderId !== null}
-                  >
-                    {busyOrderId === order.id ? "..." : "Согласовать"}
-                  </button>
+                  (() => {
+                    const prices = servicePricesByOrder[order.id];
+                    const needDelivery =
+                      order.deliveryRequested &&
+                      (prices?.deliveryPrice ?? order.deliveryPrice) == null;
+                    const needMount =
+                      order.mountRequested && (prices?.mountPrice ?? order.mountPrice) == null;
+                    const needDismount =
+                      order.dismountRequested &&
+                      (prices?.dismountPrice ?? order.dismountPrice) == null;
+                    const servicePricesMissing = needDelivery || needMount || needDismount;
+                    return (
+                      <button
+                        className="ws-btn-primary disabled:opacity-50"
+                        type="button"
+                        onClick={() => void approveOrder(order)}
+                        disabled={busyOrderId !== null || servicePricesMissing}
+                        title={servicePricesMissing ? "Укажите цены на включённые услуги" : undefined}
+                      >
+                        {busyOrderId === order.id ? "..." : "Согласовать"}
+                      </button>
+                    );
+                  })()
                 ) : null}
                 {order.status === "APPROVED" ? (
                   <button
@@ -558,6 +598,105 @@ export default function WarehouseQueuePage() {
                           {line.issuedQty ?? 0}
                         </div>
                       ))}
+                    </div>
+                  </div>
+                ) : null}
+                {(order.deliveryRequested || order.mountRequested || order.dismountRequested) ? (
+                  <div className="ws-card p-3">
+                    <div className="mb-2 text-sm font-semibold">Услуги</div>
+                    <ul className="space-y-1 text-sm">
+                      {order.deliveryRequested ? (
+                        <li className="rounded-lg border border-[var(--border)] px-2 py-1">
+                          Доставка: {order.deliveryComment?.trim() || "—"}
+                        </li>
+                      ) : null}
+                      {order.mountRequested ? (
+                        <li className="rounded-lg border border-[var(--border)] px-2 py-1">
+                          Монтаж: {order.mountComment?.trim() || "—"}
+                        </li>
+                      ) : null}
+                      {order.dismountRequested ? (
+                        <li className="rounded-lg border border-[var(--border)] px-2 py-1">
+                          Демонтаж: {order.dismountComment?.trim() || "—"}
+                        </li>
+                      ) : null}
+                    </ul>
+                  </div>
+                ) : null}
+                {order.status === "SUBMITTED" &&
+                (order.deliveryRequested || order.mountRequested || order.dismountRequested) ? (
+                  <div className="ws-card p-3">
+                    <div className="mb-2 text-sm font-semibold">Цены на услуги (обязательно перед согласованием)</div>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {order.deliveryRequested ? (
+                        <div>
+                          <label className="text-xs text-[var(--muted)]">Доставка, ₽</label>
+                          <input
+                            className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={servicePricesByOrder[order.id]?.deliveryPrice ?? order.deliveryPrice ?? ""}
+                            onChange={(e) =>
+                              setServicePricesByOrder((prev) => ({
+                                ...prev,
+                                [order.id]: {
+                                  deliveryPrice: e.target.value === "" ? null : Number(e.target.value),
+                                  mountPrice: prev[order.id]?.mountPrice ?? null,
+                                  dismountPrice: prev[order.id]?.dismountPrice ?? null,
+                                },
+                              }))
+                            }
+                            placeholder="0"
+                          />
+                        </div>
+                      ) : null}
+                      {order.mountRequested ? (
+                        <div>
+                          <label className="text-xs text-[var(--muted)]">Монтаж, ₽</label>
+                          <input
+                            className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={servicePricesByOrder[order.id]?.mountPrice ?? order.mountPrice ?? ""}
+                            onChange={(e) =>
+                              setServicePricesByOrder((prev) => ({
+                                ...prev,
+                                [order.id]: {
+                                  deliveryPrice: prev[order.id]?.deliveryPrice ?? null,
+                                  mountPrice: e.target.value === "" ? null : Number(e.target.value),
+                                  dismountPrice: prev[order.id]?.dismountPrice ?? null,
+                                },
+                              }))
+                            }
+                            placeholder="0"
+                          />
+                        </div>
+                      ) : null}
+                      {order.dismountRequested ? (
+                        <div>
+                          <label className="text-xs text-[var(--muted)]">Демонтаж, ₽</label>
+                          <input
+                            className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={servicePricesByOrder[order.id]?.dismountPrice ?? order.dismountPrice ?? ""}
+                            onChange={(e) =>
+                              setServicePricesByOrder((prev) => ({
+                                ...prev,
+                                [order.id]: {
+                                  deliveryPrice: prev[order.id]?.deliveryPrice ?? null,
+                                  mountPrice: prev[order.id]?.mountPrice ?? null,
+                                  dismountPrice: e.target.value === "" ? null : Number(e.target.value),
+                                },
+                              }))
+                            }
+                            placeholder="0"
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}

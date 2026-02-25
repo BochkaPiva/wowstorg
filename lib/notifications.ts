@@ -25,6 +25,12 @@ export async function notifyWarehouseAboutNewOrder(params: {
   customerName: string | null;
   startDate: string;
   endDate: string;
+  deliveryRequested?: boolean;
+  deliveryComment?: string | null;
+  mountRequested?: boolean;
+  mountComment?: string | null;
+  dismountRequested?: boolean;
+  dismountComment?: string | null;
 }): Promise<void> {
   const users = await prisma.user.findMany({
     where: {
@@ -33,12 +39,28 @@ export async function notifyWarehouseAboutNewOrder(params: {
     select: { telegramId: true },
   });
 
+  const serviceLines: string[] = [];
+  if (params.deliveryRequested) {
+    serviceLines.push(`Доставка: ${params.deliveryComment?.trim() || "—"}`);
+  }
+  if (params.mountRequested) {
+    serviceLines.push(`Монтаж: ${params.mountComment?.trim() || "—"}`);
+  }
+  if (params.dismountRequested) {
+    serviceLines.push(`Демонтаж: ${params.dismountComment?.trim() || "—"}`);
+  }
+  const servicesBlock =
+    serviceLines.length > 0 ? `Услуги:\n${serviceLines.map((s) => `  ${s}`).join("\n")}` : "";
+
   const text = [
     "Новая заявка в очереди.",
     `Заявка: ${params.orderId}`,
     `Заказчик: ${params.customerName ?? "-"}`,
     `Период: ${params.startDate} - ${params.endDate}`,
-  ].join("\n");
+    servicesBlock,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
   await Promise.allSettled(
     users.map((user) =>

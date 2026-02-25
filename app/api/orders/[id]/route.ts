@@ -143,7 +143,6 @@ export async function PATCH(
   if (!parsed) {
     return fail(400, "Invalid patch payload.");
   }
-  // Greenwich cannot edit доп. услуги (delivery/mount/dismount) — PatchOrderInput has no service fields, so they are never applied.
 
   const startDateRaw = parsed.startDate ?? existing.startDate.toISOString().slice(0, 10);
   const endDateRaw = parsed.endDate ?? existing.endDate.toISOString().slice(0, 10);
@@ -217,6 +216,12 @@ export async function PATCH(
           eventName: parsed.eventName !== undefined ? parsed.eventName : existing.eventName,
           pickupTime: parsed.pickupTime !== undefined ? parsed.pickupTime : existing.pickupTime,
           notes: parsed.notes !== undefined ? parsed.notes : existing.notes,
+          deliveryRequested: parsed.deliveryRequested !== undefined ? parsed.deliveryRequested : existing.deliveryRequested,
+          deliveryComment: parsed.deliveryComment !== undefined ? parsed.deliveryComment : existing.deliveryComment,
+          mountRequested: parsed.mountRequested !== undefined ? parsed.mountRequested : existing.mountRequested,
+          mountComment: parsed.mountComment !== undefined ? parsed.mountComment : existing.mountComment,
+          dismountRequested: parsed.dismountRequested !== undefined ? parsed.dismountRequested : existing.dismountRequested,
+          dismountComment: parsed.dismountComment !== undefined ? parsed.dismountComment : existing.dismountComment,
         },
       });
 
@@ -278,6 +283,12 @@ export async function PATCH(
         eventName: parsed.eventName !== undefined ? parsed.eventName : existing.eventName,
         pickupTime: parsed.pickupTime !== undefined ? parsed.pickupTime : existing.pickupTime,
         notes: parsed.notes !== undefined ? parsed.notes : existing.notes,
+        deliveryRequested: parsed.deliveryRequested !== undefined ? parsed.deliveryRequested : existing.deliveryRequested,
+        deliveryComment: parsed.deliveryComment !== undefined ? parsed.deliveryComment : existing.deliveryComment,
+        mountRequested: parsed.mountRequested !== undefined ? parsed.mountRequested : existing.mountRequested,
+        mountComment: parsed.mountComment !== undefined ? parsed.mountComment : existing.mountComment,
+        dismountRequested: parsed.dismountRequested !== undefined ? parsed.dismountRequested : existing.dismountRequested,
+        dismountComment: parsed.dismountComment !== undefined ? parsed.dismountComment : existing.dismountComment,
       },
     });
 

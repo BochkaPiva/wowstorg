@@ -527,27 +527,51 @@ export default function CatalogPage() {
         </div>
         <div className="rounded-xl border border-[var(--border)] bg-white p-3 space-y-3">
           <div className="text-sm font-medium text-[var(--muted)]">Доп. услуги</div>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={deliveryRequested} onChange={(e) => setDeliveryRequested(e.target.checked)} className="rounded" />
-            <span className="text-sm">Доставка</span>
-          </label>
-          {deliveryRequested ? (
-            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Куда, когда (комментарий)" value={deliveryComment} onChange={(e) => setDeliveryComment(e.target.value)} />
-          ) : null}
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={mountRequested} onChange={(e) => setMountRequested(e.target.checked)} className="rounded" />
-            <span className="text-sm">Монтаж</span>
-          </label>
-          {mountRequested ? (
-            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Где, когда (комментарий)" value={mountComment} onChange={(e) => setMountComment(e.target.value)} />
-          ) : null}
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={dismountRequested} onChange={(e) => setDismountRequested(e.target.checked)} className="rounded" />
-            <span className="text-sm">Демонтаж</span>
-          </label>
-          {dismountRequested ? (
-            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Где, когда (комментарий)" value={dismountComment} onChange={(e) => setDismountComment(e.target.value)} />
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm w-20">Доставка</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={deliveryRequested}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 ${deliveryRequested ? "bg-[var(--brand)]" : "bg-gray-200"}`}
+              onClick={() => setDeliveryRequested((v) => !v)}
+            >
+              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${deliveryRequested ? "translate-x-5" : "translate-x-0.5"}`} />
+            </button>
+            {deliveryRequested ? (
+              <input className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Куда, когда (комментарий)" value={deliveryComment} onChange={(e) => setDeliveryComment(e.target.value)} />
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm w-20">Монтаж</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={mountRequested}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 ${mountRequested ? "bg-[var(--brand)]" : "bg-gray-200"}`}
+              onClick={() => setMountRequested((v) => !v)}
+            >
+              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${mountRequested ? "translate-x-5" : "translate-x-0.5"}`} />
+            </button>
+            {mountRequested ? (
+              <input className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Где, когда (комментарий)" value={mountComment} onChange={(e) => setMountComment(e.target.value)} />
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm w-20">Демонтаж</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={dismountRequested}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 ${dismountRequested ? "bg-[var(--brand)]" : "bg-gray-200"}`}
+              onClick={() => setDismountRequested((v) => !v)}
+            >
+              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${dismountRequested ? "translate-x-5" : "translate-x-0.5"}`} />
+            </button>
+            {dismountRequested ? (
+              <input className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm" placeholder="Где, когда (комментарий)" value={dismountComment} onChange={(e) => setDismountComment(e.target.value)} />
+            ) : null}
+          </div>
         </div>
         {status ? (
           <div

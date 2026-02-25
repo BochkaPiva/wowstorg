@@ -45,6 +45,12 @@ export type PatchOrderInput = {
   pickupTime?: string | null;
   notes?: string | null;
   lines?: CreateOrderLineInput[];
+  deliveryRequested?: boolean;
+  deliveryComment?: string | null;
+  mountRequested?: boolean;
+  mountComment?: string | null;
+  dismountRequested?: boolean;
+  dismountComment?: string | null;
 };
 
 export type ApproveOrderInput = {
@@ -259,6 +265,25 @@ export function parsePatchOrderInput(body: unknown): PatchOrderInput | null {
 
   if (payload.eventName !== undefined) {
     output.eventName = parseOptionalString(payload.eventName);
+  }
+
+  if (payload.deliveryRequested !== undefined) {
+    output.deliveryRequested = payload.deliveryRequested === true;
+  }
+  if (payload.deliveryComment !== undefined) {
+    output.deliveryComment = parseOptionalString(payload.deliveryComment);
+  }
+  if (payload.mountRequested !== undefined) {
+    output.mountRequested = payload.mountRequested === true;
+  }
+  if (payload.mountComment !== undefined) {
+    output.mountComment = parseOptionalString(payload.mountComment);
+  }
+  if (payload.dismountRequested !== undefined) {
+    output.dismountRequested = payload.dismountRequested === true;
+  }
+  if (payload.dismountComment !== undefined) {
+    output.dismountComment = parseOptionalString(payload.dismountComment);
   }
 
   if (payload.lines !== undefined) {

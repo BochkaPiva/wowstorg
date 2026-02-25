@@ -38,6 +38,12 @@ type EditableOrderDetails = {
   eventName: string | null;
   notes: string | null;
   lines: Array<{ id: string; itemId: string; requestedQty: number; item: { name: string } }>;
+  deliveryRequested?: boolean;
+  deliveryComment?: string | null;
+  mountRequested?: boolean;
+  mountComment?: string | null;
+  dismountRequested?: boolean;
+  dismountComment?: string | null;
 };
 
 type ReturnCondition = "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING";
@@ -80,7 +86,22 @@ export default function MyOrdersPage() {
   const [returnComments, setReturnComments] = useState<Record<string, string>>({});
   const [expandedEditOrderId, setExpandedEditOrderId] = useState<string | null>(null);
   const [editDrafts, setEditDrafts] = useState<
-    Record<string, { startDate: string; endDate: string; eventName: string; notes: string; lines: Array<{ itemId: string; itemName: string; requestedQty: number }> }>
+    Record<
+      string,
+      {
+        startDate: string;
+        endDate: string;
+        eventName: string;
+        notes: string;
+        lines: Array<{ itemId: string; itemName: string; requestedQty: number }>;
+        deliveryRequested: boolean;
+        deliveryComment: string;
+        mountRequested: boolean;
+        mountComment: string;
+        dismountRequested: boolean;
+        dismountComment: string;
+      }
+    >
   >({});
   const [editItems, setEditItems] = useState<Record<string, { id: string; name: string }[]>>({});
   const [newLineDraft, setNewLineDraft] = useState<Record<string, { itemId: string; qty: number }>>({});
@@ -211,18 +232,25 @@ export default function MyOrdersPage() {
         setStatus(`Ошибка: ${orderPayload.error?.message ?? "Не удалось загрузить заявку для редактирования."}`);
         return;
       }
+      const o = orderPayload.order!;
       setEditDrafts((prev) => ({
         ...prev,
         [order.id]: {
-          startDate: orderPayload.order!.startDate,
-          endDate: orderPayload.order!.endDate,
-          eventName: orderPayload.order!.eventName ?? "",
-          notes: orderPayload.order!.notes ?? "",
-          lines: orderPayload.order!.lines.map((line) => ({
+          startDate: o.startDate,
+          endDate: o.endDate,
+          eventName: o.eventName ?? "",
+          notes: o.notes ?? "",
+          lines: o.lines.map((line) => ({
             itemId: line.itemId,
             itemName: line.item.name,
             requestedQty: line.requestedQty,
           })),
+          deliveryRequested: o.deliveryRequested ?? false,
+          deliveryComment: o.deliveryComment?.trim() ?? "",
+          mountRequested: o.mountRequested ?? false,
+          mountComment: o.mountComment?.trim() ?? "",
+          dismountRequested: o.dismountRequested ?? false,
+          dismountComment: o.dismountComment?.trim() ?? "",
         },
       }));
       if (itemsRes.ok) {
@@ -257,6 +285,12 @@ export default function MyOrdersPage() {
             itemId: line.itemId,
             requestedQty: line.requestedQty,
           })),
+          deliveryRequested: draft.deliveryRequested ?? order.deliveryRequested ?? false,
+          deliveryComment: (draft.deliveryComment ?? order.deliveryComment ?? "").trim() || null,
+          mountRequested: draft.mountRequested ?? order.mountRequested ?? false,
+          mountComment: (draft.mountComment ?? order.mountComment ?? "").trim() || null,
+          dismountRequested: draft.dismountRequested ?? order.dismountRequested ?? false,
+          dismountComment: (draft.dismountComment ?? order.dismountComment ?? "").trim() || null,
         }),
       });
       const payload = (await response.json()) as { error?: { message?: string } };
@@ -413,24 +447,145 @@ export default function MyOrdersPage() {
                     placeholder="Комментарий к заявке"
                   />
                 </label>
-                {(order.deliveryRequested || order.mountRequested || order.dismountRequested) ? (
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--muted)]/10 p-3">
-                    <div className="mb-1 text-xs font-medium text-[var(--muted)]">
-                      Доп. услуги (нельзя изменить при редактировании)
+                <div className="rounded-xl border border-[var(--border)] bg-white p-3">
+                  <div className="mb-2 text-xs font-medium text-[var(--muted)]">Доп. услуги</div>
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm w-20">Доставка</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={editDrafts[order.id]?.deliveryRequested ?? order.deliveryRequested ?? false}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 ${
+                          editDrafts[order.id]?.deliveryRequested ?? order.deliveryRequested
+                            ? "bg-[var(--brand)]"
+                            : "bg-gray-200"
+                        }`}
+                        onClick={() =>
+                          setEditDrafts((prev) => ({
+                            ...prev,
+                            [order.id]: {
+                              ...prev[order.id],
+                              deliveryRequested: !(prev[order.id]?.deliveryRequested ?? order.deliveryRequested ?? false),
+                              deliveryComment: prev[order.id]?.deliveryComment ?? order.deliveryComment ?? "",
+                              mountRequested: prev[order.id]?.mountRequested ?? order.mountRequested ?? false,
+                              mountComment: prev[order.id]?.mountComment ?? order.mountComment ?? "",
+                              dismountRequested: prev[order.id]?.dismountRequested ?? order.dismountRequested ?? false,
+                              dismountComment: prev[order.id]?.dismountComment ?? order.dismountComment ?? "",
+                            },
+                          }))
+                        }
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
+                            editDrafts[order.id]?.deliveryRequested ?? order.deliveryRequested ? "translate-x-5" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                      {(editDrafts[order.id]?.deliveryRequested ?? order.deliveryRequested) ? (
+                        <input
+                          className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                          placeholder="Куда, когда"
+                          value={editDrafts[order.id]?.deliveryComment ?? order.deliveryComment ?? ""}
+                          onChange={(e) =>
+                            setEditDrafts((prev) => ({
+                              ...prev,
+                              [order.id]: { ...prev[order.id], deliveryComment: e.target.value },
+                            }))
+                          }
+                        />
+                      ) : null}
                     </div>
-                    <ul className="space-y-1 text-sm">
-                      {order.deliveryRequested ? (
-                        <li>Доставка: {order.deliveryComment?.trim() || "—"}</li>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm w-20">Монтаж</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={editDrafts[order.id]?.mountRequested ?? order.mountRequested ?? false}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 ${
+                          editDrafts[order.id]?.mountRequested ?? order.mountRequested ? "bg-[var(--brand)]" : "bg-gray-200"
+                        }`}
+                        onClick={() =>
+                          setEditDrafts((prev) => ({
+                            ...prev,
+                            [order.id]: {
+                              ...prev[order.id],
+                              deliveryRequested: prev[order.id]?.deliveryRequested ?? order.deliveryRequested ?? false,
+                              deliveryComment: prev[order.id]?.deliveryComment ?? order.deliveryComment ?? "",
+                              mountRequested: !(prev[order.id]?.mountRequested ?? order.mountRequested ?? false),
+                              mountComment: prev[order.id]?.mountComment ?? order.mountComment ?? "",
+                              dismountRequested: prev[order.id]?.dismountRequested ?? order.dismountRequested ?? false,
+                              dismountComment: prev[order.id]?.dismountComment ?? order.dismountComment ?? "",
+                            },
+                          }))
+                        }
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
+                            editDrafts[order.id]?.mountRequested ?? order.mountRequested ? "translate-x-5" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                      {(editDrafts[order.id]?.mountRequested ?? order.mountRequested) ? (
+                        <input
+                          className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                          placeholder="Где, когда"
+                          value={editDrafts[order.id]?.mountComment ?? order.mountComment ?? ""}
+                          onChange={(e) =>
+                            setEditDrafts((prev) => ({
+                              ...prev,
+                              [order.id]: { ...prev[order.id], mountComment: e.target.value },
+                            }))
+                          }
+                        />
                       ) : null}
-                      {order.mountRequested ? (
-                        <li>Монтаж: {order.mountComment?.trim() || "—"}</li>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm w-20">Демонтаж</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={editDrafts[order.id]?.dismountRequested ?? order.dismountRequested ?? false}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-2 ${
+                          editDrafts[order.id]?.dismountRequested ?? order.dismountRequested ? "bg-[var(--brand)]" : "bg-gray-200"
+                        }`}
+                        onClick={() =>
+                          setEditDrafts((prev) => ({
+                            ...prev,
+                            [order.id]: {
+                              ...prev[order.id],
+                              deliveryRequested: prev[order.id]?.deliveryRequested ?? order.deliveryRequested ?? false,
+                              deliveryComment: prev[order.id]?.deliveryComment ?? order.deliveryComment ?? "",
+                              mountRequested: prev[order.id]?.mountRequested ?? order.mountRequested ?? false,
+                              mountComment: prev[order.id]?.mountComment ?? order.mountComment ?? "",
+                              dismountRequested: !(prev[order.id]?.dismountRequested ?? order.dismountRequested ?? false),
+                              dismountComment: prev[order.id]?.dismountComment ?? order.dismountComment ?? "",
+                            },
+                          }))
+                        }
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
+                            editDrafts[order.id]?.dismountRequested ?? order.dismountRequested ? "translate-x-5" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                      {(editDrafts[order.id]?.dismountRequested ?? order.dismountRequested) ? (
+                        <input
+                          className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-white px-2 py-1 text-sm"
+                          placeholder="Где, когда"
+                          value={editDrafts[order.id]?.dismountComment ?? order.dismountComment ?? ""}
+                          onChange={(e) =>
+                            setEditDrafts((prev) => ({
+                              ...prev,
+                              [order.id]: { ...prev[order.id], dismountComment: e.target.value },
+                            }))
+                          }
+                        />
                       ) : null}
-                      {order.dismountRequested ? (
-                        <li>Демонтаж: {order.dismountComment?.trim() || "—"}</li>
-                      ) : null}
-                    </ul>
+                    </div>
                   </div>
-                ) : null}
+                </div>
                 <div>
                   <div className="mb-1 text-xs font-medium text-[var(--muted)]">Состав</div>
                   <div className="space-y-2">

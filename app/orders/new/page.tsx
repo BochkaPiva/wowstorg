@@ -433,6 +433,7 @@ export default function CreateOrderPage() {
               type="number"
               min={1}
               value={line.qty}
+              onFocus={(e) => e.currentTarget.select()}
               onChange={(event) =>
                 setCart((prev) =>
                   prev.map((entry) =>

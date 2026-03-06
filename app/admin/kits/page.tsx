@@ -247,7 +247,7 @@ export default function AdminKitsPage() {
               </label>
               <label>
                 <span className="mb-1 block text-xs text-[var(--muted)]">Кол-во</span>
-                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={1} value={line.defaultQty} onChange={(event) => updateNewLine(index, { defaultQty: Number(event.target.value) })} />
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={1} value={line.defaultQty} onFocus={(e) => e.currentTarget.select()} onChange={(event) => updateNewLine(index, { defaultQty: Number(event.target.value) })} />
               </label>
             </div>
           ))}
@@ -316,7 +316,7 @@ export default function AdminKitsPage() {
                   </label>
                   <label>
                     <span className="mb-1 block text-xs text-[var(--muted)]">Кол-во</span>
-                    <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={1} value={line.defaultQty} onChange={(event) => updateDraftLine(index, { defaultQty: Number(event.target.value) })} />
+                    <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={1} value={line.defaultQty} onFocus={(e) => e.currentTarget.select()} onChange={(event) => updateDraftLine(index, { defaultQty: Number(event.target.value) })} />
                   </label>
                 </div>
               ))}

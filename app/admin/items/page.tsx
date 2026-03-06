@@ -325,11 +325,11 @@ export default function AdminItemsPage() {
           </label>
           <label>
             <span className="mb-1 block text-xs text-[var(--muted)]">Кол-во на складе</span>
-            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={newItem.stockTotal} onChange={(event) => setNewItem((prev) => ({ ...prev, stockTotal: Number(event.target.value) }))} />
+            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={newItem.stockTotal} onFocus={(e) => e.currentTarget.select()} onChange={(event) => setNewItem((prev) => ({ ...prev, stockTotal: Number(event.target.value) }))} />
           </label>
           <label>
             <span className="mb-1 block text-xs text-[var(--muted)]">Цена за сутки, ₽</span>
-            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} step="0.01" value={newItem.pricePerDay} onChange={(event) => setNewItem((prev) => ({ ...prev, pricePerDay: Number(event.target.value) }))} />
+            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} step="0.01" value={newItem.pricePerDay} onFocus={(e) => e.currentTarget.select()} onChange={(event) => setNewItem((prev) => ({ ...prev, pricePerDay: Number(event.target.value) }))} />
           </label>
         </div>
         <button className="ws-btn-primary disabled:opacity-50" type="button" onClick={() => void createItem()} disabled={busy}>
@@ -401,23 +401,23 @@ export default function AdminItemsPage() {
               </label>
               <label>
                 <span className="mb-1 block text-xs text-[var(--muted)]">Количество всего</span>
-                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockTotal} onChange={(event) => setDraft({ ...draft, stockTotal: Number(event.target.value) })} />
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockTotal} onFocus={(e) => e.currentTarget.select()} onChange={(event) => setDraft({ ...draft, stockTotal: Number(event.target.value) })} />
               </label>
               <label>
                 <span className="mb-1 block text-xs text-[var(--muted)]">На ремонте, шт</span>
-                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockInRepair} onChange={(event) => setDraft({ ...draft, stockInRepair: Number(event.target.value) })} />
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockInRepair} onFocus={(e) => e.currentTarget.select()} onChange={(event) => setDraft({ ...draft, stockInRepair: Number(event.target.value) })} />
               </label>
               <label>
                 <span className="mb-1 block text-xs text-[var(--muted)]">Сломано, шт</span>
-                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockBroken} onChange={(event) => setDraft({ ...draft, stockBroken: Number(event.target.value) })} />
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockBroken} onFocus={(e) => e.currentTarget.select()} onChange={(event) => setDraft({ ...draft, stockBroken: Number(event.target.value) })} />
               </label>
               <label>
                 <span className="mb-1 block text-xs text-[var(--muted)]">Утеряно, шт</span>
-                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockMissing} onChange={(event) => setDraft({ ...draft, stockMissing: Number(event.target.value) })} />
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockMissing} onFocus={(e) => e.currentTarget.select()} onChange={(event) => setDraft({ ...draft, stockMissing: Number(event.target.value) })} />
               </label>
               <label>
                 <span className="mb-1 block text-xs text-[var(--muted)]">Цена за сутки, ₽</span>
-                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} step="0.01" value={draft.pricePerDay} onChange={(event) => setDraft({ ...draft, pricePerDay: Number(event.target.value) })} />
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} step="0.01" value={draft.pricePerDay} onFocus={(e) => e.currentTarget.select()} onChange={(event) => setDraft({ ...draft, pricePerDay: Number(event.target.value) })} />
               </label>
             </div>
 

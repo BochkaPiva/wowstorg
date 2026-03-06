@@ -639,6 +639,7 @@ export default function MyOrdersPage() {
                           type="number"
                           min={1}
                           value={line.requestedQty}
+                          onFocus={(e) => e.currentTarget.select()}
                           onChange={(event) =>
                             setEditDrafts((prev) => ({
                               ...prev,
@@ -696,6 +697,7 @@ export default function MyOrdersPage() {
                         type="number"
                         min={1}
                         value={newLineDraft[order.id]?.qty ?? 1}
+                        onFocus={(e) => e.currentTarget.select()}
                         onChange={(e) =>
                           setNewLineDraft((prev) => ({
                             ...prev,
@@ -839,6 +841,7 @@ export default function MyOrdersPage() {
                                     type="text"
                                     inputMode="numeric"
                                     value={inputVal}
+                                    onFocus={(e) => e.currentTarget.select()}
                                     onChange={(e) => {
                                       const v = e.target.value.replace(/\D/g, "");
                                       setReturnQtyEdit((prev) => ({ ...prev, [qtyEditKey]: v }));

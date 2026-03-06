@@ -736,6 +736,7 @@ export default function WarehouseQueuePage() {
                             min={0}
                             step={0.01}
                             value={servicePricesByOrder[order.id]?.deliveryPrice ?? order.deliveryPrice ?? ""}
+                            onFocus={(e) => e.currentTarget.select()}
                             onChange={(e) =>
                               setServicePricesByOrder((prev) => ({
                                 ...prev,
@@ -759,6 +760,7 @@ export default function WarehouseQueuePage() {
                             min={0}
                             step={0.01}
                             value={servicePricesByOrder[order.id]?.mountPrice ?? order.mountPrice ?? ""}
+                            onFocus={(e) => e.currentTarget.select()}
                             onChange={(e) =>
                               setServicePricesByOrder((prev) => ({
                                 ...prev,
@@ -782,6 +784,7 @@ export default function WarehouseQueuePage() {
                             min={0}
                             step={0.01}
                             value={servicePricesByOrder[order.id]?.dismountPrice ?? order.dismountPrice ?? ""}
+                            onFocus={(e) => e.currentTarget.select()}
                             onChange={(e) =>
                               setServicePricesByOrder((prev) => ({
                                 ...prev,
@@ -838,6 +841,7 @@ export default function WarehouseQueuePage() {
                             min={0}
                             max={line.requestedQty}
                             value={line.approvedQty}
+                            onFocus={(e) => e.currentTarget.select()}
                             onChange={(event) =>
                               setEditDrafts((prev) => ({
                                 ...prev,

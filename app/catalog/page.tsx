@@ -327,22 +327,22 @@ export default function CatalogPage() {
 
       <div className="ws-card flex w-full max-w-full flex-wrap items-end gap-3 overflow-visible p-3">
         {isGreenwich ? (
-          <label className="flex min-w-0 flex-1 basis-48 flex-col text-xs font-medium text-amber-800">
+          <label className="flex min-w-[14rem] flex-1 flex-col text-xs font-medium text-amber-800">
             <span className="mb-1">Готовность к дате</span>
             <input
-              className="w-full min-w-0 rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 text-sm box-border"
+              className="w-full min-w-[14rem] rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 text-sm box-border"
               type="date"
               value={readyByDate}
               onChange={(e) => setReadyByDate(e.target.value)}
               max={startDate}
-              style={{ paddingRight: "2.75rem" }}
+              style={{ paddingRight: "3rem" }}
             />
           </label>
         ) : null}
-        <label className="flex min-w-0 flex-1 basis-48 flex-col text-xs text-[var(--muted)]">
+        <label className="flex min-w-[14rem] flex-1 flex-col text-xs text-[var(--muted)]">
           <span className="mb-1">Начало аренды</span>
           <input
-            className="w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border"
+            className="w-full min-w-[14rem] rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border"
             type="date"
             value={startDate}
             onChange={(e) => {
@@ -350,17 +350,17 @@ export default function CatalogPage() {
               setStartDate(v);
               if (readyByDate > v) setReadyByDate(v);
             }}
-            style={{ paddingRight: "2.75rem" }}
+            style={{ paddingRight: "3rem" }}
           />
         </label>
-        <label className="flex min-w-0 flex-1 basis-48 flex-col text-xs text-[var(--muted)]">
+        <label className="flex min-w-[14rem] flex-1 flex-col text-xs text-[var(--muted)]">
           <span className="mb-1">Окончание аренды</span>
           <input
-            className="w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border"
+            className="w-full min-w-[14rem] rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border"
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            style={{ paddingRight: "2.75rem" }}
+            style={{ paddingRight: "3rem" }}
           />
         </label>
         <label className="flex min-w-0 flex-1 basis-48 flex-col text-xs text-[var(--muted)]">

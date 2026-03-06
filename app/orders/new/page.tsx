@@ -8,6 +8,7 @@ type ItemStatus = "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | string;
 type ItemRow = {
   id: string;
   name: string;
+  description: string | null;
   itemType: string;
   availabilityStatus: ItemStatus;
   availableQty: number;
@@ -15,6 +16,13 @@ type ItemRow = {
   pricePerDayDiscounted: number;
   categories?: Array<{ id: string; name: string }>;
 };
+
+function itemTypeLabel(type: string): string {
+  if (type === "ASSET") return "Актив";
+  if (type === "CONSUMABLE") return "Расходник";
+  if (type === "BULK") return "Массовый";
+  return type;
+}
 type Category = { id: string; name: string; itemCount: number };
 type Kit = {
   id: string;
@@ -83,6 +91,7 @@ export default function CreateOrderPage() {
   const [eventName, setEventName] = useState("");
   const [notes, setNotes] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
 
@@ -327,19 +336,41 @@ export default function CreateOrderPage() {
             const isAddable = canAddToCart(item);
             const inCart = cart.find((entry) => entry.itemId === item.id);
             const qty = inCart?.qty ?? 0;
+            const isExpanded = expandedItemId === item.id;
+            const hasDescription = item.description != null && item.description.trim() !== "";
             return (
               <div key={item.id} className="ws-card p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="inline-flex items-center gap-2 font-medium">
-                      <i className={`h-2.5 w-2.5 rounded-full ${visual.dot}`} />
-                      {item.name}
-                    </div>
-                    <div className="text-xs text-[var(--muted)]">{item.itemType} • {visual.label} • доступно: {item.availableQty}</div>
+                  <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      className="inline-flex w-full items-start gap-2 text-left font-medium"
+                      onClick={() => hasDescription && setExpandedItemId(isExpanded ? null : item.id)}
+                    >
+                      <i className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${visual.dot}`} />
+                      <span className="break-words">{item.name}</span>
+                      {hasDescription ? (
+                        <span
+                          className="shrink-0 text-[var(--muted)] transition-transform duration-200"
+                          style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}
+                          aria-hidden
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                        </span>
+                      ) : null}
+                    </button>
+                    <div className="mt-0.5 text-xs text-[var(--muted)]">{itemTypeLabel(item.itemType)} • {visual.label} • доступно: {item.availableQty}</div>
                     <div className="text-xs text-[var(--muted)]">Цена/сутки: {formatMoney(item.pricePerDay)} ₽</div>
+                    {hasDescription && isExpanded ? (
+                      <div className="mt-2 rounded-lg bg-slate-50 p-2 text-xs text-[var(--muted)] whitespace-pre-wrap">
+                        {item.description!.trim()}
+                      </div>
+                    ) : null}
                   </div>
                   {qty > 0 ? (
-                    <div className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-2 py-1">
+                    <div className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-2 py-1">
                       <button className="ws-btn" type="button" onClick={() => setItemQty(item, qty - 1)}>
                         -
                       </button>
@@ -349,7 +380,7 @@ export default function CreateOrderPage() {
                       </button>
                     </div>
                   ) : (
-                    <button className="ws-btn disabled:opacity-50" type="button" onClick={() => addItem(item)} disabled={!isAddable}>В корзину</button>
+                    <button className="ws-btn shrink-0 disabled:opacity-50" type="button" onClick={() => addItem(item)} disabled={!isAddable}>В корзину</button>
                   )}
                 </div>
               </div>

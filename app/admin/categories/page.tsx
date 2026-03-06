@@ -118,63 +118,83 @@ export default function AdminCategoriesPage() {
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Категории подборок</h1>
+        <h1 className="text-2xl font-semibold text-[var(--brand)]">Подборки (категории)</h1>
         <Link href="/warehouse/inventory" className="ws-btn">
           Назад
         </Link>
       </div>
-      <p className="text-sm text-zinc-700">{status}</p>
+      <p className="text-sm text-[var(--muted)]">{status}</p>
 
-      <form className="grid gap-2 rounded border border-zinc-200 bg-white p-3 sm:grid-cols-[1fr_1fr_auto]" onSubmit={createCategory}>
-        <input className="rounded border border-zinc-300 px-2 py-1 text-sm" placeholder="Название категории" value={newName} onChange={(event) => setNewName(event.target.value)} />
-        <input className="rounded border border-zinc-300 px-2 py-1 text-sm" placeholder="Описание" value={newDescription} onChange={(event) => setNewDescription(event.target.value)} />
-        <button className="rounded bg-zinc-900 px-3 py-1 text-sm text-white hover:bg-zinc-700 disabled:opacity-50" type="submit" disabled={busyId !== null}>
-          {busyId === "create" ? "..." : "Сохранить"}
+      <form className="ws-card grid gap-4 p-4 sm:grid-cols-[1fr_1fr_auto]" onSubmit={createCategory}>
+        <label>
+          <span className="mb-1 block text-xs text-[var(--muted)]">Название категории</span>
+          <input
+            className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+            value={newName}
+            onChange={(event) => setNewName(event.target.value)}
+          />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs text-[var(--muted)]">Описание (необязательно)</span>
+          <input
+            className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+            value={newDescription}
+            onChange={(event) => setNewDescription(event.target.value)}
+          />
+        </label>
+        <button className="ws-btn-primary self-end disabled:opacity-50" type="submit" disabled={busyId !== null}>
+          {busyId === "create" ? "..." : "Добавить категорию"}
         </button>
       </form>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {categories.map((category) => {
           const draft = drafts[category.id];
           return (
-            <div key={category.id} className="rounded border border-zinc-200 bg-white p-3">
-              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
-                <input
-                  className="rounded border border-zinc-300 px-2 py-1 text-sm"
-                  value={draft?.name ?? category.name}
-                  onChange={(event) =>
-                    setDrafts((prev) => ({
-                      ...prev,
-                      [category.id]: {
-                        name: event.target.value,
-                        description: prev[category.id]?.description ?? category.description ?? "",
-                      },
-                    }))
-                  }
-                />
-                <input
-                  className="rounded border border-zinc-300 px-2 py-1 text-sm"
-                  value={draft?.description ?? category.description ?? ""}
-                  onChange={(event) =>
-                    setDrafts((prev) => ({
-                      ...prev,
-                      [category.id]: {
-                        name: prev[category.id]?.name ?? category.name,
-                        description: event.target.value,
-                      },
-                    }))
-                  }
-                />
+            <div key={category.id} className="ws-card space-y-3 p-4">
+              <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+                <label>
+                  <span className="mb-1 block text-xs text-[var(--muted)]">Название</span>
+                  <input
+                    className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+                    value={draft?.name ?? category.name}
+                    onChange={(event) =>
+                      setDrafts((prev) => ({
+                        ...prev,
+                        [category.id]: {
+                          name: event.target.value,
+                          description: prev[category.id]?.description ?? category.description ?? "",
+                        },
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  <span className="mb-1 block text-xs text-[var(--muted)]">Описание</span>
+                  <input
+                    className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+                    value={draft?.description ?? category.description ?? ""}
+                    onChange={(event) =>
+                      setDrafts((prev) => ({
+                        ...prev,
+                        [category.id]: {
+                          name: prev[category.id]?.name ?? category.name,
+                          description: event.target.value,
+                        },
+                      }))
+                    }
+                  />
+                </label>
                 <button
-                  className="rounded border border-zinc-300 px-2 py-1 text-sm hover:bg-zinc-100 disabled:opacity-50"
+                  className="ws-btn disabled:opacity-50"
                   type="button"
                   onClick={() => void saveCategory(category.id)}
                   disabled={busyId !== null}
                 >
-                  {busyId === category.id ? "..." : "Обновить"}
+                  {busyId === category.id ? "..." : "Сохранить"}
                 </button>
                 <button
-                  className="rounded border border-red-300 px-2 py-1 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  className="ws-btn border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"
                   type="button"
                   onClick={() => void deleteCategory(category.id)}
                   disabled={busyId !== null}
@@ -182,14 +202,15 @@ export default function AdminCategoriesPage() {
                   {busyId === `delete-${category.id}` ? "..." : "Удалить"}
                 </button>
               </div>
-              <div className="mt-1 text-xs text-zinc-500">Позиций в категории: {category.itemCount}</div>
-              <div className="mt-1 text-xs text-zinc-500">
-                {category.items && category.items.length > 0
-                  ? `Состав: ${category.items.slice(0, 6).map((item) => item.name).join(", ")}${
-                      category.items.length > 6 ? ` +${category.items.length - 6}` : ""
-                    }`
-                  : "Состав пока пуст."}
-              </div>
+              <div className="text-xs text-[var(--muted)]">Позиций в подборке: {category.itemCount}</div>
+              {category.items != null && category.items.length > 0 ? (
+                <div className="text-xs text-[var(--muted)]">
+                  Состав: {category.items.slice(0, 6).map((item) => item.name).join(", ")}
+                  {category.items.length > 6 ? ` +${category.items.length - 6}` : ""}
+                </div>
+              ) : (
+                <div className="text-xs text-[var(--muted)]">Состав пока пуст</div>
+              )}
             </div>
           );
         })}

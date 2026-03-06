@@ -252,129 +252,180 @@ export default function AdminItemsPage() {
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Позиции и фото</h1>
+        <h1 className="text-2xl font-semibold text-[var(--brand)]">Позиции и фото</h1>
         <Link href="/warehouse/inventory" className="ws-btn">
           Назад
         </Link>
       </div>
-      <p className="text-sm text-zinc-700">{status}</p>
+      <p className="text-sm text-[var(--muted)]">{status}</p>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <input className="min-w-0 flex-1 rounded border border-zinc-300 px-2 py-1 text-sm" placeholder="Поиск по названию/ID" value={search} onChange={(event) => setSearch(event.target.value)} />
-        <button className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100" type="button" onClick={() => void loadItems(search, 1)}>
+      <div className="ws-card flex flex-wrap items-center gap-2 p-3">
+        <label className="min-w-0 flex-1">
+          <span className="mb-1 block text-xs text-[var(--muted)]">Поиск по названию или ID</span>
+          <input
+            className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+            placeholder="Введите название или ID"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+        <button className="ws-btn self-end" type="button" onClick={() => void loadItems(search, 1)}>
           Найти
         </button>
       </div>
 
       {totalItems > limit ? (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-zinc-600">Страница {page} из {Math.ceil(totalItems / limit)}</span>
-          <button className="rounded border border-zinc-300 px-2 py-1 hover:bg-zinc-100 disabled:opacity-50" type="button" onClick={() => void loadItems(search, page - 1)} disabled={page <= 1}>
+        <div className="ws-card flex flex-wrap items-center gap-2 p-2">
+          <span className="text-sm text-[var(--muted)]">Страница {page} из {Math.ceil(totalItems / limit)}</span>
+          <button className="ws-btn text-sm disabled:opacity-50" type="button" onClick={() => void loadItems(search, page - 1)} disabled={page <= 1}>
             Назад
           </button>
-          <button className="rounded border border-zinc-300 px-2 py-1 hover:bg-zinc-100 disabled:opacity-50" type="button" onClick={() => void loadItems(search, page + 1)} disabled={page >= Math.ceil(totalItems / limit)}>
+          <button className="ws-btn text-sm disabled:opacity-50" type="button" onClick={() => void loadItems(search, page + 1)} disabled={page >= Math.ceil(totalItems / limit)}>
             Вперёд
           </button>
         </div>
       ) : null}
 
-      <div className="space-y-2 rounded border border-zinc-200 bg-white p-3">
-        <div className="text-sm font-semibold">Добавить новую позицию</div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <input className="rounded border border-zinc-300 px-2 py-1 text-sm sm:col-span-2" placeholder="Название" value={newItem.name} onChange={(event) => setNewItem((prev) => ({ ...prev, name: event.target.value }))} />
-          <input className="rounded border border-zinc-300 px-2 py-1 text-sm sm:col-span-2" placeholder="Место хранения (необязательно)" value={newItem.locationText} onChange={(event) => setNewItem((prev) => ({ ...prev, locationText: event.target.value }))} />
-          <textarea className="min-h-16 rounded border border-zinc-300 px-2 py-1 text-sm sm:col-span-2" placeholder="Описание (необязательно)" value={newItem.description} onChange={(event) => setNewItem((prev) => ({ ...prev, description: event.target.value }))} />
-          <select className="rounded border border-zinc-300 px-2 py-1 text-sm" value={newItem.itemType} onChange={(event) => setNewItem((prev) => ({ ...prev, itemType: event.target.value as "ASSET" | "BULK" | "CONSUMABLE" }))}>
-            {ITEM_TYPE_OPTIONS.map((entry) => (
-              <option key={entry.value} value={entry.value}>
-                {entry.label}
-              </option>
-            ))}
-          </select>
-          <input className="rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={newItem.stockTotal} onChange={(event) => setNewItem((prev) => ({ ...prev, stockTotal: Number(event.target.value) }))} placeholder="Всего" />
-          <input className="rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} step="0.01" value={newItem.pricePerDay} onChange={(event) => setNewItem((prev) => ({ ...prev, pricePerDay: Number(event.target.value) }))} placeholder="Цена/день" />
+      <div className="ws-card space-y-4 p-4">
+        <h2 className="text-sm font-medium text-[var(--foreground)]">Добавить новую позицию</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="sm:col-span-2">
+            <span className="mb-1 block text-xs text-[var(--muted)]">Название позиции</span>
+            <input
+              className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+              value={newItem.name}
+              onChange={(event) => setNewItem((prev) => ({ ...prev, name: event.target.value }))}
+            />
+          </label>
+          <label className="sm:col-span-2">
+            <span className="mb-1 block text-xs text-[var(--muted)]">Место хранения (необязательно)</span>
+            <input
+              className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+              value={newItem.locationText}
+              onChange={(event) => setNewItem((prev) => ({ ...prev, locationText: event.target.value }))}
+            />
+          </label>
+          <label className="sm:col-span-2">
+            <span className="mb-1 block text-xs text-[var(--muted)]">Описание для каталога (необязательно)</span>
+            <textarea
+              className="min-h-20 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+              value={newItem.description}
+              onChange={(event) => setNewItem((prev) => ({ ...prev, description: event.target.value }))}
+            />
+          </label>
+          <label>
+            <span className="mb-1 block text-xs text-[var(--muted)]">Тип позиции</span>
+            <select className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" value={newItem.itemType} onChange={(event) => setNewItem((prev) => ({ ...prev, itemType: event.target.value as "ASSET" | "BULK" | "CONSUMABLE" }))}>
+              {ITEM_TYPE_OPTIONS.map((entry) => (
+                <option key={entry.value} value={entry.value}>
+                  {entry.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className="mb-1 block text-xs text-[var(--muted)]">Кол-во на складе</span>
+            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={newItem.stockTotal} onChange={(event) => setNewItem((prev) => ({ ...prev, stockTotal: Number(event.target.value) }))} />
+          </label>
+          <label>
+            <span className="mb-1 block text-xs text-[var(--muted)]">Цена за сутки, ₽</span>
+            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} step="0.01" value={newItem.pricePerDay} onChange={(event) => setNewItem((prev) => ({ ...prev, pricePerDay: Number(event.target.value) }))} />
+          </label>
         </div>
-        <button className="rounded bg-zinc-900 px-3 py-1 text-sm text-white hover:bg-zinc-700 disabled:opacity-50" type="button" onClick={() => void createItem()} disabled={busy}>
+        <button className="ws-btn-primary disabled:opacity-50" type="button" onClick={() => void createItem()} disabled={busy}>
           {busy ? "..." : "Создать позицию"}
         </button>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[280px_1fr]">
-        <div className="max-h-72 overflow-auto rounded border border-zinc-200 bg-white">
+        <div className="ws-card max-h-80 overflow-auto p-0">
           {items.map((item) => (
             <button
               key={item.id}
-              className={`block w-full border-b border-zinc-200 px-3 py-2 text-left text-sm hover:bg-zinc-50 ${
-                selectedItemId === item.id ? "bg-zinc-100" : ""
+              className={`block w-full border-b border-[var(--border)] px-3 py-2.5 text-left text-sm last:border-b-0 hover:bg-violet-50 ${
+                selectedItemId === item.id ? "bg-violet-50 font-medium" : ""
               }`}
               onClick={() => selectItem(item.id)}
               type="button"
             >
-              <div className="font-medium">{item.name}</div>
-              <div className="text-xs text-zinc-500">{item.id}</div>
+              <div>{item.name}</div>
+              <div className="text-xs text-[var(--muted)]">{item.id}</div>
             </button>
           ))}
         </div>
 
         {draft ? (
-          <div className="space-y-2 rounded border border-zinc-200 bg-white p-3">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <input className="rounded border border-zinc-300 px-2 py-1 text-sm sm:col-span-2" placeholder="Название" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-              <input className="rounded border border-zinc-300 px-2 py-1 text-sm sm:col-span-2" placeholder="Место хранения" value={draft.locationText} onChange={(event) => setDraft({ ...draft, locationText: event.target.value })} />
+          <div className="ws-card space-y-4 p-4">
+            <h2 className="text-sm font-medium text-[var(--foreground)]">Редактировать позицию</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
               <label className="sm:col-span-2">
-                <span className="mb-1 block text-xs text-zinc-600">Описание</span>
-                <textarea className="min-h-20 w-full rounded border border-zinc-300 px-2 py-1 text-sm" placeholder="Описание позиции для каталога" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+                <span className="mb-1 block text-xs text-[var(--muted)]">Название</span>
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
               </label>
-              <select className="rounded border border-zinc-300 px-2 py-1 text-sm" value={draft.itemType} onChange={(event) => setDraft({ ...draft, itemType: event.target.value as "ASSET" | "BULK" | "CONSUMABLE" })}>
-                {ITEM_TYPE_OPTIONS.map((entry) => (
-                  <option key={entry.value} value={entry.value}>
-                    {entry.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="rounded border border-zinc-300 px-2 py-1 text-sm"
-                value={draft.availabilityStatus}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    availabilityStatus: event.target.value as "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | "RETIRED",
-                  })
-                }
-              >
-                {STATUS_OPTIONS.map((entry) => (
-                  <option key={entry.value} value={entry.value}>
-                    {entry.label}
-                  </option>
-                ))}
-              </select>
-              <label className="text-sm">
-                <span className="mb-1 block text-xs text-zinc-600">Количество всего</span>
-                <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={draft.stockTotal} onChange={(event) => setDraft({ ...draft, stockTotal: Number(event.target.value) })} />
+              <label className="sm:col-span-2">
+                <span className="mb-1 block text-xs text-[var(--muted)]">Место хранения</span>
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" value={draft.locationText} onChange={(event) => setDraft({ ...draft, locationText: event.target.value })} />
               </label>
-              <label className="text-sm">
-                <span className="mb-1 block text-xs text-zinc-600">На ремонте</span>
-                <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={draft.stockInRepair} onChange={(event) => setDraft({ ...draft, stockInRepair: Number(event.target.value) })} />
+              <label className="sm:col-span-2">
+                <span className="mb-1 block text-xs text-[var(--muted)]">Описание для каталога</span>
+                <textarea className="min-h-20 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
               </label>
-              <label className="text-sm">
-                <span className="mb-1 block text-xs text-zinc-600">Сломано</span>
-                <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={draft.stockBroken} onChange={(event) => setDraft({ ...draft, stockBroken: Number(event.target.value) })} />
+              <label>
+                <span className="mb-1 block text-xs text-[var(--muted)]">Тип позиции</span>
+                <select className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" value={draft.itemType} onChange={(event) => setDraft({ ...draft, itemType: event.target.value as "ASSET" | "BULK" | "CONSUMABLE" })}>
+                  {ITEM_TYPE_OPTIONS.map((entry) => (
+                    <option key={entry.value} value={entry.value}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </select>
               </label>
-              <label className="text-sm">
-                <span className="mb-1 block text-xs text-zinc-600">Утеряно</span>
-                <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} value={draft.stockMissing} onChange={(event) => setDraft({ ...draft, stockMissing: Number(event.target.value) })} />
+              <label>
+                <span className="mb-1 block text-xs text-[var(--muted)]">Статус доступности</span>
+                <select
+                  className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+                  value={draft.availabilityStatus}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      availabilityStatus: event.target.value as "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | "RETIRED",
+                    })
+                  }
+                >
+                  {STATUS_OPTIONS.map((entry) => (
+                    <option key={entry.value} value={entry.value}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </select>
               </label>
-              <label className="text-sm">
-                <span className="mb-1 block text-xs text-zinc-600">Цена в сутки</span>
-                <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" type="number" min={0} step="0.01" value={draft.pricePerDay} onChange={(event) => setDraft({ ...draft, pricePerDay: Number(event.target.value) })} />
+              <label>
+                <span className="mb-1 block text-xs text-[var(--muted)]">Количество всего</span>
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockTotal} onChange={(event) => setDraft({ ...draft, stockTotal: Number(event.target.value) })} />
+              </label>
+              <label>
+                <span className="mb-1 block text-xs text-[var(--muted)]">На ремонте, шт</span>
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockInRepair} onChange={(event) => setDraft({ ...draft, stockInRepair: Number(event.target.value) })} />
+              </label>
+              <label>
+                <span className="mb-1 block text-xs text-[var(--muted)]">Сломано, шт</span>
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockBroken} onChange={(event) => setDraft({ ...draft, stockBroken: Number(event.target.value) })} />
+              </label>
+              <label>
+                <span className="mb-1 block text-xs text-[var(--muted)]">Утеряно, шт</span>
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockMissing} onChange={(event) => setDraft({ ...draft, stockMissing: Number(event.target.value) })} />
+              </label>
+              <label>
+                <span className="mb-1 block text-xs text-[var(--muted)]">Цена за сутки, ₽</span>
+                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} step="0.01" value={draft.pricePerDay} onChange={(event) => setDraft({ ...draft, pricePerDay: Number(event.target.value) })} />
               </label>
             </div>
 
-            <label className="block text-sm">
-              <span className="mb-1 block text-xs text-zinc-600">Категории</span>
-              <div className="flex flex-wrap gap-2">
+            <label className="block">
+              <span className="mb-1 block text-xs text-[var(--muted)]">Подборки (категории)</span>
+              <div className="flex flex-wrap gap-2 rounded-xl border border-[var(--border)] bg-white p-2">
                 {categories.map((category) => (
-                  <label key={category.id} className="inline-flex items-center gap-1 text-xs">
+                  <label key={category.id} className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 hover:bg-violet-50">
                     <input
                       type="checkbox"
                       checked={draft.categoryIds.includes(category.id)}
@@ -387,41 +438,38 @@ export default function AdminItemsPage() {
                         })
                       }
                     />
-                    {category.name}
+                    <span className="text-sm">{category.name}</span>
                   </label>
                 ))}
               </div>
             </label>
 
-            <label className="block text-sm">
-              <span className="mb-1 block text-xs text-zinc-600">Фото позиции (URL по строкам)</span>
+            <label className="block">
+              <span className="mb-1 block text-xs text-[var(--muted)]">Фото позиции (URL, по одному на строку)</span>
               <textarea
-                className="h-24 w-full rounded border border-zinc-300 px-2 py-1 text-sm"
+                className="h-24 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
                 value={draft.imageUrlsText}
                 onChange={(event) => setDraft({ ...draft, imageUrlsText: event.target.value })}
               />
             </label>
 
-            <button
-              className="rounded bg-zinc-900 px-3 py-2 text-sm text-white hover:bg-zinc-700 disabled:opacity-50"
-              type="button"
-              onClick={() => void saveItem()}
-              disabled={busy}
-            >
-              {busy ? "..." : "Сохранить позицию"}
-            </button>
-            <button
-              className="rounded border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
-              type="button"
-              onClick={() => void deleteItem()}
-              disabled={busy}
-            >
-              {busy ? "..." : "Удалить позицию"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button className="ws-btn-primary disabled:opacity-50" type="button" onClick={() => void saveItem()} disabled={busy}>
+                {busy ? "..." : "Сохранить позицию"}
+              </button>
+              <button
+                className="ws-btn border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"
+                type="button"
+                onClick={() => void deleteItem()}
+                disabled={busy}
+              >
+                {busy ? "..." : "Удалить позицию"}
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="rounded border border-dashed border-zinc-300 p-4 text-sm text-zinc-500">
-            Выбери позицию слева.
+          <div className="ws-card flex items-center justify-center rounded-xl border-2 border-dashed border-[var(--border)] p-8 text-sm text-[var(--muted)]">
+            Выберите позицию в списке слева
           </div>
         )}
       </div>

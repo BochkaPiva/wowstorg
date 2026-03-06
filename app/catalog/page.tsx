@@ -325,12 +325,12 @@ export default function CatalogPage() {
         </div>
       ) : null}
 
-      <div className="ws-card w-full max-w-full space-y-3 overflow-visible p-3">
+      <div className="ws-card w-full max-w-full min-w-0 space-y-3 overflow-hidden p-3">
         {isGreenwich ? (
-          <label className="block w-full">
+          <label className="block w-full min-w-0">
             <span className="mb-1 block text-xs font-medium text-amber-800">Готовность к дате</span>
             <input
-              className="w-full rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 text-sm box-border"
+              className="w-full min-w-0 max-w-full rounded-xl border-2 border-amber-300 bg-amber-50 py-2 pl-2 pr-10 text-sm box-border"
               type="date"
               value={readyByDate}
               onChange={(e) => setReadyByDate(e.target.value)}
@@ -338,10 +338,10 @@ export default function CatalogPage() {
             />
           </label>
         ) : null}
-        <label className="block w-full">
+        <label className="block w-full min-w-0">
           <span className="mb-1 block text-xs text-[var(--muted)]">Начало аренды</span>
           <input
-            className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border"
+            className="w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white py-2 pl-2 pr-10 text-sm box-border"
             type="date"
             value={startDate}
             onChange={(e) => {
@@ -351,10 +351,10 @@ export default function CatalogPage() {
             }}
           />
         </label>
-        <label className="block w-full">
+        <label className="block w-full min-w-0">
           <span className="mb-1 block text-xs text-[var(--muted)]">Окончание аренды</span>
           <input
-            className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border"
+            className="w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white py-2 pl-2 pr-10 text-sm box-border"
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}

@@ -1,7 +1,9 @@
 import { OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
+/** Заявки в этих статусах резервируют реквизит на даты (в каталоге не показывается как доступный). Создание заявки (SUBMITTED) тоже резервирует, чтобы до согласования никто не мог забронировать те же даты. */
 const ACTIVE_RESERVATION_STATUSES: OrderStatus[] = [
+  OrderStatus.SUBMITTED,
   OrderStatus.APPROVED,
   OrderStatus.ISSUED,
   OrderStatus.RETURN_DECLARED,

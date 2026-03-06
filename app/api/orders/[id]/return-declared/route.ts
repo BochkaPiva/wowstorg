@@ -1,6 +1,7 @@
 import { Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
+import { checkinConditionLabel } from "@/lib/checkin-labels";
 import { fail } from "@/lib/http";
 import { notifyWarehouseAboutReturnDeclared } from "@/lib/notifications";
 import { serializeOrder } from "@/lib/orders";
@@ -92,7 +93,13 @@ export async function POST(
 
   const order = await prisma.order.findUnique({
     where: { id },
-    include: { customer: true, lines: { orderBy: [{ createdAt: "asc" }] } },
+    include: {
+      customer: true,
+      lines: {
+        orderBy: [{ createdAt: "asc" }],
+        include: { item: { select: { name: true } } },
+      },
+    },
   });
 
   if (!order) {
@@ -215,12 +222,30 @@ export async function POST(
     });
   });
 
+  const returnSummaryLines: string[] = [];
+  if (declaration && declaration.lines.length > 0 && order.lines) {
+    const lineMap = new Map(order.lines.map((l) => [l.id, l]));
+    for (const line of declaration.lines) {
+      const orderLine = lineMap.get(line.orderLineId);
+      if (!orderLine) continue;
+      const itemName = (orderLine as { item?: { name: string } }).item?.name ?? orderLine.itemId;
+      const issuedQty = orderLine.issuedQty ?? orderLine.approvedQty ?? orderLine.requestedQty;
+      if (line.segments && line.segments.length > 0) {
+        const parts = line.segments.map((s) => `${s.qty} шт — ${checkinConditionLabel(s.condition)}`).join(", ");
+        returnSummaryLines.push(`${itemName}: ${parts} из ${issuedQty}${line.comment ? ` (${line.comment})` : ""}`);
+      } else {
+        returnSummaryLines.push(`${itemName}: ${line.returnedQty} из ${issuedQty}, ${checkinConditionLabel(line.condition)}${line.comment ? ` (${line.comment})` : ""}`);
+      }
+    }
+  }
   await notifyWarehouseAboutReturnDeclared({
     orderId: updated.id,
     customerName: updated.customer?.name ?? null,
     startDate: updated.startDate.toISOString().slice(0, 10),
     endDate: updated.endDate.toISOString().slice(0, 10),
     eventName: updated.eventName ?? null,
+    comment: declaration?.comment ?? null,
+    returnSummaryLines: returnSummaryLines.length > 0 ? returnSummaryLines : undefined,
   });
 
   return NextResponse.json({

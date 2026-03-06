@@ -1,8 +1,18 @@
-import { Role } from "@prisma/client";
+import { OrderStatus, Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+
+/** Приоритет статуса для сортировки: активные заявки выше, закрытые/отменённые внизу. */
+const STATUS_PRIORITY: Record<OrderStatus, number> = {
+  SUBMITTED: 0,
+  APPROVED: 1,
+  ISSUED: 2,
+  RETURN_DECLARED: 3,
+  CLOSED: 4,
+  CANCELLED: 5,
+};
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const auth = await requireUser(request);
@@ -31,7 +41,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         orderBy: [{ createdAt: "asc" }],
       },
     },
-    orderBy: [{ createdAt: "desc" }],
+  });
+
+  const sortedOrders = [...orders].sort((a, b) => {
+    const statusA = STATUS_PRIORITY[a.status];
+    const statusB = STATUS_PRIORITY[b.status];
+    if (statusA !== statusB) return statusA - statusB;
+    if (a.status === "SUBMITTED" || a.status === "APPROVED") {
+      return a.readyByDate.getTime() - b.readyByDate.getTime();
+    }
+    if (a.status === "ISSUED" || a.status === "RETURN_DECLARED") {
+      return a.endDate.getTime() - b.endDate.getTime();
+    }
+    return b.updatedAt.getTime() - a.updatedAt.getTime();
   });
 
   function orderTotal(order: (typeof orders)[0]): number {
@@ -53,7 +75,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   return NextResponse.json({
-    orders: orders.map((order) => ({
+    orders: sortedOrders.map((order) => ({
       id: order.id,
       status: order.status,
       startDate: order.startDate.toISOString().slice(0, 10),

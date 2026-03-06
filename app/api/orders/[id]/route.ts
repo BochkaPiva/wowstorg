@@ -276,6 +276,7 @@ export async function PATCH(
       startDate: updated.startDate.toISOString().slice(0, 10),
       endDate: updated.endDate.toISOString().slice(0, 10),
       compositionSummary,
+      notes: updated.notes ?? null,
     });
 
     return NextResponse.json({
@@ -324,6 +325,7 @@ export async function PATCH(
     startDate: updated.startDate.toISOString().slice(0, 10),
     endDate: updated.endDate.toISOString().slice(0, 10),
     compositionSummary,
+    notes: updated.notes ?? null,
   });
 
   return NextResponse.json({

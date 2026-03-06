@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 type Item = {
   id: string;
   name: string;
+  description: string | null;
+  locationText: string | null;
   itemType: "ASSET" | "BULK" | "CONSUMABLE";
   availabilityStatus: "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | "RETIRED";
   stockTotal: number;
@@ -45,6 +47,8 @@ export default function AdminItemsPage() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<{
     name: string;
+    description: string;
+    locationText: string;
     itemType: "ASSET" | "BULK" | "CONSUMABLE";
     availabilityStatus: "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | "RETIRED";
     stockTotal: number;
@@ -57,6 +61,8 @@ export default function AdminItemsPage() {
   } | null>(null);
   const [newItem, setNewItem] = useState({
     name: "",
+    description: "",
+    locationText: "",
     itemType: "ASSET" as "ASSET" | "BULK" | "CONSUMABLE",
     availabilityStatus: "ACTIVE" as "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | "RETIRED",
     stockTotal: 1,
@@ -67,21 +73,35 @@ export default function AdminItemsPage() {
     categoryIds: [] as string[],
     imageUrlsText: "",
   });
+  const [totalItems, setTotalItems] = useState(0);
+  const [page, setPage] = useState(1);
+  const limit = 50;
 
   useEffect(() => {
-    void Promise.all([loadItems(""), loadCategories()]);
+    void Promise.all([loadItems(search, 1), loadCategories()]);
   }, []);
 
-  async function loadItems(value: string) {
-    const query = value.trim().length > 0 ? `?search=${encodeURIComponent(value.trim())}` : "";
-    const response = await fetch(`/api/admin/catalog/items${query}`);
-    const payload = (await response.json()) as { items?: Item[]; error?: { message?: string } };
+  async function loadItems(value: string, pageNum: number = 1) {
+    const params = new URLSearchParams();
+    if (value.trim()) params.set("search", value.trim());
+    params.set("page", String(pageNum));
+    params.set("limit", String(limit));
+    const response = await fetch(`/api/admin/catalog/items?${params.toString()}`);
+    const payload = (await response.json()) as {
+      items?: Item[];
+      total?: number;
+      page?: number;
+      error?: { message?: string };
+    };
     if (!response.ok || !payload.items) {
       setStatus(`Ошибка: ${payload.error?.message ?? "Не удалось загрузить позиции."}`);
       return;
     }
     setItems(payload.items);
-    setStatus(`Позиции: ${payload.items.length}`);
+    setTotalItems(payload.total ?? payload.items.length);
+    setPage(payload.page ?? pageNum);
+    const total = payload.total ?? payload.items.length;
+    setStatus(`Позиции: ${payload.items.length} из ${total}${total > limit ? ` (страница ${payload.page ?? pageNum})` : ""}`);
   }
 
   async function loadCategories() {
@@ -106,6 +126,8 @@ export default function AdminItemsPage() {
     }
     setDraft({
       name: item.name,
+      description: item.description ?? "",
+      locationText: item.locationText ?? "",
       itemType: item.itemType,
       availabilityStatus: item.availabilityStatus,
       stockTotal: item.stockTotal,
@@ -129,6 +151,8 @@ export default function AdminItemsPage() {
       body: JSON.stringify({
         itemId: selectedItemId,
         name: draft.name.trim(),
+        description: draft.description.trim() || null,
+        locationText: draft.locationText.trim() || null,
         itemType: draft.itemType,
         availabilityStatus: draft.availabilityStatus,
         stockTotal: draft.stockTotal,
@@ -149,7 +173,7 @@ export default function AdminItemsPage() {
       setBusy(false);
       return;
     }
-    await loadItems(search);
+    await loadItems(search, page);
     setStatus("Позиция обновлена.");
     setBusy(false);
   }
@@ -165,6 +189,8 @@ export default function AdminItemsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: newItem.name.trim(),
+        description: newItem.description.trim() || null,
+        locationText: newItem.locationText.trim() || null,
         itemType: newItem.itemType,
         availabilityStatus: newItem.availabilityStatus,
         stockTotal: newItem.stockTotal,
@@ -185,7 +211,7 @@ export default function AdminItemsPage() {
       setBusy(false);
       return;
     }
-    await loadItems(search);
+    await loadItems(search, 1);
     setSelectedItemId(payload.item.id);
     selectItem(payload.item.id);
     setStatus("Позиция создана.");
@@ -214,7 +240,7 @@ export default function AdminItemsPage() {
     }
     setSelectedItemId("");
     setDraft(null);
-    await loadItems(search);
+    await loadItems(search, page);
     if (payload.mode === "retired") {
       setStatus(payload.message ?? "Позиция переведена в RETIRED.");
     } else {
@@ -233,17 +259,31 @@ export default function AdminItemsPage() {
       </div>
       <p className="text-sm text-zinc-700">{status}</p>
 
-      <div className="flex items-center gap-2">
-        <input className="w-full rounded border border-zinc-300 px-2 py-1 text-sm" placeholder="Поиск по названию/ID" value={search} onChange={(event) => setSearch(event.target.value)} />
-        <button className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100" type="button" onClick={() => void loadItems(search)}>
+      <div className="flex flex-wrap items-center gap-2">
+        <input className="min-w-0 flex-1 rounded border border-zinc-300 px-2 py-1 text-sm" placeholder="Поиск по названию/ID" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <button className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100" type="button" onClick={() => void loadItems(search, 1)}>
           Найти
         </button>
       </div>
 
+      {totalItems > limit ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-zinc-600">Страница {page} из {Math.ceil(totalItems / limit)}</span>
+          <button className="rounded border border-zinc-300 px-2 py-1 hover:bg-zinc-100 disabled:opacity-50" type="button" onClick={() => void loadItems(search, page - 1)} disabled={page <= 1}>
+            Назад
+          </button>
+          <button className="rounded border border-zinc-300 px-2 py-1 hover:bg-zinc-100 disabled:opacity-50" type="button" onClick={() => void loadItems(search, page + 1)} disabled={page >= Math.ceil(totalItems / limit)}>
+            Вперёд
+          </button>
+        </div>
+      ) : null}
+
       <div className="space-y-2 rounded border border-zinc-200 bg-white p-3">
         <div className="text-sm font-semibold">Добавить новую позицию</div>
         <div className="grid gap-2 sm:grid-cols-2">
-          <input className="rounded border border-zinc-300 px-2 py-1 text-sm" placeholder="Название" value={newItem.name} onChange={(event) => setNewItem((prev) => ({ ...prev, name: event.target.value }))} />
+          <input className="rounded border border-zinc-300 px-2 py-1 text-sm sm:col-span-2" placeholder="Название" value={newItem.name} onChange={(event) => setNewItem((prev) => ({ ...prev, name: event.target.value }))} />
+          <input className="rounded border border-zinc-300 px-2 py-1 text-sm sm:col-span-2" placeholder="Место хранения (необязательно)" value={newItem.locationText} onChange={(event) => setNewItem((prev) => ({ ...prev, locationText: event.target.value }))} />
+          <textarea className="min-h-16 rounded border border-zinc-300 px-2 py-1 text-sm sm:col-span-2" placeholder="Описание (необязательно)" value={newItem.description} onChange={(event) => setNewItem((prev) => ({ ...prev, description: event.target.value }))} />
           <select className="rounded border border-zinc-300 px-2 py-1 text-sm" value={newItem.itemType} onChange={(event) => setNewItem((prev) => ({ ...prev, itemType: event.target.value as "ASSET" | "BULK" | "CONSUMABLE" }))}>
             {ITEM_TYPE_OPTIONS.map((entry) => (
               <option key={entry.value} value={entry.value}>
@@ -279,7 +319,12 @@ export default function AdminItemsPage() {
         {draft ? (
           <div className="space-y-2 rounded border border-zinc-200 bg-white p-3">
             <div className="grid gap-2 sm:grid-cols-2">
-              <input className="rounded border border-zinc-300 px-2 py-1 text-sm" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+              <input className="rounded border border-zinc-300 px-2 py-1 text-sm sm:col-span-2" placeholder="Название" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+              <input className="rounded border border-zinc-300 px-2 py-1 text-sm sm:col-span-2" placeholder="Место хранения" value={draft.locationText} onChange={(event) => setDraft({ ...draft, locationText: event.target.value })} />
+              <label className="sm:col-span-2">
+                <span className="mb-1 block text-xs text-zinc-600">Описание</span>
+                <textarea className="min-h-20 w-full rounded border border-zinc-300 px-2 py-1 text-sm" placeholder="Описание позиции для каталога" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+              </label>
               <select className="rounded border border-zinc-300 px-2 py-1 text-sm" value={draft.itemType} onChange={(event) => setDraft({ ...draft, itemType: event.target.value as "ASSET" | "BULK" | "CONSUMABLE" })}>
                 {ITEM_TYPE_OPTIONS.map((entry) => (
                   <option key={entry.value} value={entry.value}>

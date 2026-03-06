@@ -252,6 +252,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         customer: true,
         lines: {
           orderBy: [{ createdAt: "asc" }],
+          include: { item: { select: { name: true } } },
         },
       },
     });
@@ -259,11 +260,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const serialized = serializeOrder(order);
   if (serialized.status === "SUBMITTED") {
+    const compositionLines = order.lines.map(
+      (l) => `${(l as { item: { name: string } }).item.name} × ${l.requestedQty}`,
+    );
     await notifyWarehouseAboutNewOrder({
       orderId: String(serialized.id),
       customerName: (serialized.customerName as string | null) ?? null,
       startDate: String(serialized.startDate),
       endDate: String(serialized.endDate),
+      notes: order.notes ?? null,
+      compositionLines,
       deliveryRequested: order.deliveryRequested,
       deliveryComment: order.deliveryComment ?? null,
       mountRequested: order.mountRequested,

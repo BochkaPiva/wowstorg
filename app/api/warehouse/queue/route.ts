@@ -100,10 +100,33 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         },
       },
     },
-    orderBy: [{ readyByDate: "asc" }, { isEmergency: "desc" }, { updatedAt: "desc" }],
+    orderBy: [{ updatedAt: "desc" }],
   });
 
-  const visibleOrders = orders.filter((order) => {
+  const statusOrder: Record<OrderStatus, number> = {
+    SUBMITTED: 0,
+    APPROVED: 1,
+    RETURN_DECLARED: 2,
+    ISSUED: 3,
+    CLOSED: 4,
+    CANCELLED: 5,
+  };
+
+  const sorted = [...orders].sort((a, b) => {
+    const statusA = statusOrder[a.status];
+    const statusB = statusOrder[b.status];
+    if (statusA !== statusB) return statusA - statusB;
+    if (a.status === "SUBMITTED" || a.status === "APPROVED") {
+      const byReady = a.readyByDate.getTime() - b.readyByDate.getTime();
+      if (byReady !== 0) return byReady;
+      return (b.isEmergency ? 1 : 0) - (a.isEmergency ? 1 : 0);
+    }
+    const byEnd = a.endDate.getTime() - b.endDate.getTime();
+    if (byEnd !== 0) return byEnd;
+    return b.updatedAt.getTime() - a.updatedAt.getTime();
+  });
+
+  const visibleOrders = sorted.filter((order) => {
     if (order.status !== OrderStatus.ISSUED) {
       return true;
     }
@@ -113,46 +136,49 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   });
 
   return NextResponse.json({
-    orders: visibleOrders.map((order) => ({
-      id: order.id,
-      status: order.status,
-      isEmergency: order.isEmergency,
-      orderSource: order.orderSource,
-      customerId: order.customerId,
-      customerName: order.customer?.name ?? null,
-      eventName: order.eventName,
-      updatedAt: order.updatedAt.toISOString(),
-      updatedMinutesAgo: minutesAgo(order.updatedAt),
-      startDate: order.startDate.toISOString().slice(0, 10),
-      endDate: order.endDate.toISOString().slice(0, 10),
-      readyByDate: order.readyByDate.toISOString().slice(0, 10),
-      pickupTime: order.pickupTime,
-      notes: order.notes,
-      deliveryRequested: order.deliveryRequested,
-      deliveryComment: order.deliveryComment ?? null,
-      mountRequested: order.mountRequested,
-      mountComment: order.mountComment ?? null,
-      dismountRequested: order.dismountRequested,
-      dismountComment: order.dismountComment ?? null,
-      deliveryPrice: order.deliveryPrice != null ? Number(order.deliveryPrice) : null,
-      mountPrice: order.mountPrice != null ? Number(order.mountPrice) : null,
-      dismountPrice: order.dismountPrice != null ? Number(order.dismountPrice) : null,
-      warehouseInternalNote: order.warehouseInternalNote ?? null,
-      clientDeclaration: parseClientDeclaration(order.notes),
-      createdBy: {
-        id: order.createdBy.id,
-        username: order.createdBy.username,
-        telegramId: order.createdBy.telegramId.toString(),
-      },
-      lines: order.lines.map((line) => ({
-        id: line.id,
-        itemId: line.itemId,
-        itemName: line.item.name,
-        itemType: line.item.itemType,
-        requestedQty: line.requestedQty,
-        approvedQty: line.approvedQty,
-        issuedQty: line.issuedQty,
-      })),
-    })),
+    orders: visibleOrders.map((order) => {
+      const o = order as (typeof visibleOrders)[0];
+      return {
+        id: o.id,
+        status: o.status,
+        isEmergency: o.isEmergency,
+        orderSource: o.orderSource,
+        customerId: o.customerId,
+        customerName: o.customer?.name ?? null,
+        eventName: o.eventName,
+        updatedAt: o.updatedAt.toISOString(),
+        updatedMinutesAgo: minutesAgo(o.updatedAt),
+        startDate: o.startDate.toISOString().slice(0, 10),
+        endDate: o.endDate.toISOString().slice(0, 10),
+        readyByDate: o.readyByDate.toISOString().slice(0, 10),
+        pickupTime: o.pickupTime,
+        notes: o.notes,
+        deliveryRequested: o.deliveryRequested,
+        deliveryComment: o.deliveryComment ?? null,
+        mountRequested: o.mountRequested,
+        mountComment: o.mountComment ?? null,
+        dismountRequested: o.dismountRequested,
+        dismountComment: o.dismountComment ?? null,
+        deliveryPrice: o.deliveryPrice != null ? Number(o.deliveryPrice) : null,
+        mountPrice: o.mountPrice != null ? Number(o.mountPrice) : null,
+        dismountPrice: o.dismountPrice != null ? Number(o.dismountPrice) : null,
+        warehouseInternalNote: o.warehouseInternalNote ?? null,
+        clientDeclaration: parseClientDeclaration(o.notes),
+        createdBy: {
+          id: o.createdBy.id,
+          username: o.createdBy.username,
+          telegramId: o.createdBy.telegramId.toString(),
+        },
+        lines: o.lines.map((line) => ({
+          id: line.id,
+          itemId: line.itemId,
+          itemName: line.item.name,
+          itemType: line.item.itemType,
+          requestedQty: line.requestedQty,
+          approvedQty: line.approvedQty,
+          issuedQty: line.issuedQty,
+        })),
+      };
+    }),
   });
 }

@@ -9,6 +9,7 @@ type ItemStatus = "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | string;
 type ItemRow = {
   id: string;
   name: string;
+  description: string | null;
   itemType: string;
   availabilityStatus: ItemStatus;
   availableQty: number;
@@ -16,6 +17,13 @@ type ItemRow = {
   pricePerDayDiscounted: number;
   categories?: Array<{ id: string; name: string }>;
 };
+
+function itemTypeLabel(type: string): string {
+  if (type === "ASSET") return "Актив";
+  if (type === "CONSUMABLE") return "Расходник";
+  if (type === "BULK") return "Массовый";
+  return type;
+}
 
 type Category = { id: string; name: string; itemCount: number };
 type Kit = {
@@ -90,6 +98,7 @@ export default function CatalogPage() {
   const [dismountComment, setDismountComment] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [cartQtyEdit, setCartQtyEdit] = useState<Record<string, string>>({});
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
 
@@ -316,28 +325,52 @@ export default function CatalogPage() {
         </div>
       ) : null}
 
-      <div className="ws-card grid w-full min-w-0 grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4" style={{ maxWidth: "100%" }}>
+      <div className="ws-card flex w-full max-w-full flex-wrap items-end gap-3 overflow-visible p-3">
         {isGreenwich ? (
-          <label className="min-w-[11rem] text-xs font-medium text-amber-800">
-            Готовность к дате
-            <input className="mt-1 w-full min-w-[11rem] rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 text-sm box-border" type="date" value={readyByDate} onChange={(e) => setReadyByDate(e.target.value)} max={startDate} style={{ paddingRight: "2.75rem" }} />
+          <label className="flex min-w-0 flex-1 basis-48 flex-col text-xs font-medium text-amber-800">
+            <span className="mb-1">Готовность к дате</span>
+            <input
+              className="w-full min-w-0 rounded-xl border-2 border-amber-300 bg-amber-50 px-2 py-2 text-sm box-border"
+              type="date"
+              value={readyByDate}
+              onChange={(e) => setReadyByDate(e.target.value)}
+              max={startDate}
+              style={{ paddingRight: "2.75rem" }}
+            />
           </label>
         ) : null}
-        <label className="min-w-[11rem] text-xs text-[var(--muted)]">
-          Начало аренды
-          <input className="mt-1 w-full min-w-[11rem] rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border" type="date" value={startDate} onChange={(e) => {
-            const v = e.target.value;
-            setStartDate(v);
-            if (readyByDate > v) setReadyByDate(v);
-          }} style={{ paddingRight: "2.75rem" }} />
+        <label className="flex min-w-0 flex-1 basis-48 flex-col text-xs text-[var(--muted)]">
+          <span className="mb-1">Начало аренды</span>
+          <input
+            className="w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border"
+            type="date"
+            value={startDate}
+            onChange={(e) => {
+              const v = e.target.value;
+              setStartDate(v);
+              if (readyByDate > v) setReadyByDate(v);
+            }}
+            style={{ paddingRight: "2.75rem" }}
+          />
         </label>
-        <label className="min-w-[11rem] text-xs text-[var(--muted)]">
-          Окончание аренды
-          <input className="mt-1 w-full min-w-[11rem] rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ paddingRight: "2.75rem" }} />
+        <label className="flex min-w-0 flex-1 basis-48 flex-col text-xs text-[var(--muted)]">
+          <span className="mb-1">Окончание аренды</span>
+          <input
+            className="w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border"
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            style={{ paddingRight: "2.75rem" }}
+          />
         </label>
-        <label className="min-w-0 text-xs text-[var(--muted)]">
-          Поиск
-          <input className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border" placeholder="Поиск по позициям" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <label className="flex min-w-0 flex-1 basis-48 flex-col text-xs text-[var(--muted)]">
+          <span className="mb-1">Поиск</span>
+          <input
+            className="w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm box-border"
+            placeholder="Поиск по позициям"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </label>
       </div>
 
@@ -441,23 +474,37 @@ export default function CatalogPage() {
             const isAddable = canAddToCart(item);
             const inCart = cart.find((entry) => entry.itemId === item.id);
             const qty = inCart?.qty ?? 0;
+            const isExpanded = expandedItemId === item.id;
+            const hasDescription = item.description != null && item.description.trim() !== "";
             return (
               <div key={item.id} className="ws-card p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="inline-flex items-center gap-2 font-medium">
-                      <i className={`h-2.5 w-2.5 rounded-full ${visual.dot}`} />
-                      {item.name}
-                    </div>
-                    <div className="text-xs text-[var(--muted)]">
-                      {item.itemType} • {visual.label} • доступно: {item.availableQty}
+                  <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      className="inline-flex w-full items-start gap-2 text-left font-medium"
+                      onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                    >
+                      <i className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${visual.dot}`} />
+                      <span className="break-words">{item.name}</span>
+                      {hasDescription ? (
+                        <span className="shrink-0 text-[var(--muted)]">{isExpanded ? "▼" : "▶"}</span>
+                      ) : null}
+                    </button>
+                    <div className="mt-0.5 text-xs text-[var(--muted)]">
+                      {itemTypeLabel(item.itemType)} • {visual.label} • доступно: {item.availableQty}
                     </div>
                     <div className="text-xs text-[var(--muted)]">
                       Цена/сутки: {formatMoney(isGreenwich ? item.pricePerDayDiscounted : item.pricePerDay)} ₽
                     </div>
+                    {hasDescription && isExpanded ? (
+                      <div className="mt-2 rounded-lg bg-slate-50 p-2 text-xs text-[var(--muted)] whitespace-pre-wrap">
+                        {item.description!.trim()}
+                      </div>
+                    ) : null}
                   </div>
                   {qty > 0 ? (
-                    <div className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-2 py-1">
+                    <div className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-2 py-1">
                       <button className="ws-btn" type="button" onClick={() => setItemQty(item, qty - 1)}>
                         -
                       </button>
@@ -467,7 +514,7 @@ export default function CatalogPage() {
                       </button>
                     </div>
                   ) : (
-                    <button className="ws-btn disabled:opacity-50" type="button" onClick={() => addItem(item)} disabled={!isAddable}>
+                    <button className="ws-btn shrink-0 disabled:opacity-50" type="button" onClick={() => addItem(item)} disabled={!isAddable}>
                       В корзину
                     </button>
                   )}

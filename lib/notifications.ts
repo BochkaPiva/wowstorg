@@ -82,6 +82,8 @@ export async function notifyWarehouseAboutNewOrder(params: {
   customerName: string | null;
   startDate: string;
   endDate: string;
+  notes?: string | null;
+  compositionLines?: string[];
   deliveryRequested?: boolean;
   deliveryComment?: string | null;
   mountRequested?: boolean;
@@ -89,28 +91,39 @@ export async function notifyWarehouseAboutNewOrder(params: {
   dismountRequested?: boolean;
   dismountComment?: string | null;
 }): Promise<void> {
+  const compositionBlock =
+    params.compositionLines && params.compositionLines.length > 0
+      ? `📋 Состав:\n${params.compositionLines.map((s) => `  • ${s}`).join("\n")}`
+      : "";
+  const commentBlock =
+    params.notes && params.notes.trim()
+      ? `\n💬 Комментарий заказчика:\n${params.notes.trim()}`
+      : "";
   const serviceLines: string[] = [];
   if (params.deliveryRequested) {
-    serviceLines.push(`Доставка: ${params.deliveryComment?.trim() || "—"}`);
+    serviceLines.push(`🚚 Доставка: ${params.deliveryComment?.trim() || "—"}`);
   }
   if (params.mountRequested) {
-    serviceLines.push(`Монтаж: ${params.mountComment?.trim() || "—"}`);
+    serviceLines.push(`🔧 Монтаж: ${params.mountComment?.trim() || "—"}`);
   }
   if (params.dismountRequested) {
-    serviceLines.push(`Демонтаж: ${params.dismountComment?.trim() || "—"}`);
+    serviceLines.push(`📦 Демонтаж: ${params.dismountComment?.trim() || "—"}`);
   }
   const servicesBlock =
-    serviceLines.length > 0 ? `Услуги:\n${serviceLines.map((s) => `  ${s}`).join("\n")}` : "";
+    serviceLines.length > 0 ? `\n\n📌 Услуги:\n${serviceLines.join("\n")}` : "";
 
   const text = [
-    "Новая заявка в очереди.",
-    `Заявка: ${params.orderId}`,
-    `Заказчик: ${params.customerName ?? "-"}`,
-    `Период: ${params.startDate} - ${params.endDate}`,
+    "🆕 Новая заявка в очереди",
+    "",
+    `📄 Заявка: ${params.orderId}`,
+    `👤 Заказчик: ${params.customerName ?? "—"}`,
+    `📅 Период: ${params.startDate} — ${params.endDate}`,
+    compositionBlock,
+    commentBlock,
     servicesBlock,
   ]
     .filter(Boolean)
-    .join("\n\n");
+    .join("\n");
 
   await sendToNotificationChat({
     text,
@@ -124,14 +137,24 @@ export async function notifyAdminsAboutOrderEdit(params: {
   startDate: string;
   endDate: string;
   compositionSummary: string;
+  notes?: string | null;
 }): Promise<void> {
+  const commentBlock =
+    params.notes && params.notes.trim()
+      ? `\n💬 Комментарий заказчика:\n${params.notes.trim()}`
+      : "";
   const text = [
-    "Заявка изменена клиентом.",
-    `Заявка: ${params.orderId}`,
-    `Заказчик: ${params.customerName ?? "—"}`,
-    `Период: ${params.startDate} — ${params.endDate}`,
-    `Состав: ${params.compositionSummary}`,
-  ].join("\n");
+    "✏️ Заявка изменена клиентом",
+    "",
+    `📄 Заявка: ${params.orderId}`,
+    `👤 Заказчик: ${params.customerName ?? "—"}`,
+    `📅 Период: ${params.startDate} — ${params.endDate}`,
+    "",
+    `📋 Состав: ${params.compositionSummary}`,
+    commentBlock,
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   await sendToNotificationChat({
     text,
@@ -146,13 +169,21 @@ export async function notifyWarehouseAboutOrderCancelledByClient(params: {
   startDate: string;
   endDate: string;
   eventName?: string | null;
+  /** Комментарий заказчика из заявки (для контекста). */
+  notes?: string | null;
 }): Promise<void> {
+  const notesBlock =
+    params.notes && params.notes.trim()
+      ? `\n💬 Комментарий из заявки:\n${params.notes.trim()}`
+      : "";
   const text = [
-    "Клиент отменил заявку.",
-    `Заявка: ${params.orderId}`,
-    `Заказчик: ${params.customerName ?? "—"}`,
-    `Период: ${params.startDate} — ${params.endDate}`,
-    params.eventName ? `Мероприятие: ${params.eventName}` : "",
+    "❌ Клиент отменил заявку",
+    "",
+    `📄 Заявка: ${params.orderId}`,
+    `👤 Заказчик: ${params.customerName ?? "—"}`,
+    `📅 Период: ${params.startDate} — ${params.endDate}`,
+    params.eventName ? `🎪 Мероприятие: ${params.eventName}` : "",
+    notesBlock,
   ]
     .filter(Boolean)
     .join("\n");
@@ -170,15 +201,30 @@ export async function notifyWarehouseAboutReturnDeclared(params: {
   startDate: string;
   endDate: string;
   eventName?: string | null;
+  /** Комментарий клиента к возврату (общий). */
+  comment?: string | null;
+  /** Краткие строки по позициям возврата (например: "Колонка 12\": 2 OK, 1 сломано"). */
+  returnSummaryLines?: string[];
 }): Promise<void> {
+  const commentBlock =
+    params.comment && params.comment.trim()
+      ? `\n💬 Комментарий клиента к возврату:\n${params.comment.trim()}`
+      : "";
+  const summaryBlock =
+    params.returnSummaryLines && params.returnSummaryLines.length > 0
+      ? `\n📋 По позициям:\n${params.returnSummaryLines.map((s) => `  • ${s}`).join("\n")}`
+      : "";
   const text = [
-    "Клиент отправил возврат на приёмку.",
-    `Заявка: ${params.orderId}`,
-    `Заказчик: ${params.customerName ?? "—"}`,
-    `Период: ${params.startDate} — ${params.endDate}`,
-    params.eventName ? `Мероприятие: ${params.eventName}` : "",
+    "📥 Клиент отправил возврат на приёмку",
     "",
-    "Ожидает приёмки в очереди склада.",
+    `📄 Заявка: ${params.orderId}`,
+    `👤 Заказчик: ${params.customerName ?? "—"}`,
+    `📅 Период: ${params.startDate} — ${params.endDate}`,
+    params.eventName ? `🎪 Мероприятие: ${params.eventName}` : "",
+    summaryBlock,
+    commentBlock,
+    "",
+    "⏳ Ожидает приёмки в очереди склада.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -207,19 +253,19 @@ export async function notifyOrderOwner(params: {
 
   const blockText = params.blocks
     .filter((block) => block.lines.length > 0)
-    .map((block) => `${block.title}\n${block.lines.map((line) => `- ${line}`).join("\n")}`)
+    .map((block) => `${block.title}\n${block.lines.map((line) => `  • ${line}`).join("\n")}`)
     .join("\n\n");
 
-  const text = [
+  const parts = [
     params.title,
-    `Период аренды: ${params.startDate} - ${params.endDate}`,
-    `Заказчик: ${params.customerName ?? "-"}`,
-    params.eventName ? `Мероприятие: ${params.eventName}` : "",
+    "",
+    `📅 Период аренды: ${params.startDate} — ${params.endDate}`,
+    `👤 Заказчик: ${params.customerName ?? "—"}`,
+    params.eventName ? `🎪 Мероприятие: ${params.eventName}` : "",
     blockText,
-    params.comment ? `Комментарий: ${params.comment}` : "",
-  ]
-    .filter((entry) => entry.length > 0)
-    .join("\n");
+    params.comment ? `\n💬 Комментарий:\n${params.comment}` : "",
+  ].filter((entry) => entry.length > 0);
+  const text = parts.join("\n");
 
   await safeSend(
     sendTelegramMessage({
@@ -251,13 +297,14 @@ export async function notifyOwnerLastDayOfRental(params: {
   eventName?: string | null;
 }): Promise<void> {
   const text = [
-    "Напоминание: сегодня последний день аренды по заявке.",
-    `Заявка: ${params.orderId}`,
-    `Период аренды до: ${params.endDate}`,
-    params.customerName ? `Заказчик: ${params.customerName}` : "",
-    params.eventName ? `Мероприятие: ${params.eventName}` : "",
+    "⏰ Напоминание: сегодня последний день аренды",
     "",
-    "Подайте возврат реквизита в разделе «Мои заявки», когда будете сдавать позиции.",
+    `📄 Заявка: ${params.orderId}`,
+    `📅 Аренда до: ${params.endDate}`,
+    params.customerName ? `👤 Заказчик: ${params.customerName}` : "",
+    params.eventName ? `🎪 Мероприятие: ${params.eventName}` : "",
+    "",
+    "📥 Подайте возврат реквизита в разделе «Мои заявки», когда будете сдавать позиции.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -288,13 +335,14 @@ export async function notifyOwnerOverdueReturn(params: {
         : `${params.daysOverdue} дней`;
 
   const text = [
-    "Просрочка сдачи на приемку.",
-    `Заявка: ${params.orderId}`,
-    `Период аренды закончился: ${params.endDate} (просрочка ${daysWord}).`,
-    params.customerName ? `Заказчик: ${params.customerName}` : "",
-    params.eventName ? `Мероприятие: ${params.eventName}` : "",
+    "⚠️ Просрочка сдачи на приёмку",
     "",
-    "Пожалуйста, подайте возврат реквизита в разделе «Мои заявки» и сдайте позиции складу.",
+    `📄 Заявка: ${params.orderId}`,
+    `📅 Аренда закончилась: ${params.endDate} (просрочка ${daysWord})`,
+    params.customerName ? `👤 Заказчик: ${params.customerName}` : "",
+    params.eventName ? `🎪 Мероприятие: ${params.eventName}` : "",
+    "",
+    "📥 Подайте возврат реквизита в разделе «Мои заявки» и сдайте позиции складу.",
   ]
     .filter(Boolean)
     .join("\n");

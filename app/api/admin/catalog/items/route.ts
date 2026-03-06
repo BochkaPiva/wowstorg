@@ -34,28 +34,42 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const search = request.nextUrl.searchParams.get("search")?.trim() ?? "";
-  const items = await prisma.item.findMany({
-    where:
-      search.length > 0
-        ? {
-            OR: [
-              { id: { contains: search, mode: "insensitive" } },
-              { name: { contains: search, mode: "insensitive" } },
-            ],
-          }
-        : undefined,
-    include: {
-      categories: true,
-      images: { orderBy: [{ createdAt: "desc" }] },
-    },
-    orderBy: [{ name: "asc" }],
-    take: 300,
-  });
+  const pageRaw = request.nextUrl.searchParams.get("page");
+  const limitRaw = request.nextUrl.searchParams.get("limit");
+  const page = Math.max(1, Number.parseInt(pageRaw ?? "1", 10) || 1);
+  const limit = Math.min(500, Math.max(1, Number.parseInt(limitRaw ?? "100", 10) || 100));
+  const skip = (page - 1) * limit;
+
+  const where =
+    search.length > 0
+      ? {
+          OR: [
+            { id: { contains: search, mode: "insensitive" as const } },
+            { name: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : undefined;
+
+  const [items, total] = await Promise.all([
+    prisma.item.findMany({
+      where,
+      include: {
+        categories: true,
+        images: { orderBy: [{ createdAt: "desc" }] },
+      },
+      orderBy: [{ name: "asc" }],
+      skip,
+      take: limit,
+    }),
+    prisma.item.count({ where }),
+  ]);
 
   return NextResponse.json({
     items: items.map((item) => ({
       id: item.id,
       name: item.name,
+      description: item.description ?? null,
+      locationText: item.locationText ?? null,
       itemType: item.itemType,
       availabilityStatus: item.availabilityStatus,
       stockTotal: item.stockTotal,
@@ -66,6 +80,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       categoryIds: item.categories.map((entry) => entry.categoryId),
       imageUrls: item.images.map((image) => image.url),
     })),
+    total,
+    page,
+    limit,
   });
 }
 

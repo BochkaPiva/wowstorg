@@ -88,6 +88,7 @@ export async function POST(
       startDate: order.startDate.toISOString().slice(0, 10),
       endDate: order.endDate.toISOString().slice(0, 10),
       eventName: order.eventName ?? null,
+      notes: order.notes ?? null,
     });
   }
 

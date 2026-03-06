@@ -4,7 +4,7 @@ CREATE TABLE "internal_consumables" (
     "name" TEXT NOT NULL,
     "quantity" INTEGER NOT NULL DEFAULT 0,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "internal_consumables_pkey" PRIMARY KEY ("id")
 );

@@ -488,7 +488,15 @@ export default function CatalogPage() {
                       <i className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${visual.dot}`} />
                       <span className="break-words">{item.name}</span>
                       {hasDescription ? (
-                        <span className="shrink-0 text-[var(--muted)]">{isExpanded ? "▼" : "▶"}</span>
+                        <span
+                          className="shrink-0 text-[var(--muted)] transition-transform duration-200"
+                          style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}
+                          aria-hidden
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                        </span>
                       ) : null}
                     </button>
                     <div className="mt-0.5 text-xs text-[var(--muted)]">

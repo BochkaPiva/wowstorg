@@ -377,57 +377,58 @@ export default function MyOrdersPage() {
       <div className="space-y-3">
         {sorted.map((order) => (
           <article key={order.id} className="ws-card overflow-hidden p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
+            {/* Превью: вертикальный поток, без наложения кнопок на текст */}
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
                   <span className="font-semibold">
-                    {order.customerName ?? "Без заказчика"} {order.eventName ? `• ${order.eventName}` : ""}
+                    {order.customerName ?? "Без заказчика"}
+                    {order.eventName ? ` • ${order.eventName}` : ""}
                   </span>
                   {order.createdViaQuickIssue ? (
-                    <span className="rounded-full border border-violet-300 bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
+                    <span className="ml-2 rounded-full border border-violet-300 bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
                       Быстрая выдача
                     </span>
                   ) : null}
                 </div>
-                <div className="text-xs text-[var(--muted)]">
-                  Готовность к: {order.readyByDate ?? order.startDate}
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusClass(order.status)}`}>
+                    {statusText(order.status)}
+                  </span>
+                  <button
+                    type="button"
+                    className="ws-btn text-xs"
+                    onClick={() => {
+                      const next = expandedDetailOrderId === order.id ? null : order.id;
+                      setExpandedDetailOrderId(next);
+                      if (next) {
+                        requestAnimationFrame(() => {
+                          const el = document.getElementById(`order-detail-${order.id}`);
+                          el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                        });
+                      }
+                    }}
+                  >
+                    {expandedDetailOrderId === order.id ? "Свернуть" : "Подробнее"}
+                  </button>
                 </div>
-                <div className="text-xs text-[var(--muted)]">
-                  Обновлено: {new Date(order.updatedAt).toLocaleString("ru-RU")}
-                </div>
+              </div>
+              <div className="text-xs text-[var(--muted)]">
+                Готовность к: {order.readyByDate ?? order.startDate}
+                {" • "}
+                Обновлено: {new Date(order.updatedAt).toLocaleString("ru-RU")}
                 {order.totalAmount != null && order.totalAmount > 0 ? (
-                  <div className="text-sm font-medium text-[var(--brand)]">
-                    Сумма: {order.totalAmount.toLocaleString("ru-RU")} ₽
-                  </div>
+                  <> • Сумма: {order.totalAmount.toLocaleString("ru-RU")} ₽</>
                 ) : null}
               </div>
-              <div className="flex flex-shrink-0 flex-col items-end gap-2">
-                <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusClass(order.status)}`}>
-                  {statusText(order.status)}
-                </span>
-                <button
-                  type="button"
-                  className="ws-btn text-xs"
-                  onClick={() => {
-                    const next = expandedDetailOrderId === order.id ? null : order.id;
-                    setExpandedDetailOrderId(next);
-                    if (next) {
-                      requestAnimationFrame(() => {
-                        const el = document.getElementById(`order-detail-${order.id}`);
-                        el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                      });
-                    }
-                  }}
-                >
-                  {expandedDetailOrderId === order.id ? "Свернуть" : "Подробнее"}
-                </button>
+              <div className="flex flex-wrap gap-2">
                 {order.status === "ISSUED" ? (
-                  <div className="flex gap-2">
-                    <button className="ws-btn" onClick={() => void declareReturnFast(order)} disabled={busyOrderId !== null}>
+                  <>
+                    <button className="ws-btn text-xs" onClick={() => void declareReturnFast(order)} disabled={busyOrderId !== null}>
                       Сдать все (ОК)
                     </button>
                     <button
-                      className="ws-btn"
+                      className="ws-btn text-xs"
                       onClick={() => {
                         ensureDraft(order);
                         setExpandedReturnOrderId((prev) => (prev === order.id ? null : order.id));
@@ -435,22 +436,22 @@ export default function MyOrdersPage() {
                     >
                       Возврат по позициям
                     </button>
-                  </div>
+                  </>
                 ) : null}
                 {order.status === "SUBMITTED" ? (
-                  <div className="flex gap-2">
-                    <button className="ws-btn" onClick={() => void openEdit(order)}>
-                      {expandedEditOrderId === order.id ? "Скрыть редактирование" : "Редактировать заявку"}
+                  <>
+                    <button className="ws-btn text-xs" onClick={() => void openEdit(order)}>
+                      {expandedEditOrderId === order.id ? "Скрыть" : "Редактировать"}
                     </button>
                     <button
-                      className="ws-btn disabled:opacity-50"
+                      className="ws-btn text-xs disabled:opacity-50"
                       onClick={() => void cancelOrder(order)}
                       disabled={busyOrderId !== null}
                       title="Отменить заявку (попадёт в архив)"
                     >
-                      Отменить заявку
+                      Отменить
                     </button>
-                  </div>
+                  </>
                 ) : null}
               </div>
             </div>

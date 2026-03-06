@@ -80,6 +80,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (order.orderSource === "GREENWICH_INTERNAL") {
       sum *= 1 - Number(order.discountRate);
     }
+    if (order.deliveryPrice != null) sum += Number(order.deliveryPrice);
+    if (order.mountPrice != null) sum += Number(order.mountPrice);
+    if (order.dismountPrice != null) sum += Number(order.dismountPrice);
     return Math.round(sum);
   }
 
@@ -99,10 +102,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       updatedAt: order.updatedAt.toISOString(),
       deliveryRequested: order.deliveryRequested,
       deliveryComment: order.deliveryComment ?? null,
+      deliveryPrice: order.deliveryPrice != null ? Number(order.deliveryPrice) : null,
       mountRequested: order.mountRequested,
       mountComment: order.mountComment ?? null,
+      mountPrice: order.mountPrice != null ? Number(order.mountPrice) : null,
       dismountRequested: order.dismountRequested,
       dismountComment: order.dismountComment ?? null,
+      dismountPrice: order.dismountPrice != null ? Number(order.dismountPrice) : null,
+      discountRate: Number(order.discountRate),
       lines: order.lines.map((line) => ({
         id: line.id,
         itemId: line.itemId,
@@ -110,6 +117,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         requestedQty: line.requestedQty,
         approvedQty: line.approvedQty,
         issuedQty: line.issuedQty,
+        pricePerDaySnapshot: Number(line.pricePerDaySnapshot),
         checkinLine: line.checkinLine
           ? {
               returnedQty: line.checkinLine.returnedQty,

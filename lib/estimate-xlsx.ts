@@ -16,12 +16,16 @@ export function buildEstimateXlsx(params: {
   deliveryPrice: number | null;
   mountPrice: number | null;
   dismountPrice: number | null;
+  /** Скидка для заявок Greenwich (0..1). Итог по аренде считается уже со скидкой. */
+  discountRate?: number;
 }): Buffer {
+  const discountRate = params.discountRate ?? 0;
   const rows: (string | number)[][] = [
     ["Смета заявки", params.orderId],
     ["Период", `${params.startDate} — ${params.endDate}`],
     ["Заказчик", params.customerName ?? "—"],
     ...(params.eventName ? [["Мероприятие", params.eventName]] : []),
+    ...(discountRate > 0 ? [[`Скидка (Greenwich)`, `${Math.round(discountRate * 100)}%`]] : []),
     [],
     ["Позиция", "Кол-во", "Цена за сутки, ₽", "Сумма, ₽"],
   ];
@@ -33,9 +37,10 @@ export function buildEstimateXlsx(params: {
   const rentalDays = Math.max(1, Math.round(diffMs / 86400000) || 1);
 
   for (const line of params.lines) {
-    const lineTotal = line.pricePerDay * line.requestedQty * rentalDays;
+    const pricePerDay = Math.round(line.pricePerDay * (1 - discountRate) * 100) / 100;
+    const lineTotal = Math.round(pricePerDay * line.requestedQty * rentalDays);
     total += lineTotal;
-    rows.push([line.itemName, line.requestedQty, line.pricePerDay, lineTotal]);
+    rows.push([line.itemName, line.requestedQty, pricePerDay, lineTotal]);
   }
 
   if (params.deliveryPrice != null) {

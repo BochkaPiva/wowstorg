@@ -24,6 +24,7 @@ type OrderLine = {
   requestedQty: number;
   approvedQty: number | null;
   issuedQty: number | null;
+  pricePerDaySnapshot?: number;
   checkinLine?: {
     returnedQty: number;
     condition: string;
@@ -52,6 +53,10 @@ type Order = {
   mountComment?: string | null;
   dismountRequested?: boolean;
   dismountComment?: string | null;
+  deliveryPrice?: number | null;
+  mountPrice?: number | null;
+  dismountPrice?: number | null;
+  discountRate?: number;
 };
 type EditableOrderDetails = {
   id: string;
@@ -490,6 +495,34 @@ export default function MyOrdersPage() {
                     })}
                   </ul>
                 </div>
+                {order.lines.some((l) => typeof l.pricePerDaySnapshot === "number") ? (() => {
+                  const days = Math.max(1, Math.ceil((new Date(order.endDate).getTime() - new Date(order.startDate).getTime()) / 86400000));
+                  const discount = order.orderSource === "GREENWICH_INTERNAL" && typeof order.discountRate === "number" ? order.discountRate : 0;
+                  let rentalSubtotal = 0;
+                  return (
+                    <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                      <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Стоимость позиций (аренда)</div>
+                      <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-sm">
+                        {order.lines.map((line) => {
+                          const qty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+                          const pricePerDay = (line.pricePerDaySnapshot ?? 0) * (1 - discount);
+                          const lineSum = Math.round(pricePerDay * qty * days);
+                          rentalSubtotal += lineSum;
+                          return (
+                            <li key={line.id} className="border-b border-[var(--border)] pb-2 last:border-0 last:pb-0">
+                              <div className="flex min-w-0 justify-between gap-2">
+                                <span className="min-w-0 truncate">{line.itemName}</span>
+                                <span className="flex-shrink-0 tabular-nums font-medium">{lineSum.toLocaleString("ru-RU")} ₽</span>
+                              </div>
+                              <div className="mt-0.5 text-xs text-[var(--muted)]">{qty} × {pricePerDay.toLocaleString("ru-RU")} ₽/сут × {days} дн</div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      <p className="mt-2 border-t border-[var(--border)] pt-2 text-sm font-medium">Аренда итого: {rentalSubtotal.toLocaleString("ru-RU")} ₽</p>
+                    </div>
+                  );
+                })() : null}
                 <div className="rounded-lg border border-[var(--border)] bg-white p-3">
                   <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Принято при сдаче</div>
                   {order.status === "RETURN_DECLARED" && !order.lines.some((l) => l.checkinLine) ? (
@@ -525,20 +558,40 @@ export default function MyOrdersPage() {
                     <p className="mt-1 text-sm text-[var(--muted)]">—</p>
                   )}
                 </div>
-                {order.totalAmount != null && order.totalAmount > 0 ? (
-                  <div className="rounded-lg border border-[var(--border)] bg-white p-3">
-                    <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Сумма</div>
-                    <div className="mt-1 text-lg font-semibold text-[var(--brand)]">{order.totalAmount.toLocaleString("ru-RU")} ₽</div>
-                  </div>
-                ) : null}
                 {(order.deliveryRequested || order.mountRequested || order.dismountRequested) ? (
                   <div className="rounded-lg border border-[var(--border)] bg-white p-3">
                     <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Доп. услуги</div>
                     <ul className="mt-1 space-y-1 text-sm">
-                      {order.deliveryRequested && <li>Доставка{order.deliveryComment ? `: ${order.deliveryComment}` : ""}</li>}
-                      {order.mountRequested && <li>Монтаж{order.mountComment ? `: ${order.mountComment}` : ""}</li>}
-                      {order.dismountRequested && <li>Демонтаж{order.dismountComment ? `: ${order.dismountComment}` : ""}</li>}
+                      {order.deliveryRequested && (
+                        <li className="flex flex-wrap justify-between gap-x-2 gap-y-0.5">
+                          <span className="min-w-0">Доставка{order.deliveryComment ? `: ${order.deliveryComment}` : ""}</span>
+                          {typeof order.deliveryPrice === "number" && <span className="flex-shrink-0 tabular-nums font-medium">{order.deliveryPrice.toLocaleString("ru-RU")} ₽</span>}
+                        </li>
+                      )}
+                      {order.mountRequested && (
+                        <li className="flex flex-wrap justify-between gap-x-2 gap-y-0.5">
+                          <span className="min-w-0">Монтаж{order.mountComment ? `: ${order.mountComment}` : ""}</span>
+                          {typeof order.mountPrice === "number" && <span className="flex-shrink-0 tabular-nums font-medium">{order.mountPrice.toLocaleString("ru-RU")} ₽</span>}
+                        </li>
+                      )}
+                      {order.dismountRequested && (
+                        <li className="flex flex-wrap justify-between gap-x-2 gap-y-0.5">
+                          <span className="min-w-0">Демонтаж{order.dismountComment ? `: ${order.dismountComment}` : ""}</span>
+                          {typeof order.dismountPrice === "number" && <span className="flex-shrink-0 tabular-nums font-medium">{order.dismountPrice.toLocaleString("ru-RU")} ₽</span>}
+                        </li>
+                      )}
                     </ul>
+                    {([order.deliveryPrice, order.mountPrice, order.dismountPrice].some((p) => typeof p === "number")) ? (
+                      <p className="mt-2 border-t border-[var(--border)] pt-2 text-sm font-medium">
+                        Доп. услуги итого: {(0 + (order.deliveryPrice ?? 0) + (order.mountPrice ?? 0) + (order.dismountPrice ?? 0)).toLocaleString("ru-RU")} ₽
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {order.totalAmount != null && order.totalAmount > 0 ? (
+                  <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Сумма</div>
+                    <div className="mt-1 text-lg font-semibold text-[var(--brand)]">{order.totalAmount.toLocaleString("ru-RU")} ₽</div>
                   </div>
                 ) : null}
                 {notesCommentOnly(order.notes) ? (

@@ -235,6 +235,8 @@ export async function POST(
       deliveryPrice: updated.deliveryPrice != null ? Number(updated.deliveryPrice) : null,
       mountPrice: updated.mountPrice != null ? Number(updated.mountPrice) : null,
       dismountPrice: updated.dismountPrice != null ? Number(updated.dismountPrice) : null,
+      discountRate:
+        updated.orderSource === "GREENWICH_INTERNAL" ? Number(updated.discountRate) : undefined,
     });
     const approvedAt = updated.updatedAt;
     const dateStr = approvedAt.toISOString().slice(0, 10);

@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef } from "react";
+
 const MONTHS_RU = [
   "января", "февраля", "марта", "апреля", "мая", "июня",
   "июля", "августа", "сентября", "октября", "ноября", "декабря",
@@ -27,8 +29,8 @@ type DateFieldProps = {
 };
 
 /**
- * Поле выбора даты: видимая подпись под нашим контролем (не вылезает на мобильных),
- * нативный input скрыт и только открывает пикер по тапу.
+ * Поле выбора даты: видимая подпись под нашим контролем (не вылезает на мобильных).
+ * По клику по видимой области программно вызывается input.click() — так пикер открывается и на десктопе, и на мобильных.
  */
 export function DateField({
   value,
@@ -40,35 +42,41 @@ export function DateField({
   variant = "default",
 }: DateFieldProps) {
   const inputId = id ?? `date-${Math.random().toString(36).slice(2, 9)}`;
+  const inputRef = useRef<HTMLInputElement>(null);
   const borderClass =
     variant === "readyBy"
       ? "border-2 border-amber-300 bg-amber-50"
       : "border border-[var(--border)] bg-white";
 
   return (
-    <div
-      className={`relative min-w-0 max-w-full overflow-hidden rounded-xl py-2 pl-3 pr-10 text-sm ${borderClass} ${className}`}
-    >
-      {/* Видимый текст — не перехватывает клики */}
-      <div
-        className="pointer-events-none select-none text-left text-[var(--foreground)]"
-        aria-hidden="true"
-      >
-        {value ? formatDateDisplay(value) : "Выберите дату"}
-      </div>
-      {/* Невидимый input поверх всего блока — кликабелен и на десктопе, и на мобильных */}
+    <>
       <input
         id={inputId}
+        ref={inputRef}
         type="date"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         min={min}
         max={max}
-        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+        className="sr-only"
         style={{ fontSize: "16px" }}
-        aria-hidden="false"
-        tabIndex={0}
+        tabIndex={-1}
+        aria-hidden
       />
-    </div>
+      <div
+        role="button"
+        tabIndex={0}
+        className={`min-w-0 max-w-full cursor-pointer rounded-xl py-2 pl-3 pr-10 text-left text-sm text-[var(--foreground)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1 ${borderClass} ${className}`}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+      >
+        {value ? formatDateDisplay(value) : "Выберите дату"}
+      </div>
+    </>
   );
 }

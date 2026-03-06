@@ -65,13 +65,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return b.updatedAt.getTime() - a.updatedAt.getTime();
   });
 
-  function orderTotal(order: (typeof orders)[0]): number {
-    const days = Math.max(
+  function rentalDays(order: (typeof orders)[0]): number {
+    return Math.max(
       1,
       Math.ceil(
         (order.endDate.getTime() - order.startDate.getTime()) / (24 * 60 * 60 * 1000),
       ),
     );
+  }
+
+  function orderTotal(order: (typeof orders)[0]): number {
+    const days = rentalDays(order);
     let sum = 0;
     for (const line of order.lines) {
       const qty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
@@ -99,6 +103,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       createdViaQuickIssue: order.createdViaQuickIssue,
       notes: order.notes,
       totalAmount: orderTotal(order),
+      rentalDays: rentalDays(order),
       updatedAt: order.updatedAt.toISOString(),
       deliveryRequested: order.deliveryRequested,
       deliveryComment: order.deliveryComment ?? null,

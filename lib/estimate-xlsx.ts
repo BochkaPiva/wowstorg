@@ -34,7 +34,7 @@ export function buildEstimateXlsx(params: {
   const diffMs =
     new Date(`${params.endDate}T00:00:00`).getTime() -
     new Date(`${params.startDate}T00:00:00`).getTime();
-  const rentalDays = Math.max(1, Math.round(diffMs / 86400000) || 1);
+  const rentalDays = Math.max(1, Math.ceil(diffMs / 86400000));
 
   for (const line of params.lines) {
     const pricePerDay = Math.round(line.pricePerDay * (1 - discountRate) * 100) / 100;

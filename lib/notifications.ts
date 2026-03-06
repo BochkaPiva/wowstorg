@@ -235,6 +235,39 @@ export async function notifyWarehouseAboutReturnDeclared(params: {
   });
 }
 
+/** Уведомление сотруднику Greenwich о быстрой выдаче, оформленной складом на него. */
+export async function notifyGreenwichEmployeeQuickIssue(params: {
+  ownerTelegramId: string;
+  orderId: string;
+  startDate: string;
+  endDate: string;
+  compositionLines: string[];
+}): Promise<void> {
+  const compositionBlock =
+    params.compositionLines.length > 0
+      ? `\n📋 Состав:\n${params.compositionLines.map((s) => `  • ${s}`).join("\n")}`
+      : "";
+  const text = [
+    "📦 Вам оформлена быстрая выдача",
+    "",
+    `📄 Заявка: ${params.orderId}`,
+    `📅 Период: ${params.startDate} — ${params.endDate}`,
+    compositionBlock,
+    "",
+    "Откройте «Мои заявки» в мини-приложении, чтобы увидеть заявку и при необходимости подать возврат на приёмку.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  await safeSend(
+    sendTelegramMessage({
+      chatId: params.ownerTelegramId,
+      text,
+      inlineKeyboard: [[{ text: "Мои заявки", web_app: { url: getWebAppUrl() } }]],
+    }),
+  );
+}
+
 /** Уведомление владельцу заявки (клиенту) — в личку; не переадресуется в рабочий чат. */
 export async function notifyOrderOwner(params: {
   ownerTelegramId: string | null;

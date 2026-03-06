@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Tab = "all" | "categories" | "kits";
 type ItemStatus = "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | string;
@@ -92,8 +92,22 @@ export default function CreateOrderPage() {
   const [notes, setNotes] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
+  const customerDropdownRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(event.target as Node)) {
+        setCustomerDropdownOpen(false);
+      }
+    }
+    if (customerDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [customerDropdownOpen]);
 
   useEffect(() => {
     const raw = globalThis.localStorage.getItem("quick-issue-cart-v1");
@@ -488,11 +502,51 @@ export default function CreateOrderPage() {
             </div>
           ) : null}
           <div className="grid gap-2 sm:grid-cols-2">
-            <select className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" value={customerId} onChange={(e) => setCustomerId(e.target.value)} disabled={rentalType === "greenwich"}>
-              <option value="">Заказчик из базы</option>
-              {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
-            </select>
-            <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Новый заказчик (если нет в базе)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={rentalType === "greenwich"} />
+            {rentalType === "greenwich" ? (
+              <>
+                <div className="rounded-xl border border-[var(--border)] bg-slate-100 px-2 py-2 text-sm text-[var(--muted)]">Заказчик не требуется (аренда для Greenwich)</div>
+                <div className="rounded-xl border border-[var(--border)] bg-slate-100 px-2 py-2 text-sm text-[var(--muted)]">—</div>
+              </>
+            ) : (
+              <>
+                <div className="relative" ref={customerDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setCustomerDropdownOpen((open) => !open)}
+                    className="flex w-full items-center justify-between rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-left text-sm"
+                  >
+                    <span className={customerId ? "" : "text-[var(--muted)]"}>
+                      {customerId ? customers.find((c) => c.id === customerId)?.name ?? "Заказчик из базы" : "Заказчик из базы"}
+                    </span>
+                    <svg className="h-4 w-4 shrink-0 text-[var(--muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={customerDropdownOpen ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+                    </svg>
+                  </button>
+                  {customerDropdownOpen ? (
+                    <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-auto rounded-xl border border-[var(--border)] bg-white shadow-lg">
+                      <button
+                        type="button"
+                        className="block w-full px-2 py-2 text-left text-sm hover:bg-violet-50"
+                        onClick={() => { setCustomerId(""); setCustomerDropdownOpen(false); }}
+                      >
+                        — не выбрано
+                      </button>
+                      {customers.map((customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          className="block w-full px-2 py-2 text-left text-sm hover:bg-violet-50"
+                          onClick={() => { setCustomerId(customer.id); setCustomerDropdownOpen(false); }}
+                        >
+                          {customer.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" placeholder="Новый заказчик (если нет в базе)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+              </>
+            )}
             <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm sm:col-span-2" placeholder="Мероприятие (опционально)" value={eventName} onChange={(e) => setEventName(e.target.value)} />
             <input className="rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm sm:col-span-2" placeholder="Комментарий (опционально)" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>

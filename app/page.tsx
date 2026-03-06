@@ -96,8 +96,7 @@ function roleTiles(role: AppRole | null): Tile[] {
       { href: "/warehouse/queue", title: "Очередь склада", description: "Полный операционный контроль" },
       { href: "/warehouse/archive", title: "Архив склада", description: "История закрытых и отмененных заказов" },
       { href: "/warehouse/inventory", title: "Инвентарь", description: "Реквизит, подборки, пакеты, потери, ремонт, расходники" },
-      { href: "/admin", title: "Админ панель", description: "Доступы, заказчики и аналитика" },
-      { href: "/dev-login", title: "Сервисный вход", description: "Тестовые сессии для отладки" },
+      { href: "/admin", title: "Админ панель", description: "Доступы, заказчики, аналитика, сервисный вход" },
     ];
   }
   return [];

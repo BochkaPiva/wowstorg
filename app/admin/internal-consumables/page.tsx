@@ -118,7 +118,7 @@ export default function AdminInternalConsumablesPage() {
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Внутренние расходники</h1>
-        <Link className="ws-btn" href="/admin">
+        <Link className="ws-btn" href="/warehouse/inventory">
           Назад
         </Link>
       </div>

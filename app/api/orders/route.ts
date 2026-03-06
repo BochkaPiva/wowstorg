@@ -10,7 +10,7 @@ import {
   serializeOrder,
   validateDateRange,
 } from "@/lib/orders";
-import { notifyWarehouseAboutNewOrder } from "@/lib/notifications";
+import { notifyGreenwichEmployeeQuickIssue, notifyWarehouseAboutNewOrder } from "@/lib/notifications";
 import { computeAvailableQty } from "@/lib/items";
 import { prisma } from "@/lib/prisma";
 
@@ -259,10 +259,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   });
 
   const serialized = serializeOrder(order);
+  const compositionLines = order.lines.map(
+    (l) => `${(l as { item: { name: string } }).item.name} × ${l.requestedQty}`,
+  );
+
   if (serialized.status === "SUBMITTED") {
-    const compositionLines = order.lines.map(
-      (l) => `${(l as { item: { name: string } }).item.name} × ${l.requestedQty}`,
-    );
     await notifyWarehouseAboutNewOrder({
       orderId: String(serialized.id),
       customerName: (serialized.customerName as string | null) ?? null,
@@ -277,6 +278,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       dismountRequested: order.dismountRequested,
       dismountComment: order.dismountComment ?? null,
     });
+  }
+
+  if (serialized.status === "ISSUED" && issueImmediately && forGreenwichUserId) {
+    const owner = await prisma.user.findUnique({
+      where: { id: order.createdById },
+      select: { telegramId: true },
+    });
+    if (owner?.telegramId != null) {
+      await notifyGreenwichEmployeeQuickIssue({
+        ownerTelegramId: String(owner.telegramId),
+        orderId: String(serialized.id),
+        startDate: String(serialized.startDate),
+        endDate: String(serialized.endDate),
+        compositionLines,
+      });
+    }
   }
 
   return NextResponse.json({

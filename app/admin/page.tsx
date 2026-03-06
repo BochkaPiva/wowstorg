@@ -28,6 +28,11 @@ const SCENARIOS = [
     title: "Аналитика",
     description: "Топ реквизита и топ заказчиков за период",
   },
+  {
+    href: "/dev-login",
+    title: "Сервисный вход",
+    description: "Тестовые сессии для отладки",
+  },
 ];
 
 export default function AdminPage() {

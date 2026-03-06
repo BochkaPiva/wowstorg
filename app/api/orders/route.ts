@@ -208,7 +208,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     await tx.orderLine.createMany({
       data: normalizedLines.map((line) => {
         const item = itemById.get(line.itemId)!;
-        const discountedPrice = Number(item.pricePerDay) * (1 - discountRateValue);
         return {
           orderId: created.id,
           itemId: line.itemId,
@@ -216,7 +215,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           approvedQty: issueImmediately ? line.requestedQty : null,
           issuedQty: issueImmediately ? line.requestedQty : null,
           sourceKitId: line.sourceKitId,
-          pricePerDaySnapshot: new Prisma.Decimal(discountedPrice),
+          pricePerDaySnapshot: item.pricePerDay,
         };
       }),
     });

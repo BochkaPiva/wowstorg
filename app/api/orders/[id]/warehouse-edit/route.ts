@@ -107,7 +107,6 @@ export async function PATCH(
     await tx.orderLine.createMany({
       data: lines.map((line) => {
         const pricePerDay = Number(itemById.get(line.itemId)!.pricePerDay);
-        const discountRate = Number(order.discountRate);
         return {
           orderId: order.id,
           itemId: line.itemId,
@@ -115,7 +114,7 @@ export async function PATCH(
           approvedQty: null,
           issuedQty: null,
           sourceKitId: null,
-          pricePerDaySnapshot: pricePerDay * (1 - discountRate),
+          pricePerDaySnapshot: pricePerDay,
         };
       }),
     });

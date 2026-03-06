@@ -33,6 +33,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           select: {
             startDate: true,
             endDate: true,
+            orderSource: true,
+            discountRate: true,
             lines: {
               select: {
                 requestedQty: true,
@@ -51,10 +53,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
               (order.endDate.getTime() - order.startDate.getTime()) / (24 * 60 * 60 * 1000),
             ),
           );
+          let orderSum = 0;
           for (const line of order.lines) {
             const qty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
-            ltv += qty * Number(line.pricePerDaySnapshot) * days;
+            orderSum += qty * Number(line.pricePerDaySnapshot) * days;
           }
+          if (order.orderSource === "GREENWICH_INTERNAL") {
+            orderSum *= 1 - Number(order.discountRate);
+          }
+          ltv += orderSum;
         }
         return {
           id: customer.id,

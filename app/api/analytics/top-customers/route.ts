@@ -89,6 +89,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       const qty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
       orderRevenue += qty * Number(line.pricePerDaySnapshot) * days;
     }
+    if (order.orderSource === "GREENWICH_INTERNAL") {
+      orderRevenue *= 1 - Number(order.discountRate);
+    }
 
     const existing = totals.get(order.customerId!);
     if (existing) {

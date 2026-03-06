@@ -55,6 +55,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         select: {
           startDate: true,
           endDate: true,
+          orderSource: true,
+          discountRate: true,
         },
       },
       item: {
@@ -79,7 +81,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           (24 * 60 * 60 * 1000),
       ),
     );
-    const revenue = qty * Number(line.pricePerDaySnapshot) * days;
+    let revenue = qty * Number(line.pricePerDaySnapshot) * days;
+    if (line.order.orderSource === "GREENWICH_INTERNAL") {
+      revenue *= 1 - Number(line.order.discountRate);
+    }
     const existing = totals.get(line.itemId);
     if (existing) {
       existing.qty += qty;

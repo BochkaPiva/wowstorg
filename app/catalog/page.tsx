@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { DateField } from "@/app/components/DateField";
 
 type Tab = "all" | "categories" | "kits";
 type Role = "GREENWICH" | "WAREHOUSE" | "ADMIN";
@@ -329,42 +330,23 @@ export default function CatalogPage() {
         {isGreenwich ? (
           <label className="block w-full min-w-0">
             <span className="mb-1 block text-xs font-medium text-amber-800">Готовность к дате</span>
-            <div className="catalog-date-wrap">
-              <input
-                className="rounded-xl border-2 border-amber-300 bg-amber-50 py-2 pl-2 text-sm"
-                type="date"
-                value={readyByDate}
-                onChange={(e) => setReadyByDate(e.target.value)}
-                max={startDate}
-              />
-            </div>
+            <DateField value={readyByDate} onChange={setReadyByDate} max={startDate} variant="readyBy" />
           </label>
         ) : null}
         <label className="block w-full min-w-0">
           <span className="mb-1 block text-xs text-[var(--muted)]">Начало аренды</span>
-          <div className="catalog-date-wrap">
-            <input
-              className="rounded-xl border border-[var(--border)] bg-white py-2 pl-2 text-sm"
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                const v = e.target.value;
-                setStartDate(v);
-                if (readyByDate > v) setReadyByDate(v);
-              }}
-            />
-          </div>
+          <DateField
+            value={startDate}
+            onChange={(v) => {
+              setStartDate(v);
+              if (readyByDate > v) setReadyByDate(v);
+            }}
+            variant="default"
+          />
         </label>
         <label className="block w-full min-w-0">
           <span className="mb-1 block text-xs text-[var(--muted)]">Окончание аренды</span>
-          <div className="catalog-date-wrap">
-            <input
-              className="rounded-xl border border-[var(--border)] bg-white py-2 pl-2 text-sm"
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </div>
+          <DateField value={endDate} onChange={setEndDate} variant="default" />
         </label>
         <label className="block w-full">
           <span className="mb-1 block text-xs text-[var(--muted)]">Поиск</span>

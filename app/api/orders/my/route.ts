@@ -38,6 +38,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
               name: true,
             },
           },
+          checkinLine: {
+            select: {
+              returnedQty: true,
+              condition: true,
+              comment: true,
+              returnSegments: true,
+            },
+          },
         },
         orderBy: [{ createdAt: "asc" }],
       },
@@ -102,6 +110,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         requestedQty: line.requestedQty,
         approvedQty: line.approvedQty,
         issuedQty: line.issuedQty,
+        checkinLine: line.checkinLine
+          ? {
+              returnedQty: line.checkinLine.returnedQty,
+              condition: line.checkinLine.condition,
+              comment: line.checkinLine.comment ?? null,
+              returnSegments: line.checkinLine.returnSegments as Array<{ condition: string; qty: number }> | null,
+            }
+          : null,
       })),
     })),
   });

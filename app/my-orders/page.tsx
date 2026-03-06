@@ -1,6 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { checkinConditionLabel } from "@/lib/checkin-labels";
+
+const CLIENT_DECLARATION_MARKER = "CLIENT_RETURN_DECLARATION_B64:";
+const DECLARATION_HEADER = "Декларация клиента по возврату";
+
+/** Только комментарий к заявке: без декларации по возврату и без B64. */
+function notesCommentOnly(notes: string | null): string | null {
+  if (!notes || !notes.trim()) return null;
+  const idxB64 = notes.indexOf(CLIENT_DECLARATION_MARKER);
+  const idxDecl = notes.indexOf(DECLARATION_HEADER);
+  const cut = [idxB64 >= 0 ? idxB64 : notes.length, idxDecl >= 0 ? idxDecl : notes.length];
+  const idx = Math.min(...cut);
+  const text = notes.slice(0, idx).trim();
+  return text.length > 0 ? text : null;
+}
 
 type OrderLine = {
   id: string;
@@ -9,6 +24,12 @@ type OrderLine = {
   requestedQty: number;
   approvedQty: number | null;
   issuedQty: number | null;
+  checkinLine?: {
+    returnedQty: number;
+    condition: string;
+    comment: string | null;
+    returnSegments: Array<{ condition: string; qty: number }> | null;
+  } | null;
 };
 
 type Order = {
@@ -448,15 +469,53 @@ export default function MyOrdersPage() {
                   </div>
                 </div>
                 <div className="rounded-lg border border-[var(--border)] bg-white p-3">
-                  <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Состав ({order.lines.length} позиций)</div>
-                  <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-sm">
-                    {order.lines.map((line) => (
-                      <li key={line.id} className="flex justify-between gap-2 border-b border-[var(--border)] pb-1 last:border-0">
-                        <span className="min-w-0 truncate">{line.itemName}</span>
-                        <span className="flex-shrink-0 font-medium">×{(line.issuedQty ?? line.approvedQty ?? line.requestedQty)}</span>
-                      </li>
-                    ))}
+                  <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Выдано по заявке</div>
+                  <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-sm">
+                    {order.lines.map((line) => {
+                      const qty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+                      return (
+                        <li key={line.id} className="flex justify-between gap-2 border-b border-[var(--border)] pb-1 last:border-0">
+                          <span className="min-w-0 truncate">{line.itemName}</span>
+                          <span className="flex-shrink-0 font-medium">×{qty}</span>
+                        </li>
+                      );
+                    })}
                   </ul>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                  <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Принято при сдаче</div>
+                  {order.status === "RETURN_DECLARED" && !order.lines.some((l) => l.checkinLine) ? (
+                    <p className="mt-1 text-sm text-amber-700">Ожидает приёмки склада</p>
+                  ) : order.status === "CLOSED" || order.lines.some((l) => l.checkinLine) ? (
+                    <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-sm">
+                      {order.lines.map((line) => {
+                        const issued = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+                        const cl = line.checkinLine;
+                        if (!cl) {
+                          return (
+                            <li key={line.id} className="flex justify-between gap-2 border-b border-[var(--border)] pb-1 last:border-0">
+                              <span className="min-w-0 truncate">{line.itemName}</span>
+                              <span className="flex-shrink-0 text-[var(--muted)]">—</span>
+                            </li>
+                          );
+                        }
+                        const segments = cl.returnSegments && Array.isArray(cl.returnSegments) && cl.returnSegments.length > 0
+                          ? cl.returnSegments.map((s) => `${s.qty} шт — ${checkinConditionLabel(s.condition as "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING")}`).join(", ")
+                          : `${cl.returnedQty} шт — ${checkinConditionLabel(cl.condition as "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING")}`;
+                        return (
+                          <li key={line.id} className="border-b border-[var(--border)] pb-1 last:border-0">
+                            <div className="flex justify-between gap-2">
+                              <span className="min-w-0 truncate font-medium">{line.itemName}</span>
+                              <span className="flex-shrink-0 text-right text-xs">{cl.returnedQty} из {issued}</span>
+                            </div>
+                            <div className="mt-0.5 text-xs text-[var(--muted)]">{segments}{cl.comment ? ` • ${cl.comment}` : ""}</div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="mt-1 text-sm text-[var(--muted)]">—</p>
+                  )}
                 </div>
                 {order.totalAmount != null && order.totalAmount > 0 ? (
                   <div className="rounded-lg border border-[var(--border)] bg-white p-3">
@@ -474,10 +533,10 @@ export default function MyOrdersPage() {
                     </ul>
                   </div>
                 ) : null}
-                {order.notes?.trim() ? (
+                {notesCommentOnly(order.notes) ? (
                   <div className="rounded-lg border border-[var(--border)] bg-white p-3">
                     <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Комментарий</div>
-                    <div className="mt-1 whitespace-pre-wrap text-sm">{order.notes.trim()}</div>
+                    <div className="mt-1 whitespace-pre-wrap text-sm">{notesCommentOnly(order.notes)}</div>
                   </div>
                 ) : null}
               </div>

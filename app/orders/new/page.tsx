@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DateField } from "@/app/components/DateField";
 
 type Tab = "all" | "categories" | "kits";
 type ItemStatus = "ACTIVE" | "NEEDS_REPAIR" | "BROKEN" | "MISSING" | string;
@@ -285,13 +286,17 @@ export default function CreateOrderPage() {
       </div>
 
       <div className="ws-card grid gap-2 p-3 sm:grid-cols-3">
-        <label className="text-xs text-[var(--muted)]">
+        <label className="block min-w-0 text-xs text-[var(--muted)]">
           Дата начала
-          <input className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <div className="mt-1">
+            <DateField value={startDate} onChange={setStartDate} variant="default" />
+          </div>
         </label>
-        <label className="text-xs text-[var(--muted)]">
+        <label className="block min-w-0 text-xs text-[var(--muted)]">
           Дата окончания
-          <input className="mt-1 w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <div className="mt-1">
+            <DateField value={endDate} onChange={setEndDate} variant="default" />
+          </div>
         </label>
         <label className="text-xs text-[var(--muted)]">
           Поиск

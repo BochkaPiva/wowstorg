@@ -28,8 +28,8 @@ type DateFieldProps = {
 
 /**
  * Поле выбора даты.
- * На десктопе (md+): нативный input виден и кликабелен — пикер открывается по клику.
- * На мобильных: видимая подпись под нашим контролем (без вылезания), нативный input поверх с opacity-0 — тап открывает пикер.
+ * На десктопе (lg+, ≥1024px): нативный input виден и кликабелен.
+ * В уменьшенном окне и на мобильных (<1024px): видимая подпись, input поверх с z-10 и малой opacity — тап/клик открывает пикер.
  */
 export function DateField({
   value,
@@ -48,16 +48,16 @@ export function DateField({
 
   return (
     <div
-      className={`relative min-w-0 max-w-full overflow-hidden rounded-xl py-0 text-sm ${borderClass} ${className}`}
+      className={`relative min-w-0 max-w-full overflow-hidden rounded-xl py-0 text-sm min-h-[2.75rem] ${borderClass} ${className}`}
     >
-      {/* Мобильные: видимая подпись, input поверх прозрачный — тап по области открывает пикер */}
+      {/* Мобильные / уменьшенное окно: видимая подпись, input поверх — тап открывает пикер */}
       <div
-        className="pointer-events-none py-2 pl-3 pr-10 text-left text-[var(--foreground)] md:hidden"
+        className="pointer-events-none py-2 pl-3 pr-10 text-left text-[var(--foreground)] lg:hidden"
         aria-hidden
       >
         {value ? formatDateDisplay(value) : "Выберите дату"}
       </div>
-      {/* На десктопе (md+): нативный input виден и сразу кликабелен */}
+      {/* На десктопе (lg+): нативный input виден. Ниже lg: input поверх с минимальной opacity для hit-test в WebView/уменьшенном окне */}
       <input
         id={inputId}
         type="date"
@@ -66,7 +66,7 @@ export function DateField({
         min={min}
         max={max}
         style={{ fontSize: "16px" }}
-        className="absolute inset-0 h-full w-full cursor-pointer border-0 bg-transparent py-2 pl-3 pr-10 opacity-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-inset md:relative md:inset-auto md:block md:h-auto md:min-h-[2.5rem] md:opacity-100"
+        className="absolute inset-0 z-10 h-full w-full min-h-[2.75rem] cursor-pointer border-0 bg-transparent py-2 pl-3 pr-10 opacity-[0.01] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-inset lg:relative lg:z-auto lg:block lg:h-auto lg:min-h-0 lg:opacity-100"
       />
     </div>
   );

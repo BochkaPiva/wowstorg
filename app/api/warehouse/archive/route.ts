@@ -239,6 +239,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         issuedQty: line.issuedQty,
         returnedQty: line.checkinLine?.returnedQty ?? null,
         pricePerDay: line.pricePerDaySnapshot ? Number(line.pricePerDaySnapshot) : null,
+        checkinLine: line.checkinLine
+          ? {
+              returnedQty: line.checkinLine.returnedQty,
+              condition: line.checkinLine.condition,
+              comment: line.checkinLine.comment ?? null,
+              returnSegments: line.checkinLine.returnSegments as Array<{ condition: string; qty: number }> | null,
+            }
+          : null,
       })),
     })),
   });

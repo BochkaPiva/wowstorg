@@ -1,17 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { checkinConditionLabel } from "@/lib/checkin-labels";
 
 type ArchiveStatus = "ALL" | "CLOSED" | "CANCELLED";
 type ArchiveSource = "ALL" | "GREENWICH_INTERNAL" | "WOWSTORG_EXTERNAL";
 type Customer = { id: string; name: string };
 
 const CLIENT_DECLARATION_MARKER = "CLIENT_RETURN_DECLARATION_B64:";
+const DECLARATION_HEADER = "Декларация клиента по возврату";
 
-function notesForDisplay(notes: string | null): string | null {
+/** Только комментарий: без декларации по возврату и без B64. */
+function notesCommentOnly(notes: string | null): string | null {
   if (!notes || !notes.trim()) return null;
-  const idx = notes.indexOf(CLIENT_DECLARATION_MARKER);
-  const text = idx >= 0 ? notes.slice(0, idx).trim() : notes.trim();
+  const idxB64 = notes.indexOf(CLIENT_DECLARATION_MARKER);
+  const idxDecl = notes.indexOf(DECLARATION_HEADER);
+  const cut = [idxB64 >= 0 ? idxB64 : notes.length, idxDecl >= 0 ? idxDecl : notes.length];
+  const idx = Math.min(...cut);
+  const text = notes.slice(0, idx).trim();
   return text.length > 0 ? text : null;
 }
 
@@ -38,6 +44,12 @@ type ArchiveOrder = {
     issuedQty: number | null;
     returnedQty: number | null;
     pricePerDay: number | null;
+    checkinLine?: {
+      returnedQty: number;
+      condition: string;
+      comment: string | null;
+      returnSegments: Array<{ condition: string; qty: number }> | null;
+    } | null;
   }>;
 };
 
@@ -158,10 +170,12 @@ export default function WarehouseArchivePage() {
       <div className="space-y-3">
         {orders.map((order) => (
           <article key={order.id} className="ws-card p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1 space-y-1">
+            {/* Компактное превью: без состава и суммы */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0 flex-1 space-y-0.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">{order.customerName ?? "Без заказчика"} {order.eventName ? `• ${order.eventName}` : ""}</span>
+                  <span className="font-semibold">{order.customerName ?? "Без заказчика"}</span>
+                  {order.eventName ? <span className="text-sm text-[var(--muted)]">• {order.eventName}</span> : null}
                   {order.createdViaQuickIssue ? (
                     <span className="rounded-full border border-violet-300 bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
                       Быстрая выдача
@@ -169,26 +183,16 @@ export default function WarehouseArchivePage() {
                   ) : null}
                 </div>
                 <div className="text-xs text-[var(--muted)]">
-                  {order.startDate} - {order.endDate} • {order.orderSource}
+                  {order.startDate} — {order.endDate} • {order.orderSource}
                 </div>
                 <div className="text-xs text-[var(--muted)]">
                   Коллега: {order.createdBy.username ?? `ID ${order.createdBy.telegramId}`}
+                  {" • "}
+                  Обновлено: {new Date(order.updatedAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  {order.closedAt ? ` • Закрыто: ${new Date(order.closedAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : ""}
                 </div>
-                <div className="text-xs text-[var(--muted)]">
-                  Обновлено: {new Date(order.updatedAt).toLocaleString("ru-RU")}
-                  {order.closedAt ? ` • Закрыто: ${new Date(order.closedAt).toLocaleString("ru-RU")}` : ""}
-                </div>
-                <div className="text-xs text-[var(--muted)]">
-                  Состав: {order.lines.slice(0, 3).map((line) => `${line.itemName} x${line.requestedQty}`).join(", ")}
-                  {order.lines.length > 3 ? ` +${order.lines.length - 3}` : ""}
-                </div>
-                {order.totalAmount != null && order.totalAmount > 0 ? (
-                  <div className="text-sm font-medium text-[var(--brand)]">
-                    Сумма: {order.totalAmount.toLocaleString("ru-RU")} ₽
-                  </div>
-                ) : null}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-shrink-0 items-center gap-2">
                 <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusChip(order.status)}`}>
                   {order.status === "CLOSED" ? "Закрыта" : "Отменена"}
                 </span>
@@ -197,6 +201,8 @@ export default function WarehouseArchivePage() {
                 </button>
               </div>
             </div>
+
+            {/* Подробные детали при раскрытии */}
             {expandedOrderId === order.id ? (
               <div className="mt-4 space-y-4 rounded-xl border border-[var(--border)] bg-slate-50/80 p-4">
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -214,14 +220,46 @@ export default function WarehouseArchivePage() {
                   <div className="mt-1 text-sm">{order.startDate} — {order.endDate}</div>
                 </div>
                 <div className="rounded-lg border border-[var(--border)] bg-white p-3">
-                  <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Состав ({order.lines.length} позиций)</div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Выдано по заявке</div>
+                  <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-sm">
+                    {order.lines.map((line) => {
+                      const qty = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+                      return (
+                        <li key={line.id} className="flex justify-between gap-2 border-b border-[var(--border)] pb-1 last:border-0">
+                          <span className="min-w-0 truncate">{line.itemName}</span>
+                          <span className="flex-shrink-0 font-medium">×{qty}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                  <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Принято при сдаче</div>
                   <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-sm">
-                    {order.lines.map((line) => (
-                      <li key={line.id} className="flex flex-wrap justify-between gap-x-2 border-b border-[var(--border)] pb-1 last:border-0">
-                        <span className="min-w-0 truncate">{line.itemName}</span>
-                        <span className="text-[var(--muted)]">запрошено: {line.requestedQty}{line.approvedQty != null ? ` • согласовано: ${line.approvedQty}` : ""}{line.issuedQty != null ? ` • выдано: ${line.issuedQty}` : ""}{line.returnedQty != null ? ` • принято: ${line.returnedQty}` : ""}{line.pricePerDay != null ? ` • ${line.pricePerDay.toLocaleString("ru-RU")} ₽/сут` : ""}</span>
-                      </li>
-                    ))}
+                    {order.lines.map((line) => {
+                      const issued = line.issuedQty ?? line.approvedQty ?? line.requestedQty;
+                      const cl = line.checkinLine;
+                      if (!cl) {
+                        return (
+                          <li key={line.id} className="flex justify-between gap-2 border-b border-[var(--border)] pb-1 last:border-0">
+                            <span className="min-w-0 truncate">{line.itemName}</span>
+                            <span className="flex-shrink-0 text-[var(--muted)]">—</span>
+                          </li>
+                        );
+                      }
+                      const segments = cl.returnSegments && Array.isArray(cl.returnSegments) && cl.returnSegments.length > 0
+                        ? cl.returnSegments.map((s) => `${s.qty} шт — ${checkinConditionLabel(s.condition as "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING")}`).join(", ")
+                        : `${cl.returnedQty} шт — ${checkinConditionLabel(cl.condition as "OK" | "NEEDS_REPAIR" | "BROKEN" | "MISSING")}`;
+                      return (
+                        <li key={line.id} className="border-b border-[var(--border)] pb-1 last:border-0">
+                          <div className="flex justify-between gap-2">
+                            <span className="min-w-0 truncate font-medium">{line.itemName}</span>
+                            <span className="flex-shrink-0 text-right text-xs">{cl.returnedQty} из {issued}</span>
+                          </div>
+                          <div className="mt-0.5 text-xs text-[var(--muted)]">{segments}{cl.comment ? ` • ${cl.comment}` : ""}</div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
                 {order.totalAmount != null && order.totalAmount > 0 ? (
@@ -230,10 +268,10 @@ export default function WarehouseArchivePage() {
                     <div className="mt-1 text-lg font-semibold text-[var(--brand)]">{order.totalAmount.toLocaleString("ru-RU")} ₽</div>
                   </div>
                 ) : null}
-                {notesForDisplay(order.notes) ? (
+                {notesCommentOnly(order.notes) ? (
                   <div className="rounded-lg border border-[var(--border)] bg-white p-3">
                     <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Комментарий</div>
-                    <div className="mt-1 whitespace-pre-wrap text-sm">{notesForDisplay(order.notes)}</div>
+                    <div className="mt-1 whitespace-pre-wrap text-sm">{notesCommentOnly(order.notes)}</div>
                   </div>
                 ) : null}
               </div>

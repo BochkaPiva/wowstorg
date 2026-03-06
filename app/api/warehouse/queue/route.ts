@@ -11,6 +11,7 @@ const QUEUE_STATUSES: OrderStatus[] = [
   OrderStatus.SUBMITTED,
   OrderStatus.APPROVED,
   OrderStatus.ISSUED,
+  OrderStatus.EMERGENCY_ISSUED,
   OrderStatus.RETURN_DECLARED,
 ];
 
@@ -108,6 +109,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     APPROVED: 1,
     RETURN_DECLARED: 2,
     ISSUED: 3,
+    EMERGENCY_ISSUED: 3,
     CLOSED: 4,
     CANCELLED: 5,
   };
@@ -127,7 +129,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   });
 
   const visibleOrders = sorted.filter((order) => {
-    if (order.status !== OrderStatus.ISSUED) {
+    if (order.status !== OrderStatus.ISSUED && order.status !== OrderStatus.EMERGENCY_ISSUED) {
       return true;
     }
     // Hide issued orders that contain only consumables:

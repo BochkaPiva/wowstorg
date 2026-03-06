@@ -9,6 +9,7 @@ const STATUS_PRIORITY: Record<OrderStatus, number> = {
   SUBMITTED: 0,
   APPROVED: 1,
   ISSUED: 2,
+  EMERGENCY_ISSUED: 2,
   RETURN_DECLARED: 3,
   CLOSED: 4,
   CANCELLED: 5,
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (a.status === "SUBMITTED" || a.status === "APPROVED") {
       return a.readyByDate.getTime() - b.readyByDate.getTime();
     }
-    if (a.status === "ISSUED" || a.status === "RETURN_DECLARED") {
+    if (a.status === "ISSUED" || a.status === "EMERGENCY_ISSUED" || a.status === "RETURN_DECLARED") {
       return a.endDate.getTime() - b.endDate.getTime();
     }
     return b.updatedAt.getTime() - a.updatedAt.getTime();

@@ -19,6 +19,7 @@ type ArchiveOrder = {
   id: string;
   status: "CLOSED" | "CANCELLED";
   orderSource: "GREENWICH_INTERNAL" | "WOWSTORG_EXTERNAL";
+  createdViaQuickIssue?: boolean;
   customerName: string | null;
   eventName: string | null;
   startDate: string;
@@ -158,8 +159,15 @@ export default function WarehouseArchivePage() {
         {orders.map((order) => (
           <article key={order.id} className="ws-card p-4">
             <div className="flex items-start justify-between gap-2">
-              <div className="space-y-1">
-                <div className="font-semibold">{order.customerName ?? "Без заказчика"} {order.eventName ? `• ${order.eventName}` : ""}</div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold">{order.customerName ?? "Без заказчика"} {order.eventName ? `• ${order.eventName}` : ""}</span>
+                  {order.createdViaQuickIssue ? (
+                    <span className="rounded-full border border-violet-300 bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
+                      Быстрая выдача
+                    </span>
+                  ) : null}
+                </div>
                 <div className="text-xs text-[var(--muted)]">
                   {order.startDate} - {order.endDate} • {order.orderSource}
                 </div>
@@ -190,19 +198,43 @@ export default function WarehouseArchivePage() {
               </div>
             </div>
             {expandedOrderId === order.id ? (
-              <div className="mt-3 space-y-2 rounded-xl border border-[var(--border)] bg-white p-3 text-sm">
-                {order.lines.map((line) => (
-                  <div key={line.id} className="rounded-lg border border-[var(--border)] px-2 py-1">
-                    <span className="font-medium">{line.itemName}</span>
-                    {" • запрошено: "}{line.requestedQty}
-                    {line.approvedQty !== null ? ` • согласовано: ${line.approvedQty}` : ""}
-                    {line.issuedQty !== null ? ` • выдано: ${line.issuedQty}` : ""}
-                    {line.returnedQty !== null ? ` • принято: ${line.returnedQty}` : ""}
-                    {line.pricePerDay != null ? ` • цена выдачи: ${line.pricePerDay.toLocaleString("ru-RU")} ₽/сут` : ""}
+              <div className="mt-4 space-y-4 rounded-xl border border-[var(--border)] bg-slate-50/80 p-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Заказчик</div>
+                    <div className="mt-1 text-sm font-medium">{order.customerName ?? "—"}</div>
                   </div>
-                ))}
+                  <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Мероприятие</div>
+                    <div className="mt-1 text-sm font-medium">{order.eventName ?? "—"}</div>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                  <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Период аренды</div>
+                  <div className="mt-1 text-sm">{order.startDate} — {order.endDate}</div>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                  <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Состав ({order.lines.length} позиций)</div>
+                  <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-sm">
+                    {order.lines.map((line) => (
+                      <li key={line.id} className="flex flex-wrap justify-between gap-x-2 border-b border-[var(--border)] pb-1 last:border-0">
+                        <span className="min-w-0 truncate">{line.itemName}</span>
+                        <span className="text-[var(--muted)]">запрошено: {line.requestedQty}{line.approvedQty != null ? ` • согласовано: ${line.approvedQty}` : ""}{line.issuedQty != null ? ` • выдано: ${line.issuedQty}` : ""}{line.returnedQty != null ? ` • принято: ${line.returnedQty}` : ""}{line.pricePerDay != null ? ` • ${line.pricePerDay.toLocaleString("ru-RU")} ₽/сут` : ""}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {order.totalAmount != null && order.totalAmount > 0 ? (
+                  <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Сумма</div>
+                    <div className="mt-1 text-lg font-semibold text-[var(--brand)]">{order.totalAmount.toLocaleString("ru-RU")} ₽</div>
+                  </div>
+                ) : null}
                 {notesForDisplay(order.notes) ? (
-                  <div className="text-xs text-[var(--muted)]">Комментарий: {notesForDisplay(order.notes)}</div>
+                  <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Комментарий</div>
+                    <div className="mt-1 whitespace-pre-wrap text-sm">{notesForDisplay(order.notes)}</div>
+                  </div>
                 ) : null}
               </div>
             ) : null}

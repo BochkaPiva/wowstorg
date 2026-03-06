@@ -20,9 +20,11 @@ type QueueOrder = {
   status: "SUBMITTED" | "APPROVED" | "ISSUED" | "RETURN_DECLARED" | "CLOSED" | "CANCELLED";
   isEmergency: boolean;
   orderSource: "GREENWICH_INTERNAL" | "WOWSTORG_EXTERNAL";
+  createdViaQuickIssue?: boolean;
   customerName: string | null;
   eventName: string | null;
   updatedMinutesAgo: number;
+  updatedAgoLabel?: string;
   startDate: string;
   endDate: string;
   readyByDate: string;
@@ -576,8 +578,15 @@ export default function WarehouseQueuePage() {
           <article key={order.id} className={`ws-card border p-4 ${cardClass(order.status)}`}>
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="space-y-1">
-                <div className="text-sm font-semibold">
-                  {order.customerName ?? "Без заказчика"} {order.eventName ? `• ${order.eventName}` : ""}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold">
+                    {order.customerName ?? "Без заказчика"} {order.eventName ? `• ${order.eventName}` : ""}
+                  </span>
+                  {order.createdViaQuickIssue ? (
+                    <span className="rounded-full border border-violet-300 bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
+                      Быстрая выдача
+                    </span>
+                  ) : null}
                 </div>
                 <div className="mt-1 rounded-lg border-2 border-amber-400 bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-900">
                   Готовность к: {order.readyByDate.split("-").reverse().join(".")}
@@ -586,7 +595,7 @@ export default function WarehouseQueuePage() {
                   Коллега: {order.createdBy.username ?? `ID ${order.createdBy.telegramId}`}
                 </div>
                 <div className="text-xs text-[var(--muted)]">
-                  Период аренды: {order.startDate} — {order.endDate} • обновлено {order.updatedMinutesAgo} мин назад
+                  Период аренды: {order.startDate} — {order.endDate} • обновлено {order.updatedAgoLabel ?? `${order.updatedMinutesAgo} мин назад`}
                 </div>
                 <div className="text-xs text-[var(--muted)]">Состав: {previewLines(order.lines)}</div>
                 {order.warehouseInternalNote?.trim() ? (

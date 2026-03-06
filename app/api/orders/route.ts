@@ -195,6 +195,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         approvedById: issueImmediately ? auth.user.id : null,
         issuedById: issueImmediately ? auth.user.id : null,
         issuedAt: issueImmediately ? new Date() : null,
+        createdViaQuickIssue: !!(issueImmediately && forGreenwichUserId),
         deliveryRequested: parsed.deliveryRequested === true,
         deliveryComment: parsed.deliveryComment ?? null,
         mountRequested: parsed.mountRequested === true,

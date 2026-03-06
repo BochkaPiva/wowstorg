@@ -35,7 +35,7 @@ export default function WarehouseInventoryPage() {
           <Link
             key={scenario.href}
             href={scenario.href}
-            className="ws-card border-2 border-violet-300 bg-violet-100 p-4 hover:bg-violet-200"
+            className="rounded-2xl border-2 border-violet-300 !bg-violet-100 p-4 shadow-md transition-colors hover:!bg-violet-200"
           >
             <div className="font-medium">{scenario.title}</div>
             <div className="text-sm text-[var(--muted)]">{scenario.description}</div>

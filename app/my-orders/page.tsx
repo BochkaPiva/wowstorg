@@ -17,6 +17,7 @@ type Order = {
   customerName: string | null;
   eventName: string | null;
   orderSource: "GREENWICH_INTERNAL" | "WOWSTORG_EXTERNAL";
+  createdViaQuickIssue?: boolean;
   startDate: string;
   endDate: string;
   readyByDate?: string;
@@ -98,6 +99,7 @@ export default function MyOrdersPage() {
   const [returnQtyEdit, setReturnQtyEdit] = useState<Record<string, string>>({});
   const [returnComments, setReturnComments] = useState<Record<string, string>>({});
   const [expandedEditOrderId, setExpandedEditOrderId] = useState<string | null>(null);
+  const [expandedDetailOrderId, setExpandedDetailOrderId] = useState<string | null>(null);
   const [editDrafts, setEditDrafts] = useState<
     Record<
       string,
@@ -353,11 +355,18 @@ export default function MyOrdersPage() {
 
       <div className="space-y-3">
         {sorted.map((order) => (
-          <article key={order.id} className="ws-card p-4">
+          <article key={order.id} className="ws-card overflow-hidden p-4">
             <div className="flex items-start justify-between gap-2">
-              <div className="space-y-1">
-                <div className="font-semibold">
-                  {order.customerName ?? "Без заказчика"} {order.eventName ? `• ${order.eventName}` : ""}
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold">
+                    {order.customerName ?? "Без заказчика"} {order.eventName ? `• ${order.eventName}` : ""}
+                  </span>
+                  {order.createdViaQuickIssue ? (
+                    <span className="rounded-full border border-violet-300 bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
+                      Быстрая выдача
+                    </span>
+                  ) : null}
                 </div>
                 <div className="text-xs text-[var(--muted)]">Даты: {order.startDate} — {order.endDate}{order.readyByDate && order.readyByDate !== order.startDate ? ` • Готовность к: ${order.readyByDate}` : ""}</div>
                 <div className="text-xs text-[var(--muted)]">
@@ -373,10 +382,17 @@ export default function MyOrdersPage() {
                   </div>
                 ) : null}
               </div>
-              <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-shrink-0 flex-col items-end gap-2">
                 <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusClass(order.status)}`}>
                   {statusText(order.status)}
                 </span>
+                <button
+                  type="button"
+                  className="ws-btn text-xs"
+                  onClick={() => setExpandedDetailOrderId((id) => (id === order.id ? null : order.id))}
+                >
+                  {expandedDetailOrderId === order.id ? "Свернуть" : "Подробнее"}
+                </button>
                 {order.status === "ISSUED" ? (
                   <div className="flex gap-2">
                     <button className="ws-btn" onClick={() => void declareReturnFast(order)} disabled={busyOrderId !== null}>
@@ -410,6 +426,62 @@ export default function MyOrdersPage() {
                 ) : null}
               </div>
             </div>
+
+            {expandedDetailOrderId === order.id ? (
+              <div className="mt-4 space-y-4 rounded-xl border border-[var(--border)] bg-slate-50/80 p-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Заказчик</div>
+                    <div className="mt-1 text-sm font-medium">{order.customerName ?? "—"}</div>
+                  </div>
+                  <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Мероприятие</div>
+                    <div className="mt-1 text-sm font-medium">{order.eventName ?? "—"}</div>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                  <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Даты</div>
+                  <div className="mt-1 grid gap-1 text-sm sm:grid-cols-3">
+                    <span>Готовность к: {order.readyByDate ?? order.startDate}</span>
+                    <span>Начало аренды: {order.startDate}</span>
+                    <span>Окончание (сдача): {order.endDate}</span>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                  <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Состав ({order.lines.length} позиций)</div>
+                  <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-sm">
+                    {order.lines.map((line) => (
+                      <li key={line.id} className="flex justify-between gap-2 border-b border-[var(--border)] pb-1 last:border-0">
+                        <span className="min-w-0 truncate">{line.itemName}</span>
+                        <span className="flex-shrink-0 font-medium">×{(line.issuedQty ?? line.approvedQty ?? line.requestedQty)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {order.totalAmount != null && order.totalAmount > 0 ? (
+                  <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Сумма</div>
+                    <div className="mt-1 text-lg font-semibold text-[var(--brand)]">{order.totalAmount.toLocaleString("ru-RU")} ₽</div>
+                  </div>
+                ) : null}
+                {(order.deliveryRequested || order.mountRequested || order.dismountRequested) ? (
+                  <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Доп. услуги</div>
+                    <ul className="mt-1 space-y-1 text-sm">
+                      {order.deliveryRequested && <li>Доставка{order.deliveryComment ? `: ${order.deliveryComment}` : ""}</li>}
+                      {order.mountRequested && <li>Монтаж{order.mountComment ? `: ${order.mountComment}` : ""}</li>}
+                      {order.dismountRequested && <li>Демонтаж{order.dismountComment ? `: ${order.dismountComment}` : ""}</li>}
+                    </ul>
+                  </div>
+                ) : null}
+                {order.notes?.trim() ? (
+                  <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Комментарий</div>
+                    <div className="mt-1 whitespace-pre-wrap text-sm">{order.notes.trim()}</div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             {expandedEditOrderId === order.id ? (
               <div className="mt-3 space-y-3 rounded-xl border border-[var(--border)] bg-white p-3">

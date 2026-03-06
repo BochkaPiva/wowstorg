@@ -7,6 +7,19 @@ function minutesAgo(date: Date): number {
   return Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
 }
 
+/** Человекочитаемая подпись "обновлено N мин/ч/дн/нед назад". */
+function formatUpdatedAgo(date: Date): string {
+  const min = minutesAgo(date);
+  if (min < 1) return "только что";
+  if (min < 60) return `${min} мин назад`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `${hours} ч назад`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} дн назад`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks} нед назад`;
+}
+
 const QUEUE_STATUSES: OrderStatus[] = [
   OrderStatus.SUBMITTED,
   OrderStatus.APPROVED,
@@ -145,11 +158,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         status: o.status,
         isEmergency: o.isEmergency,
         orderSource: o.orderSource,
+        createdViaQuickIssue: o.createdViaQuickIssue,
         customerId: o.customerId,
         customerName: o.customer?.name ?? null,
         eventName: o.eventName,
         updatedAt: o.updatedAt.toISOString(),
         updatedMinutesAgo: minutesAgo(o.updatedAt),
+        updatedAgoLabel: formatUpdatedAgo(o.updatedAt),
         startDate: o.startDate.toISOString().slice(0, 10),
         endDate: o.endDate.toISOString().slice(0, 10),
         readyByDate: o.readyByDate.toISOString().slice(0, 10),

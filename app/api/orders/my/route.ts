@@ -85,6 +85,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       customerName: order.customer?.name ?? null,
       eventName: order.eventName,
       orderSource: order.orderSource,
+      createdViaQuickIssue: order.createdViaQuickIssue,
       notes: order.notes,
       totalAmount: orderTotal(order),
       updatedAt: order.updatedAt.toISOString(),

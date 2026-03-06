@@ -215,6 +215,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       id: order.id,
       status: order.status,
       orderSource: order.orderSource,
+      createdViaQuickIssue: order.createdViaQuickIssue,
       customerId: order.customerId,
       customerName: order.customer?.name ?? null,
       eventName: order.eventName,

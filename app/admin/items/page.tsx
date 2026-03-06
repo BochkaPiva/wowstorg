@@ -77,6 +77,14 @@ export default function AdminItemsPage() {
   const [page, setPage] = useState(1);
   const limit = 50;
 
+  /** Нормализует ввод целого числа: только цифры, без ведущих нулей. Пустая строка → 0. */
+  function normalizeIntInput(raw: string): number {
+    const digits = raw.replace(/\D/g, "");
+    if (digits === "") return 0;
+    const n = parseInt(digits, 10);
+    return Number.isFinite(n) ? n : 0;
+  }
+
   useEffect(() => {
     void Promise.all([loadItems(search, 1), loadCategories()]);
   }, []);
@@ -325,7 +333,15 @@ export default function AdminItemsPage() {
           </label>
           <label>
             <span className="mb-1 block text-xs text-[var(--muted)]">Кол-во на складе</span>
-            <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={newItem.stockTotal} onFocus={(e) => e.currentTarget.select()} onChange={(event) => setNewItem((prev) => ({ ...prev, stockTotal: Number(event.target.value) }))} />
+            <input
+              className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+              type="text"
+              inputMode="numeric"
+              value={newItem.stockTotal === 0 ? "" : String(newItem.stockTotal)}
+              placeholder="0"
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => setNewItem((prev) => ({ ...prev, stockTotal: normalizeIntInput(e.target.value) }))}
+            />
           </label>
           <label>
             <span className="mb-1 block text-xs text-[var(--muted)]">Цена за сутки, ₽</span>
@@ -401,19 +417,51 @@ export default function AdminItemsPage() {
               </label>
               <label>
                 <span className="mb-1 block text-xs text-[var(--muted)]">Количество всего</span>
-                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockTotal} onFocus={(e) => e.currentTarget.select()} onChange={(event) => setDraft({ ...draft, stockTotal: Number(event.target.value) })} />
+                <input
+                  className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+                  type="text"
+                  inputMode="numeric"
+                  value={draft.stockTotal === 0 ? "" : String(draft.stockTotal)}
+                  placeholder="0"
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={(e) => setDraft({ ...draft, stockTotal: normalizeIntInput(e.target.value) })}
+                />
               </label>
               <label>
                 <span className="mb-1 block text-xs text-[var(--muted)]">На ремонте, шт</span>
-                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockInRepair} onFocus={(e) => e.currentTarget.select()} onChange={(event) => setDraft({ ...draft, stockInRepair: Number(event.target.value) })} />
+                <input
+                  className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+                  type="text"
+                  inputMode="numeric"
+                  value={draft.stockInRepair === 0 ? "" : String(draft.stockInRepair)}
+                  placeholder="0"
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={(e) => setDraft({ ...draft, stockInRepair: normalizeIntInput(e.target.value) })}
+                />
               </label>
               <label>
                 <span className="mb-1 block text-xs text-[var(--muted)]">Сломано, шт</span>
-                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockBroken} onFocus={(e) => e.currentTarget.select()} onChange={(event) => setDraft({ ...draft, stockBroken: Number(event.target.value) })} />
+                <input
+                  className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+                  type="text"
+                  inputMode="numeric"
+                  value={draft.stockBroken === 0 ? "" : String(draft.stockBroken)}
+                  placeholder="0"
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={(e) => setDraft({ ...draft, stockBroken: normalizeIntInput(e.target.value) })}
+                />
               </label>
               <label>
                 <span className="mb-1 block text-xs text-[var(--muted)]">Утеряно, шт</span>
-                <input className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm" type="number" min={0} value={draft.stockMissing} onFocus={(e) => e.currentTarget.select()} onChange={(event) => setDraft({ ...draft, stockMissing: Number(event.target.value) })} />
+                <input
+                  className="w-full rounded-xl border border-[var(--border)] bg-white px-2 py-2 text-sm"
+                  type="text"
+                  inputMode="numeric"
+                  value={draft.stockMissing === 0 ? "" : String(draft.stockMissing)}
+                  placeholder="0"
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={(e) => setDraft({ ...draft, stockMissing: normalizeIntInput(e.target.value) })}
+                />
               </label>
               <label>
                 <span className="mb-1 block text-xs text-[var(--muted)]">Цена за сутки, ₽</span>

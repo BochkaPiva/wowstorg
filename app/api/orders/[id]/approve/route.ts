@@ -218,9 +218,7 @@ export async function POST(
     comment: parsed.warehouseComment ?? undefined,
   });
 
-  const hasServices =
-    updated.deliveryRequested || updated.mountRequested || updated.dismountRequested;
-  if (hasServices) {
+  {
     const buffer = buildEstimateXlsx({
       orderId: updated.id,
       startDate: updated.startDate.toISOString().slice(0, 10),

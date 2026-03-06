@@ -49,7 +49,14 @@ export function DateField({
     <div
       className={`relative min-w-0 max-w-full overflow-hidden rounded-xl py-2 pl-3 pr-10 text-sm ${borderClass} ${className}`}
     >
-      {/* Невидимый input на весь блок — по тапу открывается нативный пикер */}
+      {/* Видимый текст — не перехватывает клики */}
+      <div
+        className="pointer-events-none select-none text-left text-[var(--foreground)]"
+        aria-hidden="true"
+      >
+        {value ? formatDateDisplay(value) : "Выберите дату"}
+      </div>
+      {/* Невидимый input поверх всего блока — кликабелен и на десктопе, и на мобильных */}
       <input
         id={inputId}
         type="date"
@@ -57,18 +64,11 @@ export function DateField({
         onChange={(e) => onChange(e.target.value)}
         min={min}
         max={max}
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-[0.02]"
+        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
         style={{ fontSize: "16px" }}
         aria-hidden="false"
         tabIndex={0}
       />
-      {/* Видимый текст — полностью под нашим контролем, не вылезает */}
-      <div
-        className="pointer-events-none select-none text-left text-[var(--foreground)]"
-        aria-hidden="true"
-      >
-        {value ? formatDateDisplay(value) : "Выберите дату"}
-      </div>
     </div>
   );
 }

@@ -28,6 +28,9 @@ type TelegramGlobal = {
   };
 };
 
+/** Кэш initData в памяти: при возврате по "Назад" Telegram WebApp иногда не отдаёт initData. */
+let cachedInitData = "";
+
 function getInitDataFromTelegramObject(): string {
   return ((globalThis as unknown as TelegramGlobal).Telegram?.WebApp?.initData ?? "").trim();
 }
@@ -50,11 +53,13 @@ async function resolveTelegramInitData(maxAttempts = 8, delayMs = 250): Promise<
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const fromObject = getInitDataFromTelegramObject();
     if (fromObject) {
+      cachedInitData = fromObject;
       return fromObject;
     }
 
     const fromUrl = getInitDataFromUrl();
     if (fromUrl) {
+      cachedInitData = fromUrl;
       return fromUrl;
     }
 
@@ -63,6 +68,10 @@ async function resolveTelegramInitData(maxAttempts = 8, delayMs = 250): Promise<
     });
   }
 
+  // После клиентской навигации (Назад) WebApp может не отдавать initData — используем кэш.
+  if (cachedInitData) {
+    return cachedInitData;
+  }
   return "";
 }
 
@@ -78,10 +87,7 @@ function roleTiles(role: AppRole | null): Tile[] {
       { href: "/orders/new", title: "Быстрая выдача", description: "Внешний заказ сразу в выдачу" },
       { href: "/warehouse/queue", title: "Очередь склада", description: "Approve, issue, check-in" },
       { href: "/warehouse/archive", title: "Архив склада", description: "Закрытые и отмененные заказы" },
-      { href: "/warehouse/lost-items", title: "Утерянный реквизит", description: "Найдено / списано / открытые потери" },
-      { href: "/warehouse/repairs", title: "Ремонт и списание", description: "Починить или утилизировать проблемные позиции" },
-      { href: "/warehouse/inventory", title: "Инвентарь", description: "CRUD реквизита, подборок и пакетов" },
-      { href: "/admin/internal-consumables", title: "Внутренние расходники", description: "Учёт расходников склада" },
+      { href: "/warehouse/inventory", title: "Инвентарь", description: "Реквизит, подборки, пакеты, потери, ремонт, расходники" },
     ];
   }
   if (role === "ADMIN") {
@@ -89,10 +95,7 @@ function roleTiles(role: AppRole | null): Tile[] {
       { href: "/orders/new", title: "Быстрая выдача", description: "Оформление внешних заказов" },
       { href: "/warehouse/queue", title: "Очередь склада", description: "Полный операционный контроль" },
       { href: "/warehouse/archive", title: "Архив склада", description: "История закрытых и отмененных заказов" },
-      { href: "/warehouse/lost-items", title: "Утерянный реквизит", description: "Реестр потерянных позиций" },
-      { href: "/warehouse/repairs", title: "Ремонт и списание", description: "Операции по проблемным остаткам" },
-      { href: "/warehouse/inventory", title: "Инвентарь", description: "CRUD реквизита, подборок и пакетов" },
-      { href: "/admin/internal-consumables", title: "Внутренние расходники", description: "Учёт расходников склада" },
+      { href: "/warehouse/inventory", title: "Инвентарь", description: "Реквизит, подборки, пакеты, потери, ремонт, расходники" },
       { href: "/admin", title: "Админ панель", description: "Доступы, заказчики и аналитика" },
       { href: "/dev-login", title: "Сервисный вход", description: "Тестовые сессии для отладки" },
     ];
@@ -108,7 +111,12 @@ export default function Home() {
     let ignore = false;
 
     async function bootstrap() {
-      const meResponse = await fetch("/api/auth/me", { credentials: "include" });
+      let meResponse = await fetch("/api/auth/me", { credentials: "include" });
+      if (!meResponse.ok) {
+        await new Promise((r) => setTimeout(r, 400));
+        if (ignore) return;
+        meResponse = await fetch("/api/auth/me", { credentials: "include" });
+      }
       if (meResponse.ok) {
         const payload = (await meResponse.json()) as AuthMePayload;
         if (!ignore) {

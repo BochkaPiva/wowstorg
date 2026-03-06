@@ -2,27 +2,19 @@
 
 import Link from "next/link";
 
-const SCENARIOS = [
-  {
-    href: "/warehouse/inventory/items",
-    title: "Позиции реквизита",
-    description: "CRUD позиций, фото, количество, статусы",
-  },
-  {
-    href: "/warehouse/inventory/categories",
-    title: "Подборки",
-    description: "CRUD категорий и структура подборок",
-  },
-  {
-    href: "/warehouse/inventory/kits",
-    title: "Пакеты",
-    description: "CRUD готовых пакетов и их состав",
-  },
-  {
-    href: "/warehouse/inventory/rented",
-    title: "Сдано в аренду",
-    description: "Какие позиции сейчас у клиентов и до какой даты",
-  },
+/** Бледно-фиолетовые карточки: управление складом (позиции, подборки, пакеты). */
+const ADMIN_SCENARIOS = [
+  { href: "/warehouse/inventory/items", title: "Позиции и реквизит", description: "CRUD позиций, фото, количество, статусы" },
+  { href: "/warehouse/inventory/categories", title: "Подборки", description: "CRUD категорий и структура подборок" },
+  { href: "/warehouse/inventory/kits", title: "Пакеты", description: "CRUD готовых пакетов и их состав" },
+];
+
+/** Белые карточки: операции и учёт. */
+const OTHER_SCENARIOS = [
+  { href: "/warehouse/inventory/rented", title: "Сдано в аренду", description: "Какие позиции сейчас у клиентов и до какой даты" },
+  { href: "/warehouse/lost-items", title: "Утерянный реквизит", description: "Найдено / списано / открытые потери" },
+  { href: "/warehouse/repairs", title: "Ремонт и списание", description: "Починить или утилизировать проблемные позиции" },
+  { href: "/admin/internal-consumables", title: "Внутренние расходники", description: "Учёт расходников склада" },
 ];
 
 export default function WarehouseInventoryPage() {
@@ -35,15 +27,25 @@ export default function WarehouseInventoryPage() {
         </button>
       </div>
       <p className="text-sm text-[var(--muted)]">
-        Управление списком реквизита, подборками и пакетами.
+        Управление реквизитом, подборками, пакетами, потерями, ремонтом и расходниками.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {SCENARIOS.map((scenario) => (
+        {ADMIN_SCENARIOS.map((scenario) => (
           <Link
             key={scenario.href}
             href={scenario.href}
-            className="ws-card border p-4 hover:bg-violet-50"
+            className="ws-card border border-violet-200 bg-violet-50/70 p-4 hover:bg-violet-100/80"
+          >
+            <div className="font-medium">{scenario.title}</div>
+            <div className="text-sm text-[var(--muted)]">{scenario.description}</div>
+          </Link>
+        ))}
+        {OTHER_SCENARIOS.map((scenario) => (
+          <Link
+            key={scenario.href}
+            href={scenario.href}
+            className="ws-card border border-[var(--border)] bg-white p-4 hover:bg-slate-50"
           >
             <div className="font-medium">{scenario.title}</div>
             <div className="text-sm text-[var(--muted)]">{scenario.description}</div>

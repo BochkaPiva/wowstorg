@@ -12,8 +12,6 @@ const ALL_ITEMS: MenuItem[] = [
   { href: "/orders/new", label: "Быстрая выдача", roles: ["WAREHOUSE", "ADMIN"] },
   { href: "/warehouse/queue", label: "Очередь склада", roles: ["WAREHOUSE", "ADMIN"] },
   { href: "/warehouse/archive", label: "Архив", roles: ["WAREHOUSE", "ADMIN"] },
-  { href: "/warehouse/lost-items", label: "Утерянный реквизит", roles: ["WAREHOUSE", "ADMIN"] },
-  { href: "/warehouse/repairs", label: "Ремонт и списание", roles: ["WAREHOUSE", "ADMIN"] },
   { href: "/warehouse/inventory", label: "Инвентарь", roles: ["WAREHOUSE", "ADMIN"] },
   { href: "/admin", label: "Админ", roles: ["ADMIN"] },
   { href: "/dev-login", label: "Dev-вход", roles: ["ADMIN"] },

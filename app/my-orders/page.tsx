@@ -389,13 +389,11 @@ export default function MyOrdersPage() {
                     </span>
                   ) : null}
                 </div>
-                <div className="text-xs text-[var(--muted)]">Даты: {order.startDate} — {order.endDate}{order.readyByDate && order.readyByDate !== order.startDate ? ` • Готовность к: ${order.readyByDate}` : ""}</div>
                 <div className="text-xs text-[var(--muted)]">
-                  Обновлено: {new Date(order.updatedAt).toLocaleString("ru-RU")}
+                  Готовность к: {order.readyByDate ?? order.startDate}
                 </div>
                 <div className="text-xs text-[var(--muted)]">
-                  Состав: {order.lines.slice(0, 3).map((line) => `${line.itemName} x${line.requestedQty}`).join(", ")}
-                  {order.lines.length > 3 ? ` +${order.lines.length - 3}` : ""}
+                  Обновлено: {new Date(order.updatedAt).toLocaleString("ru-RU")}
                 </div>
                 {order.totalAmount != null && order.totalAmount > 0 ? (
                   <div className="text-sm font-medium text-[var(--brand)]">
@@ -410,7 +408,16 @@ export default function MyOrdersPage() {
                 <button
                   type="button"
                   className="ws-btn text-xs"
-                  onClick={() => setExpandedDetailOrderId((id) => (id === order.id ? null : order.id))}
+                  onClick={() => {
+                    const next = expandedDetailOrderId === order.id ? null : order.id;
+                    setExpandedDetailOrderId(next);
+                    if (next) {
+                      requestAnimationFrame(() => {
+                        const el = document.getElementById(`order-detail-${order.id}`);
+                        el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                      });
+                    }
+                  }}
                 >
                   {expandedDetailOrderId === order.id ? "Свернуть" : "Подробнее"}
                 </button>
@@ -449,7 +456,7 @@ export default function MyOrdersPage() {
             </div>
 
             {expandedDetailOrderId === order.id ? (
-              <div className="mt-4 space-y-4 rounded-xl border border-[var(--border)] bg-slate-50/80 p-4">
+              <div id={`order-detail-${order.id}`} className="mt-4 space-y-4 rounded-xl border border-[var(--border)] bg-slate-50/80 p-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-lg border border-[var(--border)] bg-white p-3">
                     <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Заказчик</div>

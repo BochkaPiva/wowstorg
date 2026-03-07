@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireWarehouseUser } from "@/lib/api-auth";
 import { fail } from "@/lib/http";
 import { buildEstimateXlsx } from "@/lib/estimate-xlsx";
-import { notifyOrderOwner, getNotificationChatConfig, sendDocumentToNotificationChat } from "@/lib/notifications";
+import { orderStateEqualsSnapshot } from "@/lib/order-estimate-flow";
+import {
+  getNotificationChatConfig,
+  sendDocumentToNotificationChat,
+  notifyGreenwichOrderApprovedWithEstimate,
+} from "@/lib/notifications";
 import { parseApproveInput, serializeOrder } from "@/lib/orders";
 import { prisma } from "@/lib/prisma";
 import { sendTelegramDocument } from "@/lib/telegram-bot";
@@ -62,6 +67,23 @@ export async function POST(
 
   if (order.status !== "SUBMITTED") {
     return fail(409, "Only SUBMITTED orders can be approved.");
+  }
+
+  if (order.orderSource === "GREENWICH_INTERNAL") {
+    if (!order.greenwichConfirmedAt) {
+      return fail(
+        409,
+        "Сначала гринвич должен подтвердить смету. Отправьте смету (кнопка «Отправить смету») и дождитесь подтверждения.",
+      );
+    }
+    const confirmedSnapshot =
+      order.greenwichConfirmedSnapshot as import("@/lib/order-estimate-flow").OrderEstimateSnapshot | null;
+    if (!orderStateEqualsSnapshot(order, confirmedSnapshot)) {
+      return fail(
+        400,
+        "После подтверждения гринвича позиции или цены доп. услуг были изменены. Нажмите «Отправить смету» и дождитесь повторного подтверждения гринвича.",
+      );
+    }
   }
 
   const updateByLineId = new Map(parsed.lines.map((line) => [line.orderLineId, line.approvedQty]));
@@ -170,54 +192,6 @@ export async function POST(
     });
   });
 
-  const notifyBlocks: Array<{ title: string; lines: string[] }> = [];
-  if (order.deliveryRequested || order.mountRequested || order.dismountRequested) {
-    const serviceLines: string[] = [];
-    if (order.deliveryRequested) {
-      serviceLines.push(`Доставка: ${order.deliveryComment?.trim() || "—"}`);
-    }
-    if (order.mountRequested) {
-      serviceLines.push(`Монтаж: ${order.mountComment?.trim() || "—"}`);
-    }
-    if (order.dismountRequested) {
-      serviceLines.push(`Демонтаж: ${order.dismountComment?.trim() || "—"}`);
-    }
-    notifyBlocks.push({ title: "Услуги", lines: serviceLines });
-  }
-  notifyBlocks.push(
-    {
-      title: "Согласовано к выдаче",
-        lines: order.lines
-          .filter((line) => (updateByLineId.get(line.id) ?? 0) > 0)
-          .map((line) => {
-            const approvedQty = updateByLineId.get(line.id) ?? 0;
-            const comment = commentByLineId.get(line.id);
-            return `${line.item.name}: ${approvedQty} из ${line.requestedQty}${comment ? ` (${comment})` : ""}`;
-          }),
-      },
-      {
-        title: "Не удалось подтвердить полностью",
-        lines: order.lines
-          .filter((line) => (updateByLineId.get(line.id) ?? 0) < line.requestedQty)
-          .map((line) => {
-            const approvedQty = updateByLineId.get(line.id) ?? 0;
-            const comment = commentByLineId.get(line.id);
-            return `${line.item.name}: не хватает ${line.requestedQty - approvedQty}${comment ? ` (${comment})` : ""}`;
-          }),
-    },
-  );
-
-  await notifyOrderOwner({
-    ownerTelegramId: order.createdBy.telegramId.toString(),
-    title: "Склад обработал заявку (этап согласования).",
-    startDate: order.startDate.toISOString().slice(0, 10),
-    endDate: order.endDate.toISOString().slice(0, 10),
-    customerName: order.customer?.name ?? null,
-    eventName: order.eventName,
-    blocks: notifyBlocks,
-    comment: parsed.warehouseComment ?? undefined,
-  });
-
   {
     const buffer = buildEstimateXlsx({
       orderId: updated.id,
@@ -247,7 +221,7 @@ export async function POST(
       .slice(0, 30)
       .trim() || "sotr";
     const filename = `smeta_${dateStr}_${customerPart}_${userPart}.xlsx`;
-    const caption = `Смета по заявке ${updated.id}. Период: ${updated.startDate.toISOString().slice(0, 10)} — ${updated.endDate.toISOString().slice(0, 10)}.`;
+    const caption = `Заявка ${updated.id} согласована и укомплектована. Итоговая смета во вложении. Период: ${updated.startDate.toISOString().slice(0, 10)} — ${updated.endDate.toISOString().slice(0, 10)}.`;
     await sendTelegramDocument({
       chatId: updated.createdBy.telegramId.toString(),
       buffer,
@@ -272,6 +246,13 @@ export async function POST(
       );
     }
   }
+
+  await notifyGreenwichOrderApprovedWithEstimate({
+    ownerTelegramId: updated.createdBy.telegramId.toString(),
+    orderId: updated.id,
+    startDate: updated.startDate.toISOString().slice(0, 10),
+    endDate: updated.endDate.toISOString().slice(0, 10),
+  });
 
   return NextResponse.json({
     order: serializeOrder(updated),

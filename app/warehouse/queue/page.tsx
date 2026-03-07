@@ -39,6 +39,9 @@ type QueueOrder = {
   mountPrice?: number | null;
   dismountPrice?: number | null;
   warehouseInternalNote?: string | null;
+  estimateSentAt?: string | null;
+  greenwichConfirmedAt?: string | null;
+  canApprove?: boolean;
   clientDeclaration: {
     lines: Array<{
       orderLineId: string;
@@ -276,42 +279,11 @@ export default function WarehouseQueuePage() {
   async function approveOrder(order: QueueOrder) {
     setBusyOrderId(order.id);
     try {
-      const draft = editDrafts[order.id];
-      const linesPayload = order.lines.map((line) => {
-        const edited =
-          draft?.lines.find((entry) => entry.lineId === line.id) ??
-          draft?.lines.find((entry) => entry.itemId === line.itemId);
-        const approvedQty =
-          edited != null
-            ? Math.max(0, Math.min(line.requestedQty, Number(edited.approvedQty) || 0))
-            : (line.approvedQty ?? line.requestedQty);
-        const comment = edited?.comment?.trim() || undefined;
-        return {
-          orderLineId: line.id,
-          approvedQty: Number(approvedQty),
-          comment,
-        };
-      });
-      const prices = servicePricesByOrder[order.id];
-      const deliveryPrice = order.deliveryRequested
-        ? (prices?.deliveryPrice ?? order.deliveryPrice ?? null)
-        : null;
-      const mountPrice = order.mountRequested
-        ? (prices?.mountPrice ?? order.mountPrice ?? null)
-        : null;
-      const dismountPrice = order.dismountRequested
-        ? (prices?.dismountPrice ?? order.dismountPrice ?? null)
-        : null;
+      const body = buildApprovePayload(order);
       const response = await fetch(`/api/orders/${order.id}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lines: linesPayload,
-          warehouseComment: warehouseComments[order.id]?.trim() || undefined,
-          deliveryPrice: deliveryPrice ?? undefined,
-          mountPrice: mountPrice ?? undefined,
-          dismountPrice: dismountPrice ?? undefined,
-        }),
+        body: JSON.stringify(body),
       });
       const payload = (await response.json()) as { error?: { message?: string } };
       if (!response.ok) {
@@ -322,6 +294,85 @@ export default function WarehouseQueuePage() {
       await loadQueue();
     } catch {
       setStatus("Ошибка сети при подтверждении.");
+    } finally {
+      setBusyOrderId(null);
+    }
+  }
+
+  /** Сбор тела для approve и send-estimate (линии + цены услуг + комментарий). */
+  function buildApprovePayload(order: QueueOrder): {
+    lines: Array<{ orderLineId: string; approvedQty: number; comment?: string }>;
+    warehouseComment?: string;
+    deliveryPrice?: number;
+    mountPrice?: number;
+    dismountPrice?: number;
+  } {
+    const draft = editDrafts[order.id];
+    const linesPayload = order.lines.map((line) => {
+      const edited =
+        draft?.lines.find((entry) => entry.lineId === line.id) ??
+        draft?.lines.find((entry) => entry.itemId === line.itemId);
+      const approvedQty =
+        edited != null
+          ? Math.max(0, Math.min(line.requestedQty, Number(edited.approvedQty) || 0))
+          : (line.approvedQty ?? line.requestedQty);
+      const comment = edited?.comment?.trim() || undefined;
+      return {
+        orderLineId: line.id,
+        approvedQty: Number(approvedQty),
+        ...(comment ? { comment } : {}),
+      };
+    });
+    const prices = servicePricesByOrder[order.id];
+    const deliveryPrice = order.deliveryRequested
+      ? (prices?.deliveryPrice ?? order.deliveryPrice ?? null)
+      : null;
+    const mountPrice = order.mountRequested
+      ? (prices?.mountPrice ?? order.mountPrice ?? null)
+      : null;
+    const dismountPrice = order.dismountRequested
+      ? (prices?.dismountPrice ?? order.dismountPrice ?? null)
+      : null;
+    return {
+      lines: linesPayload,
+      warehouseComment: warehouseComments[order.id]?.trim() || undefined,
+      ...(deliveryPrice != null ? { deliveryPrice } : {}),
+      ...(mountPrice != null ? { mountPrice } : {}),
+      ...(dismountPrice != null ? { dismountPrice } : {}),
+    };
+  }
+
+  async function sendEstimateOrder(order: QueueOrder) {
+    const needDelivery =
+      order.deliveryRequested &&
+      (servicePricesByOrder[order.id]?.deliveryPrice ?? order.deliveryPrice) == null;
+    const needMount =
+      order.mountRequested &&
+      (servicePricesByOrder[order.id]?.mountPrice ?? order.mountPrice) == null;
+    const needDismount =
+      order.dismountRequested &&
+      (servicePricesByOrder[order.id]?.dismountPrice ?? order.dismountPrice) == null;
+    if (needDelivery || needMount || needDismount) {
+      setStatus("Укажите цены на включённые доп. услуги перед отправкой сметы.");
+      return;
+    }
+    setBusyOrderId(order.id);
+    try {
+      const body = buildApprovePayload(order);
+      const response = await fetch(`/api/orders/${order.id}/send-estimate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        setStatus(`Ошибка: ${payload.error?.message ?? "проверьте данные"}`);
+        return;
+      }
+      setStatus(`Смета по заявке ${order.id} отправлена гринвичу.`);
+      await loadQueue();
+    } catch {
+      setStatus("Ошибка сети при отправке сметы.");
     } finally {
       setBusyOrderId(null);
     }
@@ -627,16 +678,42 @@ export default function WarehouseQueuePage() {
                       order.dismountRequested &&
                       (prices?.dismountPrice ?? order.dismountPrice) == null;
                     const servicePricesMissing = needDelivery || needMount || needDismount;
+                    const canApprove = order.canApprove === true;
+                    const approveDisabled =
+                      busyOrderId !== null || servicePricesMissing || !canApprove;
+                    const approveTitle = servicePricesMissing
+                      ? "Укажите цены на включённые услуги"
+                      : !canApprove
+                        ? (order.greenwichConfirmedAt
+                          ? "После подтверждения гринвича были изменения — снова отправьте смету"
+                          : "Сначала гринвич должен подтвердить смету (кнопка «Отправить смету»)")
+                        : undefined;
+                    const sendEstimateDisabled = busyOrderId !== null || servicePricesMissing;
                     return (
-                      <button
-                        className="ws-btn-primary disabled:opacity-50"
-                        type="button"
-                        onClick={() => void approveOrder(order)}
-                        disabled={busyOrderId !== null || servicePricesMissing}
-                        title={servicePricesMissing ? "Укажите цены на включённые услуги" : undefined}
-                      >
-                        {busyOrderId === order.id ? "..." : "Согласовать"}
-                      </button>
+                      <>
+                        <button
+                          className="ws-btn disabled:opacity-50"
+                          type="button"
+                          onClick={() => void sendEstimateOrder(order)}
+                          disabled={sendEstimateDisabled}
+                          title={
+                            servicePricesMissing
+                              ? "Укажите цены на включённые услуги"
+                              : "Отправить смету гринвичу для подтверждения"
+                          }
+                        >
+                          {busyOrderId === order.id ? "..." : "Отправить смету"}
+                        </button>
+                        <button
+                          className="ws-btn-primary disabled:opacity-50"
+                          type="button"
+                          onClick={() => void approveOrder(order)}
+                          disabled={approveDisabled}
+                          title={approveTitle}
+                        >
+                          {busyOrderId === order.id ? "..." : "Согласовать"}
+                        </button>
+                      </>
                     );
                   })()
                 ) : null}

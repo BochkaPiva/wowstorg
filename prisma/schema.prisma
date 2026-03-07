@@ -217,6 +217,10 @@ model Order {
   dismountPrice    Decimal?  @db.Decimal(12, 2) @map("dismount_price")
   warehouseInternalNote String? @map("warehouse_internal_note")
   createdViaQuickIssue Boolean  @default(false) @map("created_via_quick_issue")
+  estimateSentAt       DateTime? @map("estimate_sent_at")
+  estimateSentSnapshot Json?     @map("estimate_sent_snapshot")
+  greenwichConfirmedAt DateTime? @map("greenwich_confirmed_at")
+  greenwichConfirmedSnapshot Json? @map("greenwich_confirmed_snapshot")
 
   createdBy  User       @relation("OrdersCreated", fields: [createdById], references: [id], onDelete: Restrict)
   customer   Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)

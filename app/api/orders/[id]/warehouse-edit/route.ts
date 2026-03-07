@@ -1,4 +1,4 @@
-import { Role } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getReservedQtyMap } from "@/lib/availability";
 import { requireUser } from "@/lib/api-auth";
@@ -125,6 +125,10 @@ export async function PATCH(
         status: "SUBMITTED",
         approvedById: null,
         notes: reason.length > 0 ? `${order.notes ? `${order.notes}\n` : ""}Правка склада: ${reason}` : order.notes,
+        estimateSentAt: null,
+        estimateSentSnapshot: Prisma.JsonNull,
+        greenwichConfirmedAt: null,
+        greenwichConfirmedSnapshot: Prisma.JsonNull,
       },
     });
 

@@ -115,6 +115,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       dismountComment: order.dismountComment ?? null,
       dismountPrice: order.dismountPrice != null ? Number(order.dismountPrice) : null,
       discountRate: Number(order.discountRate),
+      estimateSentAt: order.estimateSentAt?.toISOString() ?? null,
+      greenwichConfirmedAt: order.greenwichConfirmedAt?.toISOString() ?? null,
       lines: order.lines.map((line) => ({
         id: line.id,
         itemId: line.itemId,

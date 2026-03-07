@@ -637,6 +637,10 @@ export function serializeOrder(order: {
     deliveryPrice: order.deliveryPrice != null ? Number(order.deliveryPrice) : null,
     mountPrice: order.mountPrice != null ? Number(order.mountPrice) : null,
     dismountPrice: order.dismountPrice != null ? Number(order.dismountPrice) : null,
+    estimateSentAt:
+      (order as { estimateSentAt?: Date | null }).estimateSentAt?.toISOString() ?? null,
+    greenwichConfirmedAt:
+      (order as { greenwichConfirmedAt?: Date | null }).greenwichConfirmedAt?.toISOString() ?? null,
     lines: order.lines.map((line) => ({
       id: line.id,
       itemId: line.itemId,

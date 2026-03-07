@@ -388,3 +388,98 @@ export async function notifyOwnerOverdueReturn(params: {
     }),
   );
 }
+
+/** Склад отправил смету — гринвичу: подтвердите в «Мои заявки». */
+export async function notifyGreenwichEstimateSent(params: {
+  ownerTelegramId: string;
+  orderId: string;
+  startDate: string;
+  endDate: string;
+}): Promise<void> {
+  const text = [
+    "📄 Склад отправил смету по заявке",
+    "",
+    `Заявка: ${params.orderId}`,
+    `Период: ${params.startDate} — ${params.endDate}`,
+    "",
+    "Подтвердите смету в разделе «Мои заявки» (кнопка «Подтвердить»). Смета во вложении к предыдущему сообщению.",
+  ].join("\n");
+
+  await safeSend(
+    sendTelegramMessage({
+      chatId: params.ownerTelegramId,
+      text,
+      inlineKeyboard: [[{ text: "Мои заявки", web_app: { url: getWebAppUrl() } }]],
+    }),
+  );
+}
+
+/** Гринвич подтвердил смету — складу в рабочий чат: изменения (было → стало), можно согласовать или снова отправить смету. */
+export async function notifyWarehouseGreenwichConfirmed(params: {
+  orderId: string;
+  diffText: string;
+}): Promise<void> {
+  const text = [
+    "✅ Гринвич подтвердил смету по заявке",
+    "",
+    `Заявка: ${params.orderId}`,
+    params.diffText ? `Изменения: ${params.diffText}` : "Без изменений.",
+    "",
+    "Дальше: нажмите «Согласовано» в карточке заявки или отредактируйте позиции/услуги и снова отправьте смету.",
+  ].join("\n");
+
+  await sendToNotificationChat({
+    text,
+    inlineKeyboard: [[{ text: "Открыть очередь", url: buildOrderLink(params.orderId) }]],
+  });
+}
+
+/** Склад обновил смету после изменений — гринвичу: подтвердите заново. */
+export async function notifyGreenwichEstimateUpdated(params: {
+  ownerTelegramId: string;
+  orderId: string;
+  startDate: string;
+  endDate: string;
+}): Promise<void> {
+  const text = [
+    "📄 Склад обновил смету по заявке (изменены позиции или услуги)",
+    "",
+    `Заявка: ${params.orderId}`,
+    `Период: ${params.startDate} — ${params.endDate}`,
+    "",
+    "Проверьте и нажмите «Подтвердить» в разделе «Мои заявки». Смета во вложении.",
+  ].join("\n");
+
+  await safeSend(
+    sendTelegramMessage({
+      chatId: params.ownerTelegramId,
+      text,
+      inlineKeyboard: [[{ text: "Мои заявки", web_app: { url: getWebAppUrl() } }]],
+    }),
+  );
+}
+
+/** Заявка согласована и укомплектована — гринвичу: итоговая смета во вложении. */
+export async function notifyGreenwichOrderApprovedWithEstimate(params: {
+  ownerTelegramId: string;
+  orderId: string;
+  startDate: string;
+  endDate: string;
+}): Promise<void> {
+  const text = [
+    "✅ Заявка согласована и укомплектована",
+    "",
+    `Заявка: ${params.orderId}`,
+    `Период: ${params.startDate} — ${params.endDate}`,
+    "",
+    "Итоговая смета во вложении. Можно забирать реквизит.",
+  ].join("\n");
+
+  await safeSend(
+    sendTelegramMessage({
+      chatId: params.ownerTelegramId,
+      text,
+      inlineKeyboard: [[{ text: "Мои заявки", web_app: { url: getWebAppUrl() } }]],
+    }),
+  );
+}

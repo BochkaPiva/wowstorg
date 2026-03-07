@@ -58,6 +58,8 @@ type Order = {
   mountPrice?: number | null;
   dismountPrice?: number | null;
   discountRate?: number;
+  estimateSentAt?: string | null;
+  greenwichConfirmedAt?: string | null;
 };
 type EditableOrderDetails = {
   id: string;
@@ -182,6 +184,26 @@ export default function MyOrdersPage() {
     }
   }
 
+  async function confirmEstimateOrder(order: Order) {
+    if (order.status !== "SUBMITTED" || !order.estimateSentAt || order.greenwichConfirmedAt) return;
+    setBusyOrderId(order.id);
+    try {
+      const response = await fetch(`/api/orders/${order.id}/confirm-estimate`, { method: "POST" });
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        setStatus(payload.error?.message ?? "Не удалось подтвердить смету.");
+        return;
+      }
+      setStatus("Смета подтверждена. Склад может согласовать заявку.");
+      await loadOrders();
+      setExpandedEditOrderId(null);
+    } catch {
+      setStatus("Ошибка сети при подтверждении сметы.");
+    } finally {
+      setBusyOrderId(null);
+    }
+  }
+
   useEffect(() => {
     void loadOrders();
   }, []);
@@ -273,6 +295,10 @@ export default function MyOrdersPage() {
 
   async function openEdit(order: Order) {
     if (order.status !== "SUBMITTED") return;
+    if (order.greenwichConfirmedAt) {
+      setStatus("Смета уже подтверждена. Правки — через склад.");
+      return;
+    }
     if (!editDrafts[order.id]) {
       const [orderRes, itemsRes] = await Promise.all([
         fetch(`/api/orders/${order.id}`),
@@ -446,9 +472,25 @@ export default function MyOrdersPage() {
                 ) : null}
                 {order.status === "SUBMITTED" ? (
                   <>
-                    <button className="ws-btn text-xs" onClick={() => void openEdit(order)}>
-                      {expandedEditOrderId === order.id ? "Скрыть" : "Редактировать"}
-                    </button>
+                    {order.estimateSentAt && !order.greenwichConfirmedAt ? (
+                      <button
+                        className="ws-btn-primary text-xs disabled:opacity-50"
+                        onClick={() => void confirmEstimateOrder(order)}
+                        disabled={busyOrderId !== null}
+                        title="Подтвердить смету для склада (после этого редактирование недоступно)"
+                      >
+                        {busyOrderId === order.id ? "…" : "Подтвердить смету"}
+                      </button>
+                    ) : null}
+                    {!order.greenwichConfirmedAt ? (
+                      <button className="ws-btn text-xs" onClick={() => void openEdit(order)}>
+                        {expandedEditOrderId === order.id ? "Скрыть" : "Редактировать"}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-[var(--muted)]" title="Смета подтверждена. Правки — через склад (склад отправит новую смету).">
+                        Смета подтверждена
+                      </span>
+                    )}
                     <button
                       className="ws-btn text-xs disabled:opacity-50"
                       onClick={() => void cancelOrder(order)}
@@ -617,6 +659,11 @@ export default function MyOrdersPage() {
             ) : null}
 
             {expandedEditOrderId === order.id ? (
+              order.greenwichConfirmedAt ? (
+                <div className="mt-3 rounded-xl border border-[var(--border)] bg-amber-50/80 p-3 text-sm text-[var(--muted)]">
+                  Смета подтверждена. Редактирование недоступно — правки через склад.
+                </div>
+              ) : (
               <div className="mt-3 space-y-3 rounded-xl border border-[var(--border)] bg-white p-3">
                 <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
                   <label className="block min-w-0 text-xs font-medium text-[var(--muted)]">
@@ -941,6 +988,7 @@ export default function MyOrdersPage() {
                   </button>
                 </div>
               </div>
+              )
             ) : null}
 
             {expandedReturnOrderId === order.id ? (

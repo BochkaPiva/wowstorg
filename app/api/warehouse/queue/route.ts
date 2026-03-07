@@ -1,6 +1,7 @@
 import { OrderStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireWarehouseUser } from "@/lib/api-auth";
+import { orderStateEqualsSnapshot, type OrderEstimateSnapshot } from "@/lib/order-estimate-flow";
 import { prisma } from "@/lib/prisma";
 
 function minutesAgo(date: Date): number {
@@ -180,6 +181,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         mountPrice: o.mountPrice != null ? Number(o.mountPrice) : null,
         dismountPrice: o.dismountPrice != null ? Number(o.dismountPrice) : null,
         warehouseInternalNote: o.warehouseInternalNote ?? null,
+        estimateSentAt: o.estimateSentAt?.toISOString() ?? null,
+        greenwichConfirmedAt: o.greenwichConfirmedAt?.toISOString() ?? null,
+        canApprove:
+          o.status === "SUBMITTED" &&
+          (o.orderSource !== "GREENWICH_INTERNAL" ||
+            (o.greenwichConfirmedAt != null &&
+              orderStateEqualsSnapshot(o, o.greenwichConfirmedSnapshot as OrderEstimateSnapshot | null))),
         clientDeclaration: parseClientDeclaration(o.notes),
         createdBy: {
           id: o.createdBy.id,

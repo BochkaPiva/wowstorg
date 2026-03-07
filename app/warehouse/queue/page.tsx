@@ -476,7 +476,7 @@ export default function WarehouseQueuePage() {
           prev[order.id]
             ? { ...prev, [order.id]: { ...prev[order.id], lines: newDraftLines } }
             : prev,
-        });
+        );
         setOrders((prev) =>
           prev.map((o) => {
             if (o.id !== order.id) return o;

@@ -10,10 +10,12 @@ const ACTIVE_RESERVATION_STATUSES: OrderStatus[] = [
   OrderStatus.EMERGENCY_ISSUED,
 ];
 
+/** При редактировании заявки передайте excludeOrderId, чтобы её же позиции не учитывались в резерве (иначе «превышает доступность»). */
 export async function getReservedQtyMap(
   itemIds: string[],
   startDate: Date,
   endDate: Date,
+  excludeOrderId?: string,
 ): Promise<Map<string, number>> {
   if (itemIds.length === 0) {
     return new Map();
@@ -22,6 +24,7 @@ export async function getReservedQtyMap(
   const lines = await prisma.orderLine.findMany({
     where: {
       itemId: { in: itemIds },
+      ...(excludeOrderId ? { orderId: { not: excludeOrderId } } : {}),
       order: {
         status: { in: ACTIVE_RESERVATION_STATUSES },
         startDate: { lt: endDate },

@@ -706,12 +706,12 @@ export default function MyOrdersPage() {
                   Смета подтверждена. Редактирование недоступно — правки через склад.
                 </div>
               ) : (
-              <div className="mt-3 space-y-3 rounded-xl border border-[var(--border)] bg-white p-3">
+              <div className="mt-3 space-y-3 overflow-hidden rounded-xl border border-[var(--border)] bg-white p-3">
                 <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
-                  <label className="block min-w-0 text-xs font-medium text-[var(--muted)]">
-                    Дата начала
+                  <label className="block min-w-0 overflow-hidden text-xs font-medium text-[var(--muted)]">
+                    <span className="block truncate">Дата начала</span>
                     <input
-                      className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                      className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm [&::-webkit-date-and-time-value]:min-w-0"
                       type="date"
                       value={editDrafts[order.id]?.startDate ?? order.startDate}
                       onChange={(event) => {
@@ -725,10 +725,10 @@ export default function MyOrdersPage() {
                       }}
                     />
                   </label>
-                  <label className="block min-w-0 text-xs font-medium text-[var(--muted)]">
-                    Дата окончания
+                  <label className="block min-w-0 overflow-hidden text-xs font-medium text-[var(--muted)]">
+                    <span className="block truncate">Дата окончания</span>
                     <input
-                      className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                      className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm [&::-webkit-date-and-time-value]:min-w-0"
                       type="date"
                       value={editDrafts[order.id]?.endDate ?? order.endDate}
                       onChange={(event) =>
@@ -739,10 +739,10 @@ export default function MyOrdersPage() {
                       }
                     />
                   </label>
-                  <label className="block min-w-0 text-xs font-medium text-[var(--muted)]">
-                    Готовность к дате (когда подготовить и когда заберут/отправят)
+                  <label className="block min-w-0 overflow-hidden text-xs font-medium text-[var(--muted)]">
+                    <span className="block break-words">Готовность к дате (когда подготовить и когда заберут/отправят)</span>
                     <input
-                      className="mt-1 w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm"
+                      className="mt-1 w-full min-w-0 max-w-full rounded-xl border border-[var(--border)] bg-white px-2 py-1.5 text-sm [&::-webkit-date-and-time-value]:min-w-0"
                       type="date"
                       max={editDrafts[order.id]?.startDate ?? order.startDate}
                       value={editDrafts[order.id]?.readyByDate ?? order.readyByDate ?? order.startDate}

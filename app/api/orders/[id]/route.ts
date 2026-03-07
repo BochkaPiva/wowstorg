@@ -250,6 +250,7 @@ export async function PATCH(
       itemIds,
       parsedRange.startDate,
       parsedRange.endDate,
+      existing.id,
     );
 
     for (const line of normalizedLines) {

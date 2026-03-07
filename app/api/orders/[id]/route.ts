@@ -293,11 +293,12 @@ export async function PATCH(
       await tx.orderLine.createMany({
         data: normalizedLines.map((line) => {
           const item = itemById.get(line.itemId)!;
+          const qty = line.requestedQty;
           return {
             orderId: existing.id,
             itemId: line.itemId,
-            requestedQty: line.requestedQty,
-            approvedQty: null,
+            requestedQty: qty,
+            approvedQty: qty,
             issuedQty: null,
             sourceKitId: line.sourceKitId,
             pricePerDaySnapshot: item.pricePerDay,

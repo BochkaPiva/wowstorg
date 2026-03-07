@@ -72,7 +72,7 @@ type EditableOrderDetails = {
   customerName: string | null;
   eventName: string | null;
   notes: string | null;
-  lines: Array<{ id: string; itemId: string; requestedQty: number; item: { name: string } }>;
+  lines: Array<{ id: string; itemId: string; requestedQty: number; approvedQty?: number | null; item: { name: string } }>;
   deliveryRequested?: boolean;
   deliveryComment?: string | null;
   mountRequested?: boolean;
@@ -333,7 +333,8 @@ export default function MyOrdersPage() {
       setStatus("Смета уже подтверждена. Правки — через склад.");
       return;
     }
-    if (!editDrafts[order.id]) {
+    const isOpening = expandedEditOrderId !== order.id;
+    if (!editDrafts[order.id] || isOpening) {
       const [orderRes, itemsRes] = await Promise.all([
         fetch(`/api/orders/${order.id}`),
         fetch(`/api/items?startDate=${order.startDate}&endDate=${order.endDate}&limit=300`),
@@ -355,7 +356,7 @@ export default function MyOrdersPage() {
           lines: o.lines.map((line) => ({
             itemId: line.itemId,
             itemName: line.item.name,
-            requestedQty: line.requestedQty,
+            requestedQty: line.approvedQty ?? line.requestedQty,
           })),
           deliveryRequested: o.deliveryRequested ?? false,
           deliveryComment: o.deliveryComment?.trim() ?? "",

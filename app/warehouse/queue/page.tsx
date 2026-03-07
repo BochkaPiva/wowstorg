@@ -245,7 +245,14 @@ export default function WarehouseQueuePage() {
       return { ...prev, [order.id]: next };
     });
     setEditDrafts((prev) => {
-      if (prev[order.id]) return prev;
+      const existing = prev[order.id];
+      const orderLineIds = new Set(order.lines.map((l) => l.id));
+      const draftLineIds = new Set(existing?.lines.map((l) => l.lineId).filter(Boolean) ?? []);
+      const sameLines =
+        existing &&
+        order.lines.length === existing.lines.length &&
+        order.lines.every((l) => draftLineIds.has(l.id));
+      if (existing && sameLines) return prev;
       return {
         ...prev,
         [order.id]: {
@@ -254,10 +261,10 @@ export default function WarehouseQueuePage() {
             itemId: line.itemId,
             itemName: line.itemName,
             requestedQty: line.requestedQty,
-            approvedQty: line.requestedQty,
+            approvedQty: line.approvedQty ?? line.requestedQty,
             comment: "",
           })),
-          reason: "",
+          reason: existing?.reason ?? "",
         },
       };
     });

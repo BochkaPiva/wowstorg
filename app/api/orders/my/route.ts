@@ -117,6 +117,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       discountRate: Number(order.discountRate),
       estimateSentAt: order.estimateSentAt?.toISOString() ?? null,
       greenwichConfirmedAt: order.greenwichConfirmedAt?.toISOString() ?? null,
+      estimateSentSnapshot: order.estimateSentSnapshot ?? null,
       lines: order.lines.map((line) => ({
         id: line.id,
         itemId: line.itemId,

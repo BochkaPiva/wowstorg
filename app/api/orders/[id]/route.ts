@@ -18,6 +18,54 @@ type Params = {
   params: Promise<{ id: string }>;
 };
 
+/** Убирает из notes блок «Комментарий склада: ...», чтобы в уведомлении «изменена клиентом» не показывать внутренний комментарий склада. */
+function getCustomerNotesOnly(notes: string | null): string | null {
+  if (!notes || !notes.trim()) return null;
+  const idx = notes.indexOf("Комментарий склада:");
+  if (idx >= 0) {
+    const before = notes.slice(0, idx).trim();
+    return before.length > 0 ? before : null;
+  }
+  return notes.trim();
+}
+
+type LineWithItem = { itemId: string; sourceKitId?: string | null; requestedQty: number; item?: { name: string } };
+
+/** Краткое описание изменений состава и услуг для уведомления «Заявка изменена клиентом». */
+function buildOrderEditChangesSummary(
+  existing: { lines: LineWithItem[]; deliveryRequested: boolean; mountRequested: boolean; dismountRequested: boolean },
+  updated: { lines: LineWithItem[]; deliveryRequested: boolean; mountRequested: boolean; dismountRequested: boolean },
+): string {
+  const key = (l: LineWithItem) => `${l.itemId}::${l.sourceKitId ?? "-"}`;
+  const name = (l: LineWithItem) => (l.item as { name?: string } | undefined)?.name ?? l.itemId;
+  const oldMap = new Map(existing.lines.map((l) => [key(l), { qty: l.requestedQty, name: name(l) }]));
+  const newMap = new Map(updated.lines.map((l) => [key(l), { qty: l.requestedQty, name: name(l) }]));
+  const parts: string[] = [];
+  for (const [k, v] of newMap) {
+    const oldV = oldMap.get(k);
+    if (!oldV) {
+      parts.push(`Добавлено: ${v.name} × ${v.qty}`);
+    } else if (oldV.qty !== v.qty) {
+      parts.push(`Изменено кол-во: ${v.name} ${oldV.qty} → ${v.qty}`);
+    }
+  }
+  for (const [k, v] of oldMap) {
+    if (!newMap.has(k)) parts.push(`Удалено: ${v.name} × ${v.qty}`);
+  }
+  const svc: string[] = [];
+  if (existing.deliveryRequested !== updated.deliveryRequested) {
+    svc.push(updated.deliveryRequested ? "включена доставка" : "отключена доставка");
+  }
+  if (existing.mountRequested !== updated.mountRequested) {
+    svc.push(updated.mountRequested ? "включён монтаж" : "отключён монтаж");
+  }
+  if (existing.dismountRequested !== updated.dismountRequested) {
+    svc.push(updated.dismountRequested ? "включён демонтаж" : "отключён демонтаж");
+  }
+  if (svc.length > 0) parts.push("Услуги: " + svc.join("; "));
+  return parts.length > 0 ? parts.join("\n  • ") : "Изменены данные заявки.";
+}
+
 function normalizeLines(
   lines: Array<{ itemId: string; requestedQty: number; sourceKitId?: string | null }>,
 ): Array<{ itemId: string; requestedQty: number; sourceKitId: string | null }> {
@@ -117,7 +165,9 @@ export async function PATCH(
     where: { id },
     include: {
       customer: true,
-      lines: true,
+      lines: {
+        include: { item: { select: { name: true } } },
+      },
     },
   });
 
@@ -269,13 +319,28 @@ export async function PATCH(
     const compositionSummary = updated.lines
       .map((l) => `${(l as { item: { name: string } }).item.name} x${l.requestedQty}`)
       .join(", ");
+    const changesSummary = buildOrderEditChangesSummary(
+      {
+        lines: existing.lines,
+        deliveryRequested: existing.deliveryRequested,
+        mountRequested: existing.mountRequested,
+        dismountRequested: existing.dismountRequested,
+      },
+      {
+        lines: updated.lines,
+        deliveryRequested: updated.deliveryRequested,
+        mountRequested: updated.mountRequested,
+        dismountRequested: updated.dismountRequested,
+      },
+    );
     await notifyAdminsAboutOrderEdit({
       orderId: existing.id,
       customerName: updated.customer?.name ?? null,
       startDate: updated.startDate.toISOString().slice(0, 10),
       endDate: updated.endDate.toISOString().slice(0, 10),
       compositionSummary,
-      notes: updated.notes ?? null,
+      customerCommentOnly: getCustomerNotesOnly(updated.notes ?? null),
+      changesSummary,
     });
 
     return NextResponse.json({
@@ -318,13 +383,28 @@ export async function PATCH(
   const compositionSummary = updated.lines
     .map((l) => `${(l as { item: { name: string } }).item.name} x${l.requestedQty}`)
     .join(", ");
+  const changesSummary = buildOrderEditChangesSummary(
+    {
+      lines: existing.lines,
+      deliveryRequested: existing.deliveryRequested,
+      mountRequested: existing.mountRequested,
+      dismountRequested: existing.dismountRequested,
+    },
+    {
+      lines: updated.lines,
+      deliveryRequested: updated.deliveryRequested,
+      mountRequested: updated.mountRequested,
+      dismountRequested: updated.dismountRequested,
+    },
+  );
   await notifyAdminsAboutOrderEdit({
     orderId: existing.id,
     customerName: updated.customer?.name ?? null,
     startDate: updated.startDate.toISOString().slice(0, 10),
     endDate: updated.endDate.toISOString().slice(0, 10),
     compositionSummary,
-    notes: updated.notes ?? null,
+    customerCommentOnly: getCustomerNotesOnly(updated.notes ?? null),
+    changesSummary,
   });
 
   return NextResponse.json({

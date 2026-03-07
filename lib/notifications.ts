@@ -137,11 +137,18 @@ export async function notifyAdminsAboutOrderEdit(params: {
   startDate: string;
   endDate: string;
   compositionSummary: string;
-  notes?: string | null;
+  /** Только комментарий от гринвича/заказчика, без «Комментарий склада: ...» */
+  customerCommentOnly?: string | null;
+  /** Краткое описание: что добавлено/удалено/изменено по позициям и услугам */
+  changesSummary?: string | null;
 }): Promise<void> {
   const commentBlock =
-    params.notes && params.notes.trim()
-      ? `\n💬 Комментарий заказчика:\n${params.notes.trim()}`
+    params.customerCommentOnly && params.customerCommentOnly.trim()
+      ? `\n💬 Комментарий заказчика:\n${params.customerCommentOnly.trim()}`
+      : "";
+  const changesBlock =
+    params.changesSummary && params.changesSummary.trim()
+      ? `\n📋 Что изменено:\n${params.changesSummary.trim()}`
       : "";
   const text = [
     "✏️ Заявка изменена клиентом",
@@ -151,6 +158,7 @@ export async function notifyAdminsAboutOrderEdit(params: {
     `📅 Период: ${params.startDate} — ${params.endDate}`,
     "",
     `📋 Состав: ${params.compositionSummary}`,
+    changesBlock,
     commentBlock,
   ]
     .filter(Boolean)
@@ -419,13 +427,16 @@ export async function notifyWarehouseGreenwichConfirmed(params: {
   orderId: string;
   diffText: string;
 }): Promise<void> {
+  const changesBlock =
+    params.diffText && params.diffText !== "Без изменений"
+      ? `\n📋 Изменения:\n${params.diffText}\n`
+      : "\n📋 Изменения: без изменений.\n";
   const text = [
     "✅ Гринвич подтвердил смету по заявке",
     "",
-    `Заявка: ${params.orderId}`,
-    params.diffText ? `Изменения: ${params.diffText}` : "Без изменений.",
-    "",
-    "Дальше: нажмите «Согласовано» в карточке заявки или отредактируйте позиции/услуги и снова отправьте смету.",
+    `📄 Заявка: ${params.orderId}`,
+    changesBlock,
+    "➡️ Дальше: нажмите «Согласовать» в карточке заявки или отредактируйте позиции/услуги и снова отправьте смету.",
   ].join("\n");
 
   await sendToNotificationChat({

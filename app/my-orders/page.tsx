@@ -60,6 +60,9 @@ type Order = {
   discountRate?: number;
   estimateSentAt?: string | null;
   greenwichConfirmedAt?: string | null;
+  estimateSentSnapshot?: {
+    lines: Array<{ itemId: string; sourceKitId?: string | null; itemName: string; approvedQty: number }>;
+  } | null;
 };
 type EditableOrderDetails = {
   id: string;
@@ -117,6 +120,37 @@ function statusClass(status: Order["status"]): string {
   if (status === "RETURN_DECLARED") return "bg-amber-100 text-amber-800 border-amber-200";
   if (status === "CLOSED") return "bg-emerald-100 text-emerald-800 border-emerald-200";
   return "bg-zinc-100 text-zinc-700 border-zinc-200";
+}
+
+/** Текст «что изменилось после отправки сметы» для блока Подробнее (сравнение по itemId). */
+function formatEstimateDiffForGreenwich(
+  snapshot: Order["estimateSentSnapshot"],
+  currentLines: Order["lines"],
+): string {
+  if (!snapshot?.lines?.length) return "Нет данных сметы для сравнения.";
+  const snapMap = new Map<string, { itemName: string; qty: number }>();
+  for (const l of snapshot.lines) {
+    const cur = snapMap.get(l.itemId);
+    if (cur) cur.qty += l.approvedQty;
+    else snapMap.set(l.itemId, { itemName: l.itemName, qty: l.approvedQty });
+  }
+  const currMap = new Map<string, { itemName: string; qty: number }>();
+  for (const l of currentLines) {
+    const qty = l.requestedQty;
+    const cur = currMap.get(l.itemId);
+    if (cur) cur.qty += qty;
+    else currMap.set(l.itemId, { itemName: l.itemName, qty });
+  }
+  const parts: string[] = [];
+  for (const [id, v] of currMap) {
+    const snap = snapMap.get(id);
+    if (!snap) parts.push(`Добавлено: ${v.itemName} × ${v.qty}`);
+    else if (snap.qty !== v.qty) parts.push(`Изменено: ${v.itemName} ${snap.qty} → ${v.qty}`);
+  }
+  for (const [id, v] of snapMap) {
+    if (!currMap.has(id)) parts.push(`Удалено: ${v.itemName} × ${v.qty}`);
+  }
+  return parts.length > 0 ? parts.join("\n  • ") : "Без изменений.";
 }
 
 export default function MyOrdersPage() {
@@ -524,6 +558,14 @@ export default function MyOrdersPage() {
                     <span>Окончание (сдача): {order.endDate}</span>
                   </div>
                 </div>
+                {order.estimateSentAt && order.estimateSentSnapshot ? (
+                  <div className="rounded-lg border border-[var(--border)] bg-amber-50/80 p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Что изменилось после отправки сметы</div>
+                    <pre className="mt-2 whitespace-pre-wrap text-sm">
+                      {formatEstimateDiffForGreenwich(order.estimateSentSnapshot, order.lines)}
+                    </pre>
+                  </div>
+                ) : null}
                 <div className="rounded-lg border border-[var(--border)] bg-white p-3">
                   <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Выдано по заявке</div>
                   <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-sm">

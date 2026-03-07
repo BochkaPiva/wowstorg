@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
     return fail(409, "Сначала склад должен отправить смету по заявке.");
   }
 
-  const confirmedSnapshot = buildOrderSnapshot(order);
+  const confirmedSnapshot = buildOrderSnapshot(order, { useRequestedWhenApprovedNull: true });
   const estimateSnapshot = order.estimateSentSnapshot as OrderEstimateSnapshot | null;
   const diff = buildEstimateConfirmDiff(estimateSnapshot, confirmedSnapshot);
   const diffText = formatEstimateConfirmDiffForWarehouse(diff);

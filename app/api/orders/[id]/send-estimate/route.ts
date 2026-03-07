@@ -106,6 +106,7 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
               id: l.id,
               itemId: l.itemId,
               approvedQty: updateByLineId.get(l.id)!,
+              sourceKitId: l.sourceKitId ?? null,
               item: l.item,
             })),
             deliveryPrice: parsed.deliveryPrice ?? null,

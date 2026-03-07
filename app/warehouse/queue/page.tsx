@@ -460,25 +460,43 @@ export default function WarehouseQueuePage() {
         return;
       }
       if (payload.order?.lines) {
-        setEditDrafts((prev) => {
-          const prevDraft = prev[order.id];
-          if (!prevDraft) return prev;
-          const lines = payload.order!.lines.map((line) => {
-            const oldLine = prevDraft.lines.find((e) => e.itemId === line.itemId);
-            return {
-              lineId: line.id,
-              itemId: line.itemId,
-              itemName: oldLine?.itemName ?? line.itemId,
-              requestedQty: line.requestedQty,
-              approvedQty: oldLine != null ? Math.min(line.requestedQty, oldLine.approvedQty) : line.requestedQty,
-              comment: oldLine?.comment ?? "",
-            };
-          });
+        const prevDraft = editDrafts[order.id];
+        const newDraftLines = payload.order.lines.map((line) => {
+          const oldLine = prevDraft?.lines.find((e) => e.itemId === line.itemId || e.lineId === line.id);
           return {
-            ...prev,
-            [order.id]: { ...prevDraft, lines },
+            lineId: line.id,
+            itemId: line.itemId,
+            itemName: oldLine?.itemName ?? line.itemId,
+            requestedQty: line.requestedQty,
+            approvedQty: oldLine != null ? Math.min(line.requestedQty, oldLine.approvedQty) : line.requestedQty,
+            comment: oldLine?.comment ?? "",
           };
         });
+        setEditDrafts((prev) =>
+          prev[order.id]
+            ? { ...prev, [order.id]: { ...prev[order.id], lines: newDraftLines } }
+            : prev,
+        });
+        setOrders((prev) =>
+          prev.map((o) => {
+            if (o.id !== order.id) return o;
+            const existingById = new Map(o.lines.map((l) => [l.id, l]));
+            const mergedLines = payload.order!.lines.map((line) => {
+              const existing = existingById.get(line.id);
+              const draftLine = newDraftLines.find((d) => d.lineId === line.id);
+              return {
+                id: line.id,
+                itemId: line.itemId,
+                itemName: draftLine?.itemName ?? existing?.itemName ?? line.itemId,
+                itemType: existing?.itemType ?? ("ASSET" as const),
+                requestedQty: line.requestedQty,
+                approvedQty: existing?.approvedQty ?? null,
+                issuedQty: existing?.issuedQty ?? null,
+              };
+            });
+            return { ...o, lines: mergedLines };
+          }),
+        );
       }
       setStatus(`Состав заявки ${order.id} обновлен.`);
       await loadQueue();
